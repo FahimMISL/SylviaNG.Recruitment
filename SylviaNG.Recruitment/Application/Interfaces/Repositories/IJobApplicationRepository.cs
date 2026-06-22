@@ -8,5 +8,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
     {
         Task<JobApplication?> GetByEmailAndJobPostingIdAsync(string email, long jobPostingId);
         Task<PagedResult<JobApplication>> GetPaginatedByJobPostingAsync(long jobPostingId, PagedRequest request);
+        Task<PagedResult<JobApplication>> GetAllPaginatedAsync(PagedRequest request);
     }
 }

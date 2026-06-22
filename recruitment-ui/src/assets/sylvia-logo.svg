@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <g transform="translate(60,60)">
+    <!-- Outer large petals (4 cardinal directions) -->
+    <polygon points="0,-55 -16,-20 0,-8 16,-20" fill="#fff"/>
+    <polygon points="55,0 20,-16 8,0 20,16" fill="#fff"/>
+    <polygon points="0,55 16,20 0,8 -16,20" fill="#fff"/>
+    <polygon points="-55,0 -20,16 -8,0 -20,-16" fill="#fff"/>
+
+    <!-- Outer large petals (4 diagonal directions) -->
+    <polygon points="-39,-39 -22,-10 -8,-8 -10,-22" fill="#fff"/>
+    <polygon points="39,-39 10,-22 8,-8 22,-10" fill="#fff"/>
+    <polygon points="39,39 22,10 8,8 10,22" fill="#fff"/>
+    <polygon points="-39,39 -10,22 -8,8 -22,10" fill="#fff"/>
+
+    <!-- Mid-layer petals (slightly transparent, between main petals) -->
+    <polygon points="-18,-48 -18,-16 0,-6 0,-20" fill="rgba(255,255,255,0.75)"/>
+    <polygon points="18,-48 0,-20 0,-6 18,-16" fill="rgba(255,255,255,0.75)"/>
+    <polygon points="48,-18 16,-18 6,0 20,0" fill="rgba(255,255,255,0.75)"/>
+    <polygon points="48,18 20,0 6,0 16,18" fill="rgba(255,255,255,0.75)"/>
+    <polygon points="18,48 18,16 0,6 0,20" fill="rgba(255,255,255,0.75)"/>
+    <polygon points="-18,48 0,20 0,6 -18,16" fill="rgba(255,255,255,0.75)"/>
+    <polygon points="-48,18 -16,18 -6,0 -20,0" fill="rgba(255,255,255,0.75)"/>
+    <polygon points="-48,-18 -20,0 -6,0 -16,-18" fill="rgba(255,255,255,0.75)"/>
+
+    <!-- Inner accent petals -->
+    <polygon points="0,-28 -8,-8 0,0 8,-8" fill="rgba(255,255,255,0.5)"/>
+    <polygon points="28,0 8,-8 0,0 8,8" fill="rgba(255,255,255,0.5)"/>
+    <polygon points="0,28 8,8 0,0 -8,8" fill="rgba(255,255,255,0.5)"/>
+    <polygon points="-28,0 -8,8 0,0 -8,-8" fill="rgba(255,255,255,0.5)"/>
+
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="4" fill="#fff"/>
+  </g>
+</svg>

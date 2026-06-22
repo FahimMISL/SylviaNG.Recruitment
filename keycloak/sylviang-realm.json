@@ -1,0 +1,112 @@
+{
+  "realm": "sylviang",
+  "enabled": true,
+  "displayName": "Smart Recruitment Platform",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 3,
+  "maxDeltaTimeSeconds": 900,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 300,
+  "quickLoginCheckMilliSeconds": 1000,
+  "permanentLockout": false,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 86400,
+  "loginTheme": "recruitment",
+  "roles": {
+    "realm": [
+      { "name": "Admin", "description": "Platform administrator" },
+      { "name": "HR", "description": "HR manager" },
+      { "name": "Candidate", "description": "Job candidate" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sylviang-api",
+      "name": "Recruitment API",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "recruitment-client-secret-2026",
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "publicClient": false
+    },
+    {
+      "clientId": "sylviang-frontend",
+      "name": "Recruitment Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "rootUrl": "http://localhost:4200",
+      "redirectUris": [
+        "http://localhost:4200/*",
+        "http://recruitment-ui/*",
+        "http://recruitment-ui:80/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200",
+        "http://recruitment-ui",
+        "http://recruitment-ui:80"
+      ],
+      "adminUrl": "http://localhost:4200",
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "sylviang-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@millennium.com",
+      "firstName": "System",
+      "lastName": "Administrator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": ["Admin"]
+    },
+    {
+      "username": "hrmanager",
+      "email": "hr@millennium.com",
+      "firstName": "HR",
+      "lastName": "Manager",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": ["HR"]
+    }
+  ]
+}

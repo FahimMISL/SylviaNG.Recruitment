@@ -1,0 +1,12 @@
+namespace SylviaNG.Recruitment.Application.Features.ExamAnswers.Models
+{
+    public class ExamAnswerCreateRequest
+    {
+        public long ExamCandidateId { get; set; }
+        public long QuestionId { get; set; }
+        public long? SelectedOptionId { get; set; }
+        public string? AnswerText { get; set; }
+        public decimal? MarksAwarded { get; set; }
+        public bool? IsCorrect { get; set; }
+    }
+}

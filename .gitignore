@@ -18,6 +18,7 @@
 
 # ASP.NET Core environment files
 appsettings.Development.json
+appsettings.Docker.json
 appsettings.Local.json
 secrets.json
 
@@ -57,8 +58,8 @@ docker/*.img
 k8s/*.local.yaml
 k8s/secret.*
 
-# EF Core Migrations Snapshots
-**/Migrations/*Snapshot.cs
+# EF Core Migrations Snapshots (auto-generated, but MUST be committed for migrations to work)
+# Do NOT ignore ApplicationDBContextModelSnapshot.cs
 
 # Generated files
 Generated_Code/
@@ -66,6 +67,13 @@ Generated_Code/
 # Paket dependency manager
 .paket/
 paket-files/
+
+# Environment files with secrets
+.env
+.env.*
+
+# Claude Code
+.claude/
 
 # Others
 *.DS_Store

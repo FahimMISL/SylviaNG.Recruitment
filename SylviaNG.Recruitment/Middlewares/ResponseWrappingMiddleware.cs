@@ -13,6 +13,31 @@ namespace SylviaNG.Recruitment.Middlewares
 
         public async Task InvokeAsync(HttpContext context)
         {
+            // Skip wrapping for auth endpoints (they return pre-wrapped responses)
+            if (context.Request.Path.StartsWithSegments("/recruitment/auth"))
+            {
+                await _next(context);
+                return;
+            }
+
+            // Skip wrapping for SSLCommerz callbacks (IPN + success/fail/cancel redirects)
+            if (context.Request.Path.StartsWithSegments("/recruitment/payment/ipn")
+                || context.Request.Path.StartsWithSegments("/recruitment/payment/success")
+                || context.Request.Path.StartsWithSegments("/recruitment/payment/fail")
+                || context.Request.Path.StartsWithSegments("/recruitment/payment/cancel"))
+            {
+                await _next(context);
+                return;
+            }
+
+            // Skip wrapping for file-serving endpoints (profile photos, CV downloads, etc.)
+            if (context.Request.Path.Value?.Contains("/view/") == true
+                || context.Request.Path.Value?.Contains("/download/") == true)
+            {
+                await _next(context);
+                return;
+            }
+
             var originalBodyStream = context.Response.Body;
 
             using var responseBody = new MemoryStream();

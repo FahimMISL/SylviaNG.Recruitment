@@ -10,4 +10,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public string? CoverLetter { get; set; }
         public bool? IsActive { get; set; }
     }
+
+    public class ShortlistRequest
+    {
+        public long CandidateId { get; set; }
+        public long JobPostingId { get; set; }
+    }
 }

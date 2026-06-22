@@ -49,7 +49,33 @@ namespace SylviaNG.Recruitment.Application.Extensions
                     },
                     OnTokenValidated = context =>
                     {
-                        Console.WriteLine("Token validated successfully");
+                        // Map Keycloak realm_access.roles to standard role claims
+                        if (context.Principal?.Identity is ClaimsIdentity identity)
+                        {
+                            var realmAccess = context.Principal.FindFirst("realm_access");
+                            if (realmAccess != null)
+                            {
+                                try
+                                {
+                                    var parsed = System.Text.Json.JsonDocument.Parse(realmAccess.Value);
+                                    if (parsed.RootElement.TryGetProperty("roles", out var roles))
+                                    {
+                                        foreach (var role in roles.EnumerateArray())
+                                        {
+                                            var roleName = role.GetString();
+                                            if (!string.IsNullOrEmpty(roleName))
+                                                identity.AddClaim(new Claim(ClaimTypes.Role, roleName));
+                                        }
+                                    }
+                                }
+                                catch { }
+                            }
+
+                            // Map preferred_username to Name claim
+                            var preferred = context.Principal.FindFirst("preferred_username");
+                            if (preferred != null && !identity.HasClaim(c => c.Type == ClaimTypes.Name))
+                                identity.AddClaim(new Claim(ClaimTypes.Name, preferred.Value));
+                        }
                         return Task.CompletedTask;
                     },
                     OnChallenge = context =>

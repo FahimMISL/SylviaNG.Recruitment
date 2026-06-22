@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPostingCreate;
@@ -11,6 +12,7 @@ using SylviaNG.Recruitment.SharedKernel.Pagination;
 
 namespace SylviaNG.Recruitment.Controllers
 {
+    [Authorize(Roles = "Admin,HR")]
     [ApiController]
     [Route("recruitment/job-posting")]
     public class JobPostingController : ControllerBase

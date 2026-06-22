@@ -2,13 +2,11 @@ using SylviaNG.Recruitment.SharedKernel.Audit;
 
 namespace SylviaNG.Recruitment.Domain.Entities;
 
-/// <summary>
-/// Represents an interview scheduled for a job application.
-/// </summary>
 public class Interview : Audit
 {
     public long InterviewId { get; set; }
     public long JobApplicationId { get; set; }
+    public long? InterviewSessionId { get; set; }
     public long? InterviewerId { get; set; }
     public DateTime? ScheduledDate { get; set; }
     public string? Location { get; set; }
@@ -20,4 +18,6 @@ public class Interview : Audit
 
     // Navigation properties
     public JobApplication JobApplication { get; set; } = null!;
+    public InterviewSession? InterviewSession { get; set; }
+    public ICollection<InterviewEvaluation> Evaluations { get; set; } = new List<InterviewEvaluation>();
 }

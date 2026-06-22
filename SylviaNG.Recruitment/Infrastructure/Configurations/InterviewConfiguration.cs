@@ -28,6 +28,18 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             // Indexes
             builder.HasIndex(i => i.JobApplicationId);
+            builder.HasIndex(i => i.InterviewSessionId);
+
+            // Relationships
+            builder.HasOne(i => i.InterviewSession)
+                .WithMany(s => s.Interviews)
+                .HasForeignKey(i => i.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasMany(i => i.Evaluations)
+                .WithOne(e => e.Interview)
+                .HasForeignKey(e => e.InterviewId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

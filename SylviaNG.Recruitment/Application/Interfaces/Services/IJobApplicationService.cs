@@ -10,5 +10,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task DeleteAsync(long jobApplicationId);
         Task<JobApplicationResponse> GetByIdAsync(long jobApplicationId);
         Task<PagedResult<JobApplicationResponse>> GetPaginatedByJobPostingAsync(long jobPostingId, PagedRequest request);
+        Task<PagedResult<JobApplicationResponse>> GetAllPaginatedAsync(PagedRequest request);
     }
 }

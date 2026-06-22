@@ -1,0 +1,157 @@
+services:
+  # ──────────────────────────────────────────────
+  # PostgreSQL Database
+  # ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: recruitment-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-recruitment_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d recruitment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - recruitment-net
+
+  # ──────────────────────────────────────────────
+  # Keycloak Identity Server
+  # ──────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2.5
+    container_name: recruitment-keycloak
+    command: ${KC_START_MODE:-start-dev} --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-recruitment_db}
+      KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      KC_DB_SCHEMA: keycloak
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_PORT: 8080
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./keycloak/sylviang-realm.json:/opt/keycloak/data/import/sylviang-realm.json:ro
+      - ./keycloak/themes/recruitment:/opt/keycloak/themes/recruitment:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '200'"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 40s
+    networks:
+      - recruitment-net
+
+  # ──────────────────────────────────────────────
+  # Apache Kafka (KRaft mode — no Zookeeper)
+  # ──────────────────────────────────────────────
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: recruitment-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9899
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9899
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      CLUSTER_ID: "recruitment-kafka-cluster-01"
+    ports:
+      - "9899:9899"
+    volumes:
+      - kafkadata:/tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - recruitment-net
+
+  # ──────────────────────────────────────────────
+  # Kafka UI (optional — browse topics & messages)
+  # ──────────────────────────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: recruitment-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: recruitment
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "9090:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - recruitment-net
+    profiles:
+      - tools
+
+  # ──────────────────────────────────────────────
+  # .NET Backend API
+  # ──────────────────────────────────────────────
+  recruitment-api:
+    build:
+      context: ./SylviaNG.Recruitment
+      dockerfile: Dockerfile
+    container_name: recruitment-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5002/recruitment/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - recruitment-net
+
+  # ──────────────────────────────────────────────
+  # Angular Frontend (nginx)
+  # ──────────────────────────────────────────────
+  recruitment-ui:
+    build:
+      context: ./recruitment-ui
+      dockerfile: Dockerfile
+    container_name: recruitment-ui
+    ports:
+      - "4200:80"
+    depends_on:
+      recruitment-api:
+        condition: service_healthy
+    networks:
+      - recruitment-net
+
+volumes:
+  pgdata:
+    driver: local
+  kafkadata:
+    driver: local
+
+networks:
+  recruitment-net:
+    driver: bridge

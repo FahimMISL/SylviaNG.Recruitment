@@ -19,10 +19,14 @@ namespace SylviaNG.Recruitment.SharedKernel.Pagination
             }
 
 
-            // Apply sorting
+            // Apply sorting (block navigation property traversal)
             if (!string.IsNullOrEmpty(request.SortBy) && !string.IsNullOrEmpty(request.SortDirection))
             {
-                query = ApplySorting(query, request.SortBy, request.SortDirection);
+                if (!request.SortBy.Contains('.') &&
+                    (request.SortDirection == "asc" || request.SortDirection == "desc"))
+                {
+                    query = ApplySorting(query, request.SortBy, request.SortDirection);
+                }
             }
 
             // Get total count before pagination

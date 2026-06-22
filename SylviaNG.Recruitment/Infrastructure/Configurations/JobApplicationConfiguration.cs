@@ -32,14 +32,29 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            builder.Property(a => a.Source)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
             // Indexes
             builder.HasIndex(a => a.JobPostingId);
+            builder.HasIndex(a => a.CandidateId);
             builder.HasIndex(a => new { a.CandidateEmail, a.JobPostingId }).IsUnique();
 
             // Relationships
+            builder.HasOne(a => a.Candidate)
+                .WithMany(c => c.Applications)
+                .HasForeignKey(a => a.CandidateId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             builder.HasMany(a => a.Interviews)
                 .WithOne(i => i.JobApplication)
                 .HasForeignKey(i => i.JobApplicationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(a => a.ScreeningResult)
+                .WithOne(s => s.JobApplication)
+                .HasForeignKey<ApplicationScreeningResult>(s => s.JobApplicationId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

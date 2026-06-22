@@ -8,6 +8,7 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public long? DesignationId { get; set; }
         public string? Title { get; set; }
         public string? Description { get; set; }
+        public string? Location { get; set; }
         public string? Requirements { get; set; }
         public int? NumberOfPositions { get; set; }
         public EmploymentTypeEnum? EmploymentType { get; set; }
@@ -17,5 +18,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public DateTime? PostingDate { get; set; }
         public DateTime? ClosingDate { get; set; }
         public bool? IsActive { get; set; }
+        public int? MinAge { get; set; }
+        public int? MaxAge { get; set; }
+        public int? MinExperienceYears { get; set; }
+        public EducationLevelEnum? MinEducationLevel { get; set; }
+        public string? RequiredDistrict { get; set; }
     }
 }

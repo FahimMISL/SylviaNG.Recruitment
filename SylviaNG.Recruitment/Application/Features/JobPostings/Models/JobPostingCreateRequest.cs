@@ -9,6 +9,7 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public long? DesignationId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public string? Location { get; set; }
         public string? Requirements { get; set; }
         public int NumberOfPositions { get; set; } = 1;
         public EmploymentTypeEnum EmploymentType { get; set; } = EmploymentTypeEnum.FullTime;
@@ -16,5 +17,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public decimal? MaxSalary { get; set; }
         public DateTime? PostingDate { get; set; }
         public DateTime? ClosingDate { get; set; }
+        public int? MinAge { get; set; }
+        public int? MaxAge { get; set; }
+        public int? MinExperienceYears { get; set; }
+        public EducationLevelEnum? MinEducationLevel { get; set; }
+        public string? RequiredDistrict { get; set; }
     }
 }

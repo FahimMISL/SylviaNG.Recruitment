@@ -39,15 +39,34 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(j => j.MaxSalary)
                 .HasColumnType("decimal(18,2)");
 
+            // Eligibility filters
+            builder.Property(j => j.MinEducationLevel)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            builder.Property(j => j.RequiredDistrict)
+                .HasMaxLength(200);
+
             // Indexes
             builder.HasIndex(j => j.SiteId);
             builder.HasIndex(j => j.Status);
+            builder.HasIndex(j => j.RequisitionId);
             builder.HasIndex(j => new { j.SiteId, j.Title }).IsUnique();
 
             // Relationships
+            builder.HasOne(j => j.Requisition)
+                .WithMany(r => r.JobPostings)
+                .HasForeignKey(j => j.RequisitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             builder.HasMany(j => j.Applications)
                 .WithOne(a => a.JobPosting)
                 .HasForeignKey(a => a.JobPostingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(j => j.Channels)
+                .WithOne(c => c.JobPosting)
+                .HasForeignKey(c => c.JobPostingId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Seed data
@@ -66,12 +85,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                     Status = JobStatusEnum.Open,
                     MinSalary = 80000m,
                     MaxSalary = 120000m,
-                    PostingDate = new DateTime(2025, 1, 1),
-                    ClosingDate = new DateTime(2025, 6, 30),
+                    PostingDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    ClosingDate = new DateTime(2025, 6, 30, 0, 0, 0, DateTimeKind.Utc),
                     IsActive = true,
                     TenantId = "default_tenant",
                     Remarks = (string?)null,
-                    CreatedAt = new DateTime(2025, 1, 1),
+                    CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     CreatedBy = 1L,
                     UpdatedAt = (DateTime?)null,
                     UpdatedBy = (long?)null,
@@ -93,12 +112,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                     Status = JobStatusEnum.Open,
                     MinSalary = 50000m,
                     MaxSalary = 80000m,
-                    PostingDate = new DateTime(2025, 2, 1),
-                    ClosingDate = new DateTime(2025, 7, 31),
+                    PostingDate = new DateTime(2025, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+                    ClosingDate = new DateTime(2025, 7, 31, 0, 0, 0, DateTimeKind.Utc),
                     IsActive = true,
                     TenantId = "default_tenant",
                     Remarks = (string?)null,
-                    CreatedAt = new DateTime(2025, 2, 1),
+                    CreatedAt = new DateTime(2025, 2, 1, 0, 0, 0, DateTimeKind.Utc),
                     CreatedBy = 1L,
                     UpdatedAt = (DateTime?)null,
                     UpdatedBy = (long?)null,

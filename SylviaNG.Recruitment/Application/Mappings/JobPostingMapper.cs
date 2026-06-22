@@ -20,6 +20,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 DesignationId = request.DesignationId,
                 Title = request.Title,
                 Description = request.Description,
+                Location = request.Location,
                 Requirements = request.Requirements,
                 NumberOfPositions = request.NumberOfPositions,
                 EmploymentType = request.EmploymentType,
@@ -27,7 +28,12 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 MaxSalary = request.MaxSalary,
                 PostingDate = request.PostingDate,
                 ClosingDate = request.ClosingDate,
-                IsActive = true
+                IsActive = true,
+                MinAge = request.MinAge,
+                MaxAge = request.MaxAge,
+                MinExperienceYears = request.MinExperienceYears,
+                MinEducationLevel = request.MinEducationLevel,
+                RequiredDistrict = request.RequiredDistrict,
             };
         }
 
@@ -37,6 +43,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             if (request.DesignationId.HasValue) entity.DesignationId = request.DesignationId;
             if (request.Title != null) entity.Title = request.Title;
             if (request.Description != null) entity.Description = request.Description;
+            if (request.Location != null) entity.Location = request.Location;
             if (request.Requirements != null) entity.Requirements = request.Requirements;
             if (request.NumberOfPositions.HasValue) entity.NumberOfPositions = request.NumberOfPositions.Value;
             if (request.EmploymentType.HasValue) entity.EmploymentType = request.EmploymentType.Value;
@@ -46,6 +53,11 @@ namespace SylviaNG.Recruitment.Application.Mappings
             if (request.PostingDate.HasValue) entity.PostingDate = request.PostingDate;
             if (request.ClosingDate.HasValue) entity.ClosingDate = request.ClosingDate;
             if (request.IsActive.HasValue) entity.IsActive = request.IsActive.Value;
+            if (request.MinAge.HasValue) entity.MinAge = request.MinAge;
+            if (request.MaxAge.HasValue) entity.MaxAge = request.MaxAge;
+            if (request.MinExperienceYears.HasValue) entity.MinExperienceYears = request.MinExperienceYears;
+            if (request.MinEducationLevel.HasValue) entity.MinEducationLevel = request.MinEducationLevel;
+            if (request.RequiredDistrict is not null) entity.RequiredDistrict = request.RequiredDistrict;
         }
 
         public static JobPostingResponse ToResponse(this JobPosting entity)
@@ -58,6 +70,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 DesignationId = entity.DesignationId,
                 Title = entity.Title,
                 Description = entity.Description,
+                Location = entity.Location,
                 Requirements = entity.Requirements,
                 NumberOfPositions = entity.NumberOfPositions,
                 EmploymentType = entity.EmploymentType,
@@ -67,7 +80,12 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PostingDate = entity.PostingDate,
                 ClosingDate = entity.ClosingDate,
                 IsActive = entity.IsActive,
-                TotalApplications = entity.Applications?.Count ?? 0
+                TotalApplications = entity.Applications?.Count ?? 0,
+                MinAge = entity.MinAge,
+                MaxAge = entity.MaxAge,
+                MinExperienceYears = entity.MinExperienceYears,
+                MinEducationLevel = entity.MinEducationLevel,
+                RequiredDistrict = entity.RequiredDistrict,
             };
         }
 

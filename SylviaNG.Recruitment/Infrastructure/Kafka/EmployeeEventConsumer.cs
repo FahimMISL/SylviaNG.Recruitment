@@ -32,6 +32,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Kafka
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            if (string.IsNullOrWhiteSpace(_settings.BootstrapServers))
+            {
+                _logger.LogInformation("Kafka BootstrapServers not configured — employee sync consumer disabled.");
+                return;
+            }
+
             _logger.LogInformation("Employee sync consumer starting...");
 
             var config = new ConsumerConfig
