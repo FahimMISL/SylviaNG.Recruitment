@@ -66,8 +66,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 
-// Add Keycloak Authentication
-builder.Services.AddKeycloakJwtAuthentication(builder.Configuration);
+// Add authentication: real Keycloak-issued tokens + the temporary hardcoded-login tokens
+builder.Services.AddRecruitmentAuthentication(builder.Configuration);
 
 builder.Services.AddAuthorizationPolicies();
 
@@ -111,3 +111,6 @@ app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.MapControllers();
 
 app.Run();
+
+// Exposed so WebApplicationFactory<Program> can bootstrap this app in integration/smoke tests.
+public partial class Program { }

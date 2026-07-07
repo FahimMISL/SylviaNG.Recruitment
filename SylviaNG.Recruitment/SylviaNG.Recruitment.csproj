@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SylviaNG.Recruitment</AssemblyName>
     <RootNamespace>SylviaNG.Recruitment</RootNamespace>
+    <UserSecretsId>sylviang-recruitment-7f3a5b1e-9c4d-4e2a-8b6f-2d1c9a7e5f30</UserSecretsId>
 
   </PropertyGroup>
 

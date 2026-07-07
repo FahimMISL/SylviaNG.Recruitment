@@ -29,3 +29,10 @@ public enum ApplicationStatusEnum
     Rejected,
     Withdrawn
 }
+
+public enum UserRoleEnum
+{
+    Admin,
+    HR,
+    Candidate
+}
