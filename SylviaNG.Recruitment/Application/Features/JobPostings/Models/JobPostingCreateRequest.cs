@@ -16,5 +16,17 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public decimal? MaxSalary { get; set; }
         public DateTime? PostingDate { get; set; }
         public DateTime? ClosingDate { get; set; }
+
+        // EP-02: Job Vacancy Configuration fields
+        // Note: JobPostingCode is server-generated (never supplied by the client).
+        public string? Location { get; set; }
+        public CircularTypeEnum CircularType { get; set; } = CircularTypeEnum.Both;
+        public int? MinAge { get; set; }
+        public int? MaxAge { get; set; }
+        public EducationLevelEnum? MinEducationLevel { get; set; }
+        public int? MinExperienceYears { get; set; }
+        public string? RequiredDistrict { get; set; }
+        public decimal? ApplicationFeeAmount { get; set; }
+        public string? ApplicationFeeCurrency { get; set; }
     }
 }

@@ -51,7 +51,41 @@ public class JobPostingServiceTests
         // Assert
         result.Should().Be(1);
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<JobPosting>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+        // Two-step save: JobPostingCode depends on the auto-generated PK, so it is
+        // persisted via a second SaveChangesAsync call after the first assigns the id.
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithValidRequest_ShouldGenerateAndPersistJobPostingCode()
+    {
+        // Arrange
+        var request = new JobPostingCreateRequest
+        {
+            Title = "Software Engineer",
+            SiteId = 1
+        };
+
+        _repositoryMock.Setup(r => r.ExistsByTitleAndSiteIdAsync(request.Title, request.SiteId, null))
+            .ReturnsAsync(false);
+
+        JobPosting? createdEntity = null;
+        _repositoryMock.Setup(r => r.AddAsync(It.IsAny<JobPosting>()))
+            .Callback<JobPosting>(j =>
+            {
+                j.JobPostingId = 123;
+                createdEntity = j;
+            });
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        // Act
+        await _service.CreateAsync(request);
+
+        // Assert
+        createdEntity.Should().NotBeNull();
+        createdEntity!.JobPostingCode.Should().Be($"JOB-{DateTime.UtcNow:yyyy}-000123");
+        _repositoryMock.Verify(r => r.Update(It.Is<JobPosting>(j => j.JobPostingId == 123)), Times.Once);
     }
 
     [Fact]
@@ -129,5 +163,77 @@ public class JobPostingServiceTests
         result.JobPostingId.Should().Be(1);
         result.Title.Should().Be("Software Engineer");
         result.TotalApplications.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(JobStatusEnum.Draft, JobStatusEnum.Closed)]
+    [InlineData(JobStatusEnum.Draft, JobStatusEnum.OnHold)]
+    [InlineData(JobStatusEnum.Draft, JobStatusEnum.Archived)]
+    [InlineData(JobStatusEnum.Open, JobStatusEnum.Draft)]
+    [InlineData(JobStatusEnum.Open, JobStatusEnum.Archived)]
+    [InlineData(JobStatusEnum.OnHold, JobStatusEnum.Closed)]
+    [InlineData(JobStatusEnum.OnHold, JobStatusEnum.Archived)]
+    [InlineData(JobStatusEnum.Closed, JobStatusEnum.Open)]
+    [InlineData(JobStatusEnum.Closed, JobStatusEnum.Draft)]
+    [InlineData(JobStatusEnum.Archived, JobStatusEnum.Open)]
+    public async Task UpdateAsync_WithIllegalStatusTransition_ShouldThrowInvalidStatusTransitionException(
+        JobStatusEnum currentStatus, JobStatusEnum requestedStatus)
+    {
+        // Arrange
+        var entity = new JobPosting { JobPostingId = 1, Title = "Test", Status = currentStatus };
+        _repositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+
+        var request = new JobPostingUpdateRequest { Status = requestedStatus };
+
+        // Act
+        var act = () => _service.UpdateAsync(1, request);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(JobStatusEnum.Draft, JobStatusEnum.Open)]
+    [InlineData(JobStatusEnum.Open, JobStatusEnum.OnHold)]
+    [InlineData(JobStatusEnum.OnHold, JobStatusEnum.Open)]
+    [InlineData(JobStatusEnum.Open, JobStatusEnum.Closed)]
+    [InlineData(JobStatusEnum.Closed, JobStatusEnum.Archived)]
+    public async Task UpdateAsync_WithLegalStatusTransition_ShouldSucceed(
+        JobStatusEnum currentStatus, JobStatusEnum requestedStatus)
+    {
+        // Arrange
+        var entity = new JobPosting { JobPostingId = 1, Title = "Test", Status = currentStatus };
+        _repositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = new JobPostingUpdateRequest { Status = requestedStatus };
+
+        // Act
+        await _service.UpdateAsync(1, request);
+
+        // Assert
+        entity.Status.Should().Be(requestedStatus);
+        entity.UpdatedAt.Should().NotBeNull();
+        _repositoryMock.Verify(r => r.Update(entity), Times.Once);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithSameStatus_ShouldNotThrowAndShouldSave()
+    {
+        // Arrange
+        var entity = new JobPosting { JobPostingId = 1, Title = "Test", Status = JobStatusEnum.Open };
+        _repositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = new JobPostingUpdateRequest { Status = JobStatusEnum.Open };
+
+        // Act
+        var act = () => _service.UpdateAsync(1, request);
+
+        // Assert
+        await act.Should().NotThrowAsync();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
     }
 }

@@ -24,6 +24,19 @@ public class JobPosting : Audit
     public DateTime? ClosingDate { get; set; }
     public bool IsActive { get; set; } = true;
 
+    // EP-02: Job Vacancy Configuration fields
+    public string JobPostingCode { get; set; } = string.Empty;
+    public string? Location { get; set; }
+    public CircularTypeEnum CircularType { get; set; } = CircularTypeEnum.Both;
+    public int? MinAge { get; set; }
+    public int? MaxAge { get; set; }
+    public EducationLevelEnum? MinEducationLevel { get; set; }
+    public int? MinExperienceYears { get; set; }
+    public string? RequiredDistrict { get; set; }
+    public decimal? ApplicationFeeAmount { get; set; }
+    public string? ApplicationFeeCurrency { get; set; }
+
     // Navigation properties
     public ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
+    public ICollection<JobPostingAttachment> Attachments { get; set; } = new List<JobPostingAttachment>();
 }

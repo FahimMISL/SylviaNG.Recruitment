@@ -56,6 +56,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
 
         public DbSet<JobPosting> JobPostings { get; set; }
         public DbSet<JobApplication> JobApplications { get; set; }
+        public DbSet<JobPostingAttachment> JobPostingAttachments { get; set; }
         public DbSet<Interview> Interviews { get; set; }
         public DbSet<Employee> Employees { get; set; }
 

@@ -31,6 +31,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IJobPostingService, JobPostingService>();
             services.AddScoped<IJobApplicationService, JobApplicationService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IJobPostingAttachmentService, JobPostingAttachmentService>();
 
             // Provide access to HttpContext for request metadata enrichment
             services.AddHttpContextAccessor();
