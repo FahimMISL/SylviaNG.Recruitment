@@ -28,6 +28,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             var query = _dbSet
                 .Include(j => j.Applications)
+                .Include(j => j.HiringPipeline)
                 .AsQueryable();
 
             return await query.ToPaginatedResultAsync(request);

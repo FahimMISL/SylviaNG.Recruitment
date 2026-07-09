@@ -74,6 +74,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IJobPostingRepository, JobPostingRepository>();
             services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
             services.AddScoped<IJobPostingAttachmentRepository, JobPostingAttachmentRepository>();
+            services.AddScoped<IHiringPipelineRepository, HiringPipelineRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();

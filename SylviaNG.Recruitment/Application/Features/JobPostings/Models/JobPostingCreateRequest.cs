@@ -28,5 +28,8 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public string? RequiredDistrict { get; set; }
         public decimal? ApplicationFeeAmount { get; set; }
         public string? ApplicationFeeCurrency { get; set; }
+
+        // Every job opening must reference a hiring pipeline (see JobPostingCreateValidator).
+        public long HiringPipelineId { get; set; }
     }
 }
