@@ -14,5 +14,6 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public ApplicationStatusEnum ApplicationStatus { get; set; }
         public DateTime? AppliedDate { get; set; }
         public bool IsActive { get; set; }
+        public ApplicationSourceEnum Source { get; set; }
     }
 }

@@ -135,5 +135,54 @@ namespace SylviaNG.Recruitment.Application.Services
             var entities = await _jobPostingRepository.GetActiveBySiteIdAsync(siteId);
             return entities.Select(e => e.ToLookupResponse()).ToList();
         }
+
+        private static readonly CircularTypeEnum[] PublicCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.Both };
+        private static readonly CircularTypeEnum[] InternalCircularTypes = { CircularTypeEnum.InternalOnly, CircularTypeEnum.Both };
+
+        public async Task<PagedResult<JobPostingResponse>> GetPaginatedPublicAsync(PagedRequest request, string? location, long? departmentId, EmploymentTypeEnum? employmentType, int? maxExperienceYears)
+        {
+            return await GetPaginatedByAudienceAsync(request, PublicCircularTypes, location, departmentId, employmentType, maxExperienceYears);
+        }
+
+        public async Task<PagedResult<JobPostingResponse>> GetPaginatedInternalAsync(PagedRequest request, string? location, long? departmentId, EmploymentTypeEnum? employmentType, int? maxExperienceYears)
+        {
+            return await GetPaginatedByAudienceAsync(request, InternalCircularTypes, location, departmentId, employmentType, maxExperienceYears);
+        }
+
+        private async Task<PagedResult<JobPostingResponse>> GetPaginatedByAudienceAsync(
+            PagedRequest request,
+            IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes,
+            string? location,
+            long? departmentId,
+            EmploymentTypeEnum? employmentType,
+            int? maxExperienceYears)
+        {
+            var pagedResult = await _jobPostingRepository.GetPaginatedByCircularTypesAsync(
+                request, allowedCircularTypes, location, departmentId, employmentType, maxExperienceYears);
+
+            return new PagedResult<JobPostingResponse>
+            {
+                Data = pagedResult.Data.Select(e => e.ToResponse()).ToList(),
+                TotalCount = pagedResult.TotalCount,
+                PageNumber = pagedResult.PageNumber,
+                PageSize = pagedResult.PageSize
+            };
+        }
+
+        public async Task<JobPostingResponse> GetPublicByIdAsync(long jobPostingId)
+        {
+            var entity = await _jobPostingRepository.GetOpenByIdAndCircularTypesAsync(jobPostingId, PublicCircularTypes)
+                ?? throw new NotFoundException("JobPosting", jobPostingId);
+
+            return entity.ToResponse();
+        }
+
+        public async Task<JobPostingResponse> GetInternalByIdAsync(long jobPostingId)
+        {
+            var entity = await _jobPostingRepository.GetOpenByIdAndCircularTypesAsync(jobPostingId, InternalCircularTypes)
+                ?? throw new NotFoundException("JobPosting", jobPostingId);
+
+            return entity.ToResponse();
+        }
     }
 }

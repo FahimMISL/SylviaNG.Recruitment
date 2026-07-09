@@ -18,6 +18,7 @@ public class JobApplication : Audit
     public ApplicationStatusEnum ApplicationStatus { get; set; } = ApplicationStatusEnum.Applied;
     public DateTime? AppliedDate { get; set; }
     public bool IsActive { get; set; } = true;
+    public ApplicationSourceEnum Source { get; set; } = ApplicationSourceEnum.External;
 
     // Navigation properties
     public JobPosting JobPosting { get; set; } = null!;
