@@ -37,6 +37,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(a => a.JobPosting)
+                .Include(a => a.Interviews)
                 .Where(a => a.CandidateEmail == email)
                 .OrderByDescending(a => a.AppliedDate)
                 .ToListAsync();

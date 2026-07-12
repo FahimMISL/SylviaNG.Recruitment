@@ -18,6 +18,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IApplicationCvStorageService _applicationCvStorageService;
         private readonly IApplicationStatusReasonRepository _applicationStatusReasonRepository;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ICurrentCandidateService _currentCandidateService;
         private readonly IUnitOfWork _unitOfWork;
 
         private static readonly CircularTypeEnum[] ExternalCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.Both };
@@ -50,6 +51,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IApplicationCvStorageService applicationCvStorageService,
             IApplicationStatusReasonRepository applicationStatusReasonRepository,
             ICurrentUserService currentUserService,
+            ICurrentCandidateService currentCandidateService,
             IUnitOfWork unitOfWork)
         {
             _jobApplicationRepository = jobApplicationRepository;
@@ -57,6 +59,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _applicationCvStorageService = applicationCvStorageService;
             _applicationStatusReasonRepository = applicationStatusReasonRepository;
             _currentUserService = currentUserService;
+            _currentCandidateService = currentCandidateService;
             _unitOfWork = unitOfWork;
         }
 
@@ -296,6 +299,68 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 throw new InvalidStatusTransitionException("JobApplication", currentStatus, requestedStatus);
             }
+        }
+
+        // ── Candidate Self-Service (US-040) ───────────────────────────────
+
+        public async Task<List<MyApplicationResponse>> GetMyApplicationsAsync()
+        {
+            var email = await _currentCandidateService.GetCurrentEmailAsync();
+            var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(email);
+
+            return applications
+                .Select(a => a.ToMyApplicationResponse(CanWithdraw(a.ApplicationStatus)))
+                .ToList();
+        }
+
+        public async Task WithdrawMyApplicationAsync(long jobApplicationId)
+        {
+            var email = await _currentCandidateService.GetCurrentEmailAsync();
+
+            var entity = await _jobApplicationRepository.GetByIdAsync(jobApplicationId)
+                ?? throw new NotFoundException("JobApplication", jobApplicationId);
+
+            // Don't reveal that a mismatched-owner application exists - report it as not found,
+            // same as any other candidate-scoped lookup.
+            if (string.IsNullOrEmpty(entity.CandidateEmail)
+                || !string.Equals(entity.CandidateEmail, email, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotFoundException("JobApplication", jobApplicationId);
+            }
+
+            if (entity.ApplicationStatus == ApplicationStatusEnum.Withdrawn)
+                return;
+
+            EnsureLegalStatusTransition(entity.ApplicationStatus, ApplicationStatusEnum.Withdrawn);
+
+            var fromStatus = entity.ApplicationStatus;
+            entity.ApplicationStatus = ApplicationStatusEnum.Withdrawn;
+            _jobApplicationRepository.Update(entity);
+
+            entity.StatusHistory.Add(new ApplicationStatusHistory
+            {
+                JobApplicationId = entity.JobApplicationId,
+                FromStatus = fromStatus,
+                ToStatus = ApplicationStatusEnum.Withdrawn,
+                ChangedByUserName = email,
+                ChangedAt = DateTime.UtcNow,
+                Note = "Withdrawn by candidate"
+            });
+
+            entity.AddDomainEvent(new ApplicationStatusChangedEvent
+            {
+                JobApplicationId = entity.JobApplicationId,
+                FromStatus = fromStatus.ToString(),
+                ToStatus = ApplicationStatusEnum.Withdrawn.ToString()
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        private static bool CanWithdraw(ApplicationStatusEnum currentStatus)
+        {
+            return LegalStatusTransitions.TryGetValue(currentStatus, out var allowedTransitions)
+                && allowedTransitions.Contains(ApplicationStatusEnum.Withdrawn);
         }
     }
 }

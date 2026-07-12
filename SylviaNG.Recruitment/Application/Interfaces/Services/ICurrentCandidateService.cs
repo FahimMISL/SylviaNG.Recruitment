@@ -17,5 +17,12 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// CandidateProfile row (seeded from the token's name/email claims) if none exists yet.
         /// </summary>
         Task<long> GetOrCreateCurrentProfileIdAsync();
+
+        /// <summary>
+        /// Returns the current user's CandidateProfile.Email, auto-provisioning a profile row
+        /// if none exists yet. JobApplication rows are matched to a candidate by this email
+        /// (there is no CandidateProfile FK on JobApplication) - see US-040.
+        /// </summary>
+        Task<string> GetCurrentEmailAsync();
     }
 }

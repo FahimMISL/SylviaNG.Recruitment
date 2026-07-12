@@ -42,11 +42,23 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<long> GetOrCreateCurrentProfileIdAsync()
         {
+            var profile = await GetOrCreateCurrentProfileAsync();
+            return profile.CandidateProfileId;
+        }
+
+        public async Task<string> GetCurrentEmailAsync()
+        {
+            var profile = await GetOrCreateCurrentProfileAsync();
+            return profile.Email;
+        }
+
+        private async Task<CandidateProfile> GetOrCreateCurrentProfileAsync()
+        {
             var subjectId = GetCurrentKeycloakSubjectId();
 
             var existing = await _candidateProfileRepository.GetByKeycloakSubjectIdAsync(subjectId);
             if (existing != null)
-                return existing.CandidateProfileId;
+                return existing;
 
             var user = _httpContextAccessor.HttpContext!.User;
             var fullName = user.FindFirst(ClaimTypes.Name)?.Value ?? user.FindFirst("name")?.Value ?? string.Empty;
@@ -63,7 +75,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _candidateProfileRepository.AddAsync(profile);
             await _unitOfWork.SaveChangesAsync();
 
-            return profile.CandidateProfileId;
+            return profile;
         }
     }
 }
