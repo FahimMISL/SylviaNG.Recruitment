@@ -60,3 +60,11 @@ public enum ApplicationSourceEnum
     External,
     Internal
 }
+
+public enum CandidateDocumentTypeEnum
+{
+    NID,
+    EducationCertificate,
+    ExperienceLetter,
+    Other
+}

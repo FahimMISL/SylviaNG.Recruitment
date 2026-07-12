@@ -68,5 +68,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return query.Where(j => j.Status == JobStatusEnum.Open && allowedCircularTypes.Contains(j.CircularType));
         }
+
+        public async Task<int> CountByStatusAsync(JobStatusEnum status)
+        {
+            return await _dbSet.CountAsync(j => j.Status == status);
+        }
     }
 }

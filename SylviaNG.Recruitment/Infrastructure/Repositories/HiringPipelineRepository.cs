@@ -50,5 +50,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .ToListAsync();
             return existing.ToHashSet();
         }
+
+        public async Task<int> CountActiveAsync()
+        {
+            return await _dbSet.CountAsync(p => p.IsActive);
+        }
     }
 }

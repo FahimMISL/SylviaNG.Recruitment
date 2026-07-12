@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Login;
+using SylviaNG.Recruitment.Application.Features.Auth.Commands.Register;
 using SylviaNG.Recruitment.Application.Features.Auth.Models;
 using SylviaNG.Recruitment.Controllers;
 
@@ -38,6 +39,24 @@ public class AuthControllerTests
 
         // Act
         var result = await _controller.Login(request);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(expected);
+    }
+
+    [Fact]
+    public async Task Register_WithValidRequest_ShouldReturnOkWithRegisterResponse()
+    {
+        // Arrange
+        var request = new RegisterRequest { FullName = "Kamal Hossain", Email = "kamal@example.com", Password = "secret-pass-1" };
+        var expected = new RegisterResponse { Email = "kamal@example.com", RequiresEmailVerification = true };
+
+        _mediatorMock.Setup(m => m.Send(It.IsAny<RegisterCommand>(), default))
+            .ReturnsAsync(expected);
+
+        // Act
+        var result = await _controller.Register(request);
 
         // Assert
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;

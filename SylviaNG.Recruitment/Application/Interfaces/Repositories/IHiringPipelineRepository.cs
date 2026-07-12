@@ -16,5 +16,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>Which of the given employee IDs actually exist, for validating stage interviewer assignments.</summary>
         Task<HashSet<long>> GetExistingEmployeeIdsAsync(IEnumerable<long> employeeIds);
+
+        /// <summary>Count of active pipelines, for dashboard summary stats.</summary>
+        Task<int> CountActiveAsync();
     }
 }

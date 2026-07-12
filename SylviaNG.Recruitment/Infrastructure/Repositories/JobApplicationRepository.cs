@@ -26,5 +26,19 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
             return await query.ToPaginatedResultAsync(request);
         }
+
+        public async Task<int> CountAllAsync()
+        {
+            return await _dbSet.CountAsync();
+        }
+
+        public async Task<List<JobApplication>> GetByCandidateEmailAsync(string email)
+        {
+            return await _dbSet
+                .Include(a => a.JobPosting)
+                .Where(a => a.CandidateEmail == email)
+                .OrderByDescending(a => a.AppliedDate)
+                .ToListAsync();
+        }
     }
 }

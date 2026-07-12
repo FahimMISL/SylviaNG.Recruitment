@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Login;
+using SylviaNG.Recruitment.Application.Features.Auth.Commands.Register;
 using SylviaNG.Recruitment.Application.Features.Auth.Models;
 
 namespace SylviaNG.Recruitment.Controllers
@@ -18,13 +19,26 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// Log in with one of the hardcoded credential pairs and receive a JWT.
+        /// Log in via Keycloak (ROPC proxied server-side) and receive the Keycloak access
+        /// token. Falls back to the offline hardcoded accounts when Keycloak is unreachable.
         /// </summary>
         [AllowAnonymous]
         [HttpPost("login")]
         public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
         {
             var result = await _mediator.Send(new LoginCommand(request));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Self-register as an external candidate (US-001). Creates a Candidate-role user
+        /// in Keycloak; email verification is required before first login when enabled.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("register")]
+        public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request)
+        {
+            var result = await _mediator.Send(new RegisterCommand(request));
             return Ok(result);
         }
     }
