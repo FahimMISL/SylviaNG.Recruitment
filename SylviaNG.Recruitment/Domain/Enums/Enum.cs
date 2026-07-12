@@ -58,7 +58,10 @@ public enum EducationLevelEnum
 public enum ApplicationSourceEnum
 {
     External,
-    Internal
+    Internal,
+
+    /// <summary>HR/Admin applied on the candidate's behalf (US-034), e.g. agency or direct outreach.</summary>
+    Admin
 }
 
 public enum CandidateDocumentTypeEnum

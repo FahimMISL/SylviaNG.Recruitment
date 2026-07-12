@@ -23,6 +23,10 @@ namespace SylviaNG.Recruitment.Application.Services
         private static readonly CircularTypeEnum[] ExternalCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.Both };
         private static readonly CircularTypeEnum[] InternalCircularTypes = { CircularTypeEnum.InternalOnly, CircularTypeEnum.Both };
 
+        // US-034 AC1: HR applying on a candidate's behalf can target any open vacancy, regardless
+        // of its audience restriction.
+        private static readonly CircularTypeEnum[] AdminCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.InternalOnly, CircularTypeEnum.Both };
+
         // US-036 AC1: legal application status transitions. Reject/withdraw is reachable from any
         // active stage (not just the end of the pipeline); Hired/Rejected/Withdrawn are terminal.
         private static readonly Dictionary<ApplicationStatusEnum, ApplicationStatusEnum[]> LegalStatusTransitions = new()
@@ -122,7 +126,12 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<JobApplicationResponse> SubmitAsync(JobApplicationSubmitRequest request, ApplicationSourceEnum source)
         {
-            var allowedCircularTypes = source == ApplicationSourceEnum.Internal ? InternalCircularTypes : ExternalCircularTypes;
+            var allowedCircularTypes = source switch
+            {
+                ApplicationSourceEnum.Internal => InternalCircularTypes,
+                ApplicationSourceEnum.Admin => AdminCircularTypes,
+                _ => ExternalCircularTypes
+            };
 
             var jobPosting = await _jobPostingRepository.GetOpenByIdAndCircularTypesAsync(request.JobPostingId, allowedCircularTypes)
                 ?? throw new NotFoundException("JobPosting", request.JobPostingId);
@@ -148,6 +157,15 @@ namespace SylviaNG.Recruitment.Application.Services
 
             await _jobApplicationRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
+
+            if (source == ApplicationSourceEnum.Admin && !string.IsNullOrEmpty(request.CandidateEmail))
+            {
+                entity.AddDomainEvent(new JobApplicationSubmittedOnBehalfEvent
+                {
+                    JobApplicationId = entity.JobApplicationId,
+                    CandidateEmail = request.CandidateEmail
+                });
+            }
 
             entity.JobPosting = jobPosting;
             return entity.ToResponse();

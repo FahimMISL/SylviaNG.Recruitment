@@ -1,5 +1,7 @@
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobApplicationSubmit;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Enums;
@@ -12,10 +14,12 @@ namespace SylviaNG.Recruitment.Controllers
     public class JobApplicationController : ControllerBase
     {
         private readonly IJobApplicationService _jobApplicationService;
+        private readonly IMediator _mediator;
 
-        public JobApplicationController(IJobApplicationService jobApplicationService)
+        public JobApplicationController(IJobApplicationService jobApplicationService, IMediator mediator)
         {
             _jobApplicationService = jobApplicationService;
+            _mediator = mediator;
         }
 
         /// <summary>
@@ -126,6 +130,18 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult<JobApplicationBulkStatusUpdateResponse>> BulkUpdateStatus([FromBody] JobApplicationBulkStatusUpdateRequest request)
         {
             var result = await _jobApplicationService.BulkUpdateStatusAsync(request);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// HR submits an application on behalf of a candidate (agency/direct outreach), to any open
+        /// vacancy regardless of its audience restriction. Recorded with Source=Admin (US-034).
+        /// </summary>
+        [HttpPost("apply-on-behalf")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<JobApplicationResponse>> ApplyOnBehalf([FromForm] JobApplicationSubmitRequest request)
+        {
+            var result = await _mediator.Send(new JobApplicationSubmitCommand(request, ApplicationSourceEnum.Admin));
             return Ok(result);
         }
     }
