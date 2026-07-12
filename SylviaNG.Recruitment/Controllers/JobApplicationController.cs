@@ -1,7 +1,8 @@
-using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
 
 namespace SylviaNG.Recruitment.Controllers
@@ -65,6 +66,67 @@ namespace SylviaNG.Recruitment.Controllers
         {
             await _jobApplicationService.DeleteAsync(jobApplicationId);
             return Ok();
+        }
+
+        /// <summary>
+        /// ATS dashboard: paginated, filterable view of every application across all job postings (US-035).
+        /// </summary>
+        [HttpGet("dashboard/paged")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<PagedResult<JobApplicationDashboardResponse>>> GetDashboardPaged(
+            [FromQuery] PagedRequest request,
+            [FromQuery] long? jobPostingId,
+            [FromQuery] ApplicationStatusEnum? status,
+            [FromQuery] ApplicationSourceEnum? source,
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo)
+        {
+            var result = await _jobApplicationService.GetDashboardPagedAsync(request, jobPostingId, status, source, dateFrom, dateTo);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Full application detail: candidate snapshot, CV link, and status-history audit trail (US-035 AC4).
+        /// </summary>
+        [HttpGet("{jobApplicationId}/detail")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<JobApplicationDetailResponse>> GetDetail(long jobApplicationId)
+        {
+            var result = await _jobApplicationService.GetDetailAsync(jobApplicationId);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Configurable reject/withdraw reasons for the given target status (US-036 AC3).
+        /// </summary>
+        [HttpGet("status-reasons")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<List<ApplicationStatusReasonResponse>>> GetStatusReasons([FromQuery] ApplicationStatusEnum status)
+        {
+            var result = await _jobApplicationService.GetStatusReasonsAsync(status);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Move a single application to a new status (US-036).
+        /// </summary>
+        [HttpPatch("{jobApplicationId}/status")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult> UpdateStatus(long jobApplicationId, [FromBody] JobApplicationStatusUpdateRequest request)
+        {
+            await _jobApplicationService.UpdateStatusAsync(jobApplicationId, request);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Move a batch of applications to a new status at once, e.g. 50 at a time (US-035 AC5).
+        /// </summary>
+        [HttpPatch("bulk-status")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<JobApplicationBulkStatusUpdateResponse>> BulkUpdateStatus([FromBody] JobApplicationBulkStatusUpdateRequest request)
+        {
+            var result = await _jobApplicationService.BulkUpdateStatusAsync(request);
+            return Ok(result);
         }
     }
 }

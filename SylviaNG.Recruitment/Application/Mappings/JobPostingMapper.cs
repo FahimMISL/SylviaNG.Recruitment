@@ -157,6 +157,67 @@ namespace SylviaNG.Recruitment.Application.Mappings
             };
         }
 
+        // ── ATS Dashboard / Status History Mappings (US-035/US-036) ───────
+
+        public static JobApplicationDashboardResponse ToDashboardResponse(this JobApplication entity)
+        {
+            return new JobApplicationDashboardResponse
+            {
+                JobApplicationId = entity.JobApplicationId,
+                CandidateName = entity.CandidateName,
+                JobPostingId = entity.JobPostingId,
+                JobPostingTitle = entity.JobPosting?.Title,
+                Source = entity.Source,
+                AppliedDate = entity.AppliedDate,
+                ApplicationStatus = entity.ApplicationStatus
+            };
+        }
+
+        public static JobApplicationDetailResponse ToDetailResponse(this JobApplication entity)
+        {
+            return new JobApplicationDetailResponse
+            {
+                JobApplicationId = entity.JobApplicationId,
+                JobPostingId = entity.JobPostingId,
+                JobPostingTitle = entity.JobPosting?.Title,
+                CandidateName = entity.CandidateName,
+                CandidateEmail = entity.CandidateEmail,
+                CandidatePhone = entity.CandidatePhone,
+                ResumeUrl = entity.ResumeUrl,
+                CoverLetter = entity.CoverLetter,
+                ApplicationStatus = entity.ApplicationStatus,
+                AppliedDate = entity.AppliedDate,
+                Source = entity.Source,
+                StatusHistory = entity.StatusHistory.Select(h => h.ToResponse()).ToList()
+            };
+        }
+
+        public static ApplicationStatusHistoryResponse ToResponse(this ApplicationStatusHistory entity)
+        {
+            return new ApplicationStatusHistoryResponse
+            {
+                ApplicationStatusHistoryId = entity.ApplicationStatusHistoryId,
+                FromStatus = entity.FromStatus,
+                ToStatus = entity.ToStatus,
+                ChangedByUserName = entity.ChangedByUserName,
+                ChangedAt = entity.ChangedAt,
+                ReasonId = entity.ReasonId,
+                ReasonLabel = entity.Reason?.Label,
+                Note = entity.Note
+            };
+        }
+
+        public static ApplicationStatusReasonResponse ToResponse(this ApplicationStatusReason entity)
+        {
+            return new ApplicationStatusReasonResponse
+            {
+                ApplicationStatusReasonId = entity.ApplicationStatusReasonId,
+                Label = entity.Label,
+                AppliesToStatus = entity.AppliesToStatus,
+                DisplayOrder = entity.DisplayOrder
+            };
+        }
+
         // ── Career Portal / Internal Job Board apply mapping ──────────────
 
         public static JobApplication ToEntity(this JobApplicationSubmitRequest request)

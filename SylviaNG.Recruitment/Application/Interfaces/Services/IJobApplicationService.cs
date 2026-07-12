@@ -18,5 +18,26 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// rejects duplicate (email, jobPostingId) applications, optionally stores the uploaded CV.
         /// </summary>
         Task<JobApplicationResponse> SubmitAsync(JobApplicationSubmitRequest request, ApplicationSourceEnum source);
+
+        /// <summary>ATS dashboard: all applications across every job posting, filterable (US-035 AC1/AC2/AC3).</summary>
+        Task<PagedResult<JobApplicationDashboardResponse>> GetDashboardPagedAsync(
+            PagedRequest request,
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo);
+
+        /// <summary>Full application detail including status-history audit trail (US-035 AC4).</summary>
+        Task<JobApplicationDetailResponse> GetDetailAsync(long jobApplicationId);
+
+        /// <summary>Reject/withdraw reasons for the given status, for the dropdown (US-036 AC3).</summary>
+        Task<List<ApplicationStatusReasonResponse>> GetStatusReasonsAsync(ApplicationStatusEnum status);
+
+        /// <summary>Moves a single application to a new status, validating the transition and reason (US-036).</summary>
+        Task UpdateStatusAsync(long jobApplicationId, JobApplicationStatusUpdateRequest request);
+
+        /// <summary>Best-effort bulk status move across multiple applications (US-035 AC5).</summary>
+        Task<JobApplicationBulkStatusUpdateResponse> BulkUpdateStatusAsync(JobApplicationBulkStatusUpdateRequest request);
     }
 }
