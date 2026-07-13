@@ -32,6 +32,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            builder.Property(a => a.Source)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .HasDefaultValue(ApplicationSourceEnum.External);
+
             // Indexes
             builder.HasIndex(a => a.JobPostingId);
             builder.HasIndex(a => new { a.CandidateEmail, a.JobPostingId }).IsUnique();

@@ -82,9 +82,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.Configure<FileStorageSettings>(configuration.GetSection(FileStorageSettings.SectionName));
             services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
-            // Kafka
-            services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
-            services.AddHostedService<EmployeeEventConsumer>();
+            // File storage (local disk, backs career-portal / internal-job-board CV uploads)
+            services.Configure<ApplicationCvStorageSettings>(configuration.GetSection(ApplicationCvStorageSettings.SectionName));
+            services.AddScoped<IApplicationCvStorageService, LocalApplicationCvStorageService>();
+
+            // Kafka — disabled, no broker reachable at configured BootstrapServers
+            // services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
+            // services.AddHostedService<EmployeeEventConsumer>();
 
             return services;
         }

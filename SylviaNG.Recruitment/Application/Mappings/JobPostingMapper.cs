@@ -148,7 +148,25 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ResumeUrl = entity.ResumeUrl,
                 ApplicationStatus = entity.ApplicationStatus,
                 AppliedDate = entity.AppliedDate,
-                IsActive = entity.IsActive
+                IsActive = entity.IsActive,
+                Source = entity.Source
+            };
+        }
+
+        // ── Career Portal / Internal Job Board apply mapping ──────────────
+
+        public static JobApplication ToEntity(this JobApplicationSubmitRequest request)
+        {
+            // ResumeUrl, Source, ApplicationStatus and AppliedDate are set by
+            // JobApplicationService.SubmitAsync once the CV (if any) has been saved.
+            return new JobApplication
+            {
+                JobPostingId = request.JobPostingId,
+                CandidateName = request.CandidateName,
+                CandidateEmail = request.CandidateEmail,
+                CandidatePhone = request.CandidatePhone,
+                CoverLetter = request.CoverLetter,
+                IsActive = true
             };
         }
     }

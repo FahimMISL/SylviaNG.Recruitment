@@ -76,5 +76,8 @@ paket-files/
 # Node modules (if JS is used)
 node_modules/
 
+# Local file uploads
+wwwroot/uploads/
+
 # Visual Studio language service cache
 *.lscache

@@ -54,3 +54,9 @@ public enum EducationLevelEnum
     Master,
     Doctorate
 }
+
+public enum ApplicationSourceEnum
+{
+    External,
+    Internal
+}

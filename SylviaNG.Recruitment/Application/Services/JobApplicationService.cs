@@ -13,15 +13,21 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IJobPostingRepository _jobPostingRepository;
+        private readonly IApplicationCvStorageService _applicationCvStorageService;
         private readonly IUnitOfWork _unitOfWork;
+
+        private static readonly CircularTypeEnum[] ExternalCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.Both };
+        private static readonly CircularTypeEnum[] InternalCircularTypes = { CircularTypeEnum.InternalOnly, CircularTypeEnum.Both };
 
         public JobApplicationService(
             IJobApplicationRepository jobApplicationRepository,
             IJobPostingRepository jobPostingRepository,
+            IApplicationCvStorageService applicationCvStorageService,
             IUnitOfWork unitOfWork)
         {
             _jobApplicationRepository = jobApplicationRepository;
             _jobPostingRepository = jobPostingRepository;
+            _applicationCvStorageService = applicationCvStorageService;
             _unitOfWork = unitOfWork;
         }
 
@@ -87,6 +93,39 @@ namespace SylviaNG.Recruitment.Application.Services
                 PageNumber = pagedResult.PageNumber,
                 PageSize = pagedResult.PageSize
             };
+        }
+
+        public async Task<JobApplicationResponse> SubmitAsync(JobApplicationSubmitRequest request, ApplicationSourceEnum source)
+        {
+            var allowedCircularTypes = source == ApplicationSourceEnum.Internal ? InternalCircularTypes : ExternalCircularTypes;
+
+            var jobPosting = await _jobPostingRepository.GetOpenByIdAndCircularTypesAsync(request.JobPostingId, allowedCircularTypes)
+                ?? throw new NotFoundException("JobPosting", request.JobPostingId);
+
+            if (!string.IsNullOrEmpty(request.CandidateEmail))
+            {
+                var exists = await _jobApplicationRepository.GetByEmailAndJobPostingIdAsync(request.CandidateEmail, request.JobPostingId);
+                if (exists != null)
+                    throw new DuplicateException("JobApplication", "CandidateEmail", request.CandidateEmail);
+            }
+
+            var entity = request.ToEntity();
+            entity.Source = source;
+            entity.ApplicationStatus = ApplicationStatusEnum.Applied;
+            entity.AppliedDate = DateTime.UtcNow;
+
+            if (request.Resume != null)
+            {
+                var (_, filePath) = await _applicationCvStorageService.SaveAsync(
+                    request.Resume.OpenReadStream(), request.Resume.FileName, jobPosting.JobPostingId.ToString());
+                entity.ResumeUrl = filePath;
+            }
+
+            await _jobApplicationRepository.AddAsync(entity);
+            await _unitOfWork.SaveChangesAsync();
+
+            entity.JobPosting = jobPosting;
+            return entity.ToResponse();
         }
     }
 }
