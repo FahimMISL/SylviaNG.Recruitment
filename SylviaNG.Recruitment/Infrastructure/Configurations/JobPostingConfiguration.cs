@@ -39,16 +39,45 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(j => j.MaxSalary)
                 .HasColumnType("decimal(18,2)");
 
+            // EP-02: Job Vacancy Configuration fields
+            builder.Property(j => j.JobPostingCode)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            builder.Property(j => j.Location)
+                .HasMaxLength(200);
+
+            builder.Property(j => j.CircularType)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            builder.Property(j => j.MinEducationLevel)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            builder.Property(j => j.RequiredDistrict)
+                .HasMaxLength(100);
+
+            builder.Property(j => j.ApplicationFeeAmount)
+                .HasColumnType("decimal(18,2)");
+
+            builder.Property(j => j.ApplicationFeeCurrency)
+                .HasMaxLength(10);
+
             // Indexes
             builder.HasIndex(j => j.SiteId);
             builder.HasIndex(j => j.Status);
             builder.HasIndex(j => new { j.SiteId, j.Title }).IsUnique();
+            builder.HasIndex(j => j.JobPostingCode).IsUnique();
 
             // Relationships
             builder.HasMany(j => j.Applications)
                 .WithOne(a => a.JobPosting)
                 .HasForeignKey(a => a.JobPostingId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Note: JobPostingAttachment relationship (FK + cascade delete) is configured
+            // in JobPostingAttachmentConfiguration.
 
             // Seed data
             builder.HasData(
@@ -66,12 +95,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                     Status = JobStatusEnum.Open,
                     MinSalary = 80000m,
                     MaxSalary = 120000m,
-                    PostingDate = new DateTime(2025, 1, 1),
-                    ClosingDate = new DateTime(2025, 6, 30),
+                    PostingDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    ClosingDate = new DateTime(2025, 6, 30, 0, 0, 0, DateTimeKind.Utc),
                     IsActive = true,
+                    JobPostingCode = "JOB-2026-000001",
+                    CircularType = CircularTypeEnum.Both,
                     TenantId = "default_tenant",
                     Remarks = (string?)null,
-                    CreatedAt = new DateTime(2025, 1, 1),
+                    CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     CreatedBy = 1L,
                     UpdatedAt = (DateTime?)null,
                     UpdatedBy = (long?)null,
@@ -93,12 +124,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                     Status = JobStatusEnum.Open,
                     MinSalary = 50000m,
                     MaxSalary = 80000m,
-                    PostingDate = new DateTime(2025, 2, 1),
-                    ClosingDate = new DateTime(2025, 7, 31),
+                    PostingDate = new DateTime(2025, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+                    ClosingDate = new DateTime(2025, 7, 31, 0, 0, 0, DateTimeKind.Utc),
                     IsActive = true,
+                    JobPostingCode = "JOB-2026-000002",
+                    CircularType = CircularTypeEnum.Both,
                     TenantId = "default_tenant",
                     Remarks = (string?)null,
-                    CreatedAt = new DateTime(2025, 2, 1),
+                    CreatedAt = new DateTime(2025, 2, 1, 0, 0, 0, DateTimeKind.Utc),
                     CreatedBy = 1L,
                     UpdatedAt = (DateTime?)null,
                     UpdatedBy = (long?)null,

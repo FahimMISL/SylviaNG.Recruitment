@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPostingCreate;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPostingDelete;
@@ -13,6 +14,7 @@ namespace SylviaNG.Recruitment.Controllers
 {
     [ApiController]
     [Route("recruitment/job-posting")]
+    [Authorize(Roles = "Admin,HR")]
     public class JobPostingController : ControllerBase
     {
         private readonly IMediator _mediator;

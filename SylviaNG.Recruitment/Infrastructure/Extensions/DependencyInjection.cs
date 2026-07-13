@@ -1,11 +1,14 @@
 using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using Finbuckle.MultiTenant.Extensions;
 using Microsoft.EntityFrameworkCore;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Infrastructure.Data;
 using SylviaNG.Recruitment.Infrastructure.Interceptors;
 using SylviaNG.Recruitment.Infrastructure.Kafka;
 using SylviaNG.Recruitment.Infrastructure.Repositories;
+using SylviaNG.Recruitment.Infrastructure.Services;
 using SylviaNG.Recruitment.SharedKernel.Generic;
 using SylviaNG.Recruitment.SharedKernel.Utils;
 
@@ -70,9 +73,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // Adding DI of repositories
             services.AddScoped<IJobPostingRepository, JobPostingRepository>();
             services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
+            services.AddScoped<IJobPostingAttachmentRepository, JobPostingAttachmentRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+            // File storage (local disk, backs job posting attachments)
+            services.Configure<FileStorageSettings>(configuration.GetSection(FileStorageSettings.SectionName));
+            services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
             // Kafka
             services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));

@@ -36,3 +36,21 @@ public enum UserRoleEnum
     HR,
     Candidate
 }
+
+public enum CircularTypeEnum
+{
+    InternalOnly,
+    ExternalOnly,
+    Both
+}
+
+public enum EducationLevelEnum
+{
+    BelowSSC,
+    SSC,
+    HSC,
+    Diploma,
+    Bachelor,
+    Master,
+    Doctorate
+}

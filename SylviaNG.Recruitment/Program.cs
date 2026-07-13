@@ -101,6 +101,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 
+// Serve uploaded job posting attachments directly (binary content must bypass
+// ResponseWrappingMiddleware, which buffers and JSON-re-wraps every response body).
+app.UseStaticFiles();
+
 app.UseMiddleware<ResponseWrappingMiddleware>();
 
 app.UseAuthentication();
