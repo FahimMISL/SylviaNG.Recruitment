@@ -25,6 +25,11 @@ namespace SylviaNG.Recruitment.Middlewares
                 _logger.LogWarning(ex, "Resource not found.");
                 await HandleExceptionAsync(context, StatusCodes.Status404NotFound, ex.Message);
             }
+            catch (InvalidCredentialsException ex)
+            {
+                _logger.LogWarning(ex, "Invalid credentials.");
+                await HandleExceptionAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
+            }
             catch (FluentValidation.ValidationException ex)
             {
                 _logger.LogWarning(ex, "Validation failed.");
