@@ -27,5 +27,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>Application detail including its full status-history + reason (US-035 AC4, US-036 AC2).</summary>
         Task<JobApplication?> GetByIdWithHistoryAsync(long jobApplicationId);
+
+        /// <summary>Every application for one job posting, unpaginated - for shortlist filter evaluation (US-043).</summary>
+        Task<List<JobApplication>> GetAllByJobPostingIdAsync(long jobPostingId);
     }
 }

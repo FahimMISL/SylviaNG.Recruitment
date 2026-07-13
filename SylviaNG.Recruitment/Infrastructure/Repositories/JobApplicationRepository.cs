@@ -71,5 +71,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                     .ThenInclude(h => h.Reason)
                 .FirstOrDefaultAsync(a => a.JobApplicationId == jobApplicationId);
         }
+
+        public async Task<List<JobApplication>> GetAllByJobPostingIdAsync(long jobPostingId)
+        {
+            return await _dbSet
+                .Where(a => a.JobPostingId == jobPostingId)
+                .ToListAsync();
+        }
     }
 }
