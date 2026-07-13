@@ -72,6 +72,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<StaffProfile> StaffProfiles { get; set; }
         public DbSet<ApplicationStatusHistory> ApplicationStatusHistories { get; set; }
         public DbSet<ApplicationStatusReason> ApplicationStatusReasons { get; set; }
+        public DbSet<JobApplicationStageProgress> JobApplicationStageProgresses { get; set; }
 
         #endregion
 
