@@ -404,6 +404,21 @@ public class JobApplicationServiceTests
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
     }
 
+    // ── GetDashboardMatchingIdsAsync (US-047 AC5) ──────────────────────────
+
+    [Fact]
+    public async Task GetDashboardMatchingIdsAsync_ShouldPassFiltersThroughToRepositoryAndReturnIds()
+    {
+        var expectedIds = new List<long> { 3, 7, 9 };
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetAllMatchingIdsAsync(1, ApplicationStatusEnum.Applied, ApplicationSourceEnum.External, null, null))
+            .ReturnsAsync(expectedIds);
+
+        var result = await _service.GetDashboardMatchingIdsAsync(1, ApplicationStatusEnum.Applied, ApplicationSourceEnum.External, null, null);
+
+        result.Should().Equal(expectedIds);
+    }
+
     // ── GetMyApplicationsAsync / WithdrawMyApplicationAsync (US-040) ──────
 
     [Fact]

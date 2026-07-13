@@ -206,6 +206,16 @@ namespace SylviaNG.Recruitment.Application.Services
             return entity.ToDetailResponse();
         }
 
+        public async Task<List<long>> GetDashboardMatchingIdsAsync(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo)
+        {
+            return await _jobApplicationRepository.GetAllMatchingIdsAsync(jobPostingId, status, source, dateFrom, dateTo);
+        }
+
         public async Task<List<ApplicationStatusReasonResponse>> GetStatusReasonsAsync(ApplicationStatusEnum status)
         {
             var entities = await _applicationStatusReasonRepository.GetActiveByStatusAsync(status);
