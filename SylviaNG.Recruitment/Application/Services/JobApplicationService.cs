@@ -30,9 +30,12 @@ namespace SylviaNG.Recruitment.Application.Services
 
         // US-036 AC1: legal application status transitions. Reject/withdraw is reachable from any
         // active stage (not just the end of the pipeline); Hired/Rejected/Withdrawn are terminal.
+        // Applied->Shortlisted is legal directly (not just via Screening) so US-044's automated
+        // filter apply can fast-track a fresh application without a manual screening bump first -
+        // that's the whole point of "without manual screening of every application" in US-043.
         private static readonly Dictionary<ApplicationStatusEnum, ApplicationStatusEnum[]> LegalStatusTransitions = new()
         {
-            [ApplicationStatusEnum.Applied] = new[] { ApplicationStatusEnum.Screening, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
+            [ApplicationStatusEnum.Applied] = new[] { ApplicationStatusEnum.Screening, ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
             [ApplicationStatusEnum.Screening] = new[] { ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
             [ApplicationStatusEnum.Shortlisted] = new[] { ApplicationStatusEnum.InterviewScheduled, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
             [ApplicationStatusEnum.InterviewScheduled] = new[] { ApplicationStatusEnum.Interviewed, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },

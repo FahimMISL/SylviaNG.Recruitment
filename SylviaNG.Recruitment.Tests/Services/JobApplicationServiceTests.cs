@@ -290,6 +290,22 @@ public class JobApplicationServiceTests
     }
 
     [Fact]
+    public async Task UpdateStatusAsync_AppliedDirectlyToShortlisted_ShouldSucceed()
+    {
+        // Arrange: US-044's automated filter apply must be able to fast-track Applied straight to
+        // Shortlisted without a manual Screening bump first.
+        var entity = new JobApplication { JobApplicationId = 1, ApplicationStatus = ApplicationStatusEnum.Applied };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = new JobApplicationStatusUpdateRequest { ToStatus = ApplicationStatusEnum.Shortlisted };
+
+        await _service.UpdateStatusAsync(1, request);
+
+        entity.ApplicationStatus.Should().Be(ApplicationStatusEnum.Shortlisted);
+    }
+
+    [Fact]
     public async Task UpdateStatusAsync_WithIllegalTransition_ShouldThrowInvalidStatusTransitionException()
     {
         // Arrange: Applied cannot jump straight to Hired.
