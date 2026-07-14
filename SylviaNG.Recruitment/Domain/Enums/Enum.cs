@@ -95,3 +95,10 @@ public enum FilterCombinatorEnum
     And,
     Or
 }
+
+public enum RecommendationStatusEnum
+{
+    Pending,
+    Accepted,
+    Rejected
+}

@@ -35,6 +35,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IHiringPipelineService, HiringPipelineService>();
             services.AddScoped<IJobApplicationStageProgressService, JobApplicationStageProgressService>();
             services.AddScoped<IShortlistFilterService, ShortlistFilterService>();
+            services.AddScoped<ICandidateRecommendationService, CandidateRecommendationService>();
             services.AddScoped<IShortlistFilterEvaluationService, ShortlistFilterEvaluationService>();
             services.AddScoped<ICurrentCandidateService, CurrentCandidateService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
