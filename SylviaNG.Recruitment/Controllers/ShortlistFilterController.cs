@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SylviaNG.Recruitment.Application.Features.ShortlistFilters.Commands.ShortlistFilterApply;
 using SylviaNG.Recruitment.Application.Features.ShortlistFilters.Commands.ShortlistFilterCreate;
 using SylviaNG.Recruitment.Application.Features.ShortlistFilters.Commands.ShortlistFilterDelete;
 using SylviaNG.Recruitment.Application.Features.ShortlistFilters.Commands.ShortlistFilterUpdate;
@@ -92,6 +93,17 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult<ShortlistFilterPreviewResponse>> Preview([FromBody] ShortlistFilterPreviewRequest request)
         {
             var result = await _mediator.Send(new ShortlistFilterPreviewQuery(request));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Apply a saved filter to all applications of a vacancy in one action, moving passing
+        /// candidates to Shortlisted and returning a processed/shortlisted/failed summary (US-044).
+        /// </summary>
+        [HttpPost("apply")]
+        public async Task<ActionResult<ShortlistFilterApplyResponse>> Apply([FromBody] ShortlistFilterApplyRequest request)
+        {
+            var result = await _mediator.Send(new ShortlistFilterApplyCommand(request));
             return Ok(result);
         }
     }

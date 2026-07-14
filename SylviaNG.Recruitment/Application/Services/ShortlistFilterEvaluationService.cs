@@ -1,4 +1,5 @@
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Features.ShortlistFilters.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -13,21 +14,60 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IShortlistFilterRepository _shortlistFilterRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
+        private readonly IJobApplicationService _jobApplicationService;
 
         public ShortlistFilterEvaluationService(
             IShortlistFilterRepository shortlistFilterRepository,
             IJobApplicationRepository jobApplicationRepository,
-            ICandidateProfileRepository candidateProfileRepository)
+            ICandidateProfileRepository candidateProfileRepository,
+            IJobApplicationService jobApplicationService)
         {
             _shortlistFilterRepository = shortlistFilterRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _candidateProfileRepository = candidateProfileRepository;
+            _jobApplicationService = jobApplicationService;
         }
 
         public async Task<ShortlistFilterPreviewResponse> PreviewAsync(ShortlistFilterPreviewRequest request)
         {
             var (combineWith, criteria) = await ResolveDefinitionAsync(request);
-            var applications = await _jobApplicationRepository.GetAllByJobPostingIdAsync(request.JobPostingId);
+            var (applications, passingIds) = await EvaluateApplicationsAsync(request.JobPostingId, combineWith, criteria);
+
+            return new ShortlistFilterPreviewResponse
+            {
+                TotalApplications = applications.Count,
+                PassingCount = passingIds.Count,
+                PassingJobApplicationIds = passingIds
+            };
+        }
+
+        public async Task<ShortlistFilterApplyResponse> ApplyAsync(ShortlistFilterApplyRequest request)
+        {
+            var filter = await _shortlistFilterRepository.GetByIdWithCriteriaAsync(request.ShortlistFilterId)
+                ?? throw new NotFoundException("ShortlistFilter", request.ShortlistFilterId);
+
+            var criteria = filter.Criteria.Select(c => c.ToCriterionRequest()).ToList();
+            var (applications, passingIds) = await EvaluateApplicationsAsync(request.JobPostingId, filter.CombineWith, criteria);
+
+            var bulkResult = await _jobApplicationService.BulkUpdateStatusAsync(new JobApplicationBulkStatusUpdateRequest
+            {
+                JobApplicationIds = passingIds,
+                ToStatus = ApplicationStatusEnum.Shortlisted
+            });
+
+            return new ShortlistFilterApplyResponse
+            {
+                TotalProcessed = applications.Count,
+                TotalShortlisted = bulkResult.SucceededIds.Count,
+                TotalFailed = bulkResult.Failed.Count,
+                Failures = bulkResult.Failed
+            };
+        }
+
+        private async Task<(List<JobApplication> Applications, List<long> PassingIds)> EvaluateApplicationsAsync(
+            long jobPostingId, FilterCombinatorEnum combineWith, List<ShortlistFilterCriterionRequest> criteria)
+        {
+            var applications = await _jobApplicationRepository.GetAllByJobPostingIdAsync(jobPostingId);
 
             var emails = applications
                 .Select(a => a.CandidateEmail)
@@ -50,18 +90,13 @@ namespace SylviaNG.Recruitment.Application.Services
                 if (profile == null)
                     continue;
 
-                var facts = BuildFacts(profile);
+                var facts = CandidateFactService.BuildFacts(profile);
 
                 if (criteria.Count > 0 && Evaluate(criteria, combineWith, facts))
                     passingIds.Add(application.JobApplicationId);
             }
 
-            return new ShortlistFilterPreviewResponse
-            {
-                TotalApplications = applications.Count,
-                PassingCount = passingIds.Count,
-                PassingJobApplicationIds = passingIds
-            };
+            return (applications, passingIds);
         }
 
         private async Task<(FilterCombinatorEnum CombineWith, List<ShortlistFilterCriterionRequest> Criteria)> ResolveDefinitionAsync(ShortlistFilterPreviewRequest request)
@@ -84,57 +119,15 @@ namespace SylviaNG.Recruitment.Application.Services
             });
         }
 
-        // ── Candidate fact derivation ───────────────────────────────────
-
-        private sealed record CandidateFacts(
-            int? Age,
-            double TotalExperienceYears,
-            HashSet<string> SkillNames,
-            HashSet<EducationLevelEnum> EducationLevels,
-            string AddressText);
-
-        private static CandidateFacts BuildFacts(CandidateProfile? profile)
-        {
-            if (profile == null)
-            {
-                return new CandidateFacts(null, 0, new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                    new HashSet<EducationLevelEnum>(), string.Empty);
-            }
-
-            var age = profile.DateOfBirth.HasValue ? CalculateAge(profile.DateOfBirth.Value, DateTime.UtcNow) : (int?)null;
-
-            var totalExperienceYears = profile.WorkExperiences?
-                .Sum(w => ((w.EndDate ?? DateTime.UtcNow) - w.StartDate).TotalDays / 365.25) ?? 0;
-
-            var skillNames = new HashSet<string>(
-                profile.Skills?.Select(s => s.SkillName).Where(n => !string.IsNullOrWhiteSpace(n)) ?? Enumerable.Empty<string>(),
-                StringComparer.OrdinalIgnoreCase);
-
-            var educationLevels = new HashSet<EducationLevelEnum>(
-                profile.Educations?.Where(e => e.EducationLevel.HasValue).Select(e => e.EducationLevel!.Value) ?? Enumerable.Empty<EducationLevelEnum>());
-
-            var addressText = string.Join(" ", new[] { profile.PresentAddress, profile.PermanentAddress }.Where(a => !string.IsNullOrWhiteSpace(a)));
-
-            return new CandidateFacts(age, totalExperienceYears, skillNames, educationLevels, addressText);
-        }
-
-        private static int CalculateAge(DateTime dateOfBirth, DateTime asOf)
-        {
-            var age = asOf.Year - dateOfBirth.Year;
-            if (dateOfBirth.Date > asOf.AddYears(-age))
-                age--;
-            return age;
-        }
-
         // ── Evaluation ───────────────────────────────────────────────────
 
-        private static bool Evaluate(List<ShortlistFilterCriterionRequest> criteria, FilterCombinatorEnum combineWith, CandidateFacts facts)
+        private static bool Evaluate(List<ShortlistFilterCriterionRequest> criteria, FilterCombinatorEnum combineWith, CandidateFactService.CandidateFacts facts)
         {
             var results = criteria.Select(c => EvaluateCriterion(c, facts)).ToList();
             return combineWith == FilterCombinatorEnum.And ? results.All(r => r) : results.Any(r => r);
         }
 
-        private static bool EvaluateCriterion(ShortlistFilterCriterionRequest criterion, CandidateFacts facts)
+        private static bool EvaluateCriterion(ShortlistFilterCriterionRequest criterion, CandidateFactService.CandidateFacts facts)
         {
             switch (criterion.CriterionType)
             {

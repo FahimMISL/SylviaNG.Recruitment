@@ -1,7 +1,9 @@
 using FluentAssertions;
 using Moq;
+using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Features.ShortlistFilters.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
@@ -13,6 +15,7 @@ public class ShortlistFilterEvaluationServiceTests
     private readonly Mock<IShortlistFilterRepository> _shortlistFilterRepositoryMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
+    private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
     private readonly ShortlistFilterEvaluationService _service;
 
     public ShortlistFilterEvaluationServiceTests()
@@ -20,11 +23,13 @@ public class ShortlistFilterEvaluationServiceTests
         _shortlistFilterRepositoryMock = new Mock<IShortlistFilterRepository>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
+        _jobApplicationServiceMock = new Mock<IJobApplicationService>();
 
         _service = new ShortlistFilterEvaluationService(
             _shortlistFilterRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object,
-            _candidateProfileRepositoryMock.Object);
+            _candidateProfileRepositoryMock.Object,
+            _jobApplicationServiceMock.Object);
     }
 
     private static JobApplication Application(long id, string email) =>
@@ -317,5 +322,117 @@ public class ShortlistFilterEvaluationServiceTests
         await _service.PreviewAsync(request);
 
         _shortlistFilterRepositoryMock.Verify(r => r.GetByIdWithCriteriaAsync(It.IsAny<long>()), Times.Never);
+    }
+
+    // ── ApplyAsync (US-044) ─────────────────────────────────────────────
+
+    private void SetupSavedFilter(ShortlistFilter filter) =>
+        _shortlistFilterRepositoryMock.Setup(r => r.GetByIdWithCriteriaAsync(filter.ShortlistFilterId)).ReturnsAsync(filter);
+
+    [Fact]
+    public async Task ApplyAsync_PassingCandidates_ShouldBulkShortlistOnlyThePassingIds()
+    {
+        var filter = new ShortlistFilter
+        {
+            ShortlistFilterId = 5,
+            CombineWith = FilterCombinatorEnum.And,
+            Criteria = new List<ShortlistFilterCriterion>
+            {
+                new() { CriterionType = CriterionTypeEnum.MinExperienceYears, MinExperienceYears = 3 }
+            }
+        };
+        SetupSavedFilter(filter);
+
+        var passing = Profile("pass@x.com", workExperiences: new List<CandidateWorkExperience> { new() { StartDate = DateTime.UtcNow.AddYears(-5), EndDate = null, IsCurrent = true } });
+        var failing = Profile("fail@x.com", workExperiences: new List<CandidateWorkExperience> { new() { StartDate = DateTime.UtcNow.AddYears(-1), EndDate = null, IsCurrent = true } });
+        SetupApplicationsAndProfiles(
+            new List<JobApplication> { Application(1, "pass@x.com"), Application(2, "fail@x.com") },
+            new List<CandidateProfile> { passing, failing });
+
+        _jobApplicationServiceMock
+            .Setup(s => s.BulkUpdateStatusAsync(It.Is<JobApplicationBulkStatusUpdateRequest>(r =>
+                r.ToStatus == ApplicationStatusEnum.Shortlisted && r.JobApplicationIds.SequenceEqual(new List<long> { 1 }))))
+            .ReturnsAsync(new JobApplicationBulkStatusUpdateResponse { SucceededIds = new List<long> { 1 } });
+
+        var result = await _service.ApplyAsync(new ShortlistFilterApplyRequest { ShortlistFilterId = 5, JobPostingId = 1 });
+
+        result.TotalProcessed.Should().Be(2);
+        result.TotalShortlisted.Should().Be(1);
+        result.TotalFailed.Should().Be(0);
+        _jobApplicationServiceMock.Verify(s => s.BulkUpdateStatusAsync(It.IsAny<JobApplicationBulkStatusUpdateRequest>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_BulkUpdateReportsFailures_ShouldSurfaceThemInResponse()
+    {
+        var filter = new ShortlistFilter
+        {
+            ShortlistFilterId = 5,
+            CombineWith = FilterCombinatorEnum.And,
+            Criteria = new List<ShortlistFilterCriterion>
+            {
+                new() { CriterionType = CriterionTypeEnum.MinExperienceYears, MinExperienceYears = 0 }
+            }
+        };
+        SetupSavedFilter(filter);
+
+        var profile = Profile("a@x.com", workExperiences: new List<CandidateWorkExperience>());
+        SetupApplicationsAndProfiles(new List<JobApplication> { Application(1, "a@x.com") }, new List<CandidateProfile> { profile });
+
+        _jobApplicationServiceMock
+            .Setup(s => s.BulkUpdateStatusAsync(It.IsAny<JobApplicationBulkStatusUpdateRequest>()))
+            .ReturnsAsync(new JobApplicationBulkStatusUpdateResponse
+            {
+                Failed = new List<JobApplicationBulkStatusUpdateFailure>
+                {
+                    new() { JobApplicationId = 1, Reason = "Illegal transition." }
+                }
+            });
+
+        var result = await _service.ApplyAsync(new ShortlistFilterApplyRequest { ShortlistFilterId = 5, JobPostingId = 1 });
+
+        result.TotalProcessed.Should().Be(1);
+        result.TotalShortlisted.Should().Be(0);
+        result.TotalFailed.Should().Be(1);
+        result.Failures.Should().ContainSingle(f => f.JobApplicationId == 1 && f.Reason == "Illegal transition.");
+    }
+
+    [Fact]
+    public async Task ApplyAsync_NoCandidatesPass_ShouldNotCallBulkUpdateWithAnyIds()
+    {
+        var filter = new ShortlistFilter
+        {
+            ShortlistFilterId = 5,
+            CombineWith = FilterCombinatorEnum.And,
+            Criteria = new List<ShortlistFilterCriterion>
+            {
+                new() { CriterionType = CriterionTypeEnum.EducationLevel, MinEducationLevel = EducationLevelEnum.Bachelor }
+            }
+        };
+        SetupSavedFilter(filter);
+
+        var profile = Profile("a@x.com", educations: new List<CandidateEducation> { new() { EducationLevel = EducationLevelEnum.SSC } });
+        SetupApplicationsAndProfiles(new List<JobApplication> { Application(1, "a@x.com") }, new List<CandidateProfile> { profile });
+
+        _jobApplicationServiceMock
+            .Setup(s => s.BulkUpdateStatusAsync(It.IsAny<JobApplicationBulkStatusUpdateRequest>()))
+            .ReturnsAsync(new JobApplicationBulkStatusUpdateResponse());
+
+        var result = await _service.ApplyAsync(new ShortlistFilterApplyRequest { ShortlistFilterId = 5, JobPostingId = 1 });
+
+        result.TotalProcessed.Should().Be(1);
+        result.TotalShortlisted.Should().Be(0);
+        _jobApplicationServiceMock.Verify(s => s.BulkUpdateStatusAsync(
+            It.Is<JobApplicationBulkStatusUpdateRequest>(r => r.JobApplicationIds.Count == 0)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_UnknownFilterId_ShouldThrowNotFoundException()
+    {
+        _shortlistFilterRepositoryMock.Setup(r => r.GetByIdWithCriteriaAsync(99)).ReturnsAsync((ShortlistFilter?)null);
+
+        var act = () => _service.ApplyAsync(new ShortlistFilterApplyRequest { ShortlistFilterId = 99, JobPostingId = 1 });
+
+        await act.Should().ThrowAsync<SylviaNG.Recruitment.Application.Common.Exceptions.NotFoundException>();
     }
 }
