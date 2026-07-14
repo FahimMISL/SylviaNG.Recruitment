@@ -20,6 +20,7 @@ public class JobApplicationServiceTests
     private readonly Mock<IApplicationCvStorageService> _cvStorageServiceMock;
     private readonly Mock<IApplicationStatusReasonRepository> _statusReasonRepositoryMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
+    private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly JobApplicationService _service;
 
@@ -30,9 +31,11 @@ public class JobApplicationServiceTests
         _cvStorageServiceMock = new Mock<IApplicationCvStorageService>();
         _statusReasonRepositoryMock = new Mock<IApplicationStatusReasonRepository>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
+        _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
 
         _currentUserServiceMock.Setup(s => s.GetCurrentUserName()).Returns("abir");
+        _currentCandidateServiceMock.Setup(s => s.GetCurrentEmailAsync()).ReturnsAsync("jane@example.com");
 
         _service = new JobApplicationService(
             _jobApplicationRepositoryMock.Object,
@@ -40,6 +43,7 @@ public class JobApplicationServiceTests
             _cvStorageServiceMock.Object,
             _statusReasonRepositoryMock.Object,
             _currentUserServiceMock.Object,
+            _currentCandidateServiceMock.Object,
             _unitOfWorkMock.Object);
     }
 
@@ -382,5 +386,108 @@ public class JobApplicationServiceTests
         result.Failed.Select(f => f.JobApplicationId).Should().BeEquivalentTo(new long[] { 2, 3 });
         entity1.ApplicationStatus.Should().Be(ApplicationStatusEnum.Screening);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    // ── GetMyApplicationsAsync / WithdrawMyApplicationAsync (US-040) ──────
+
+    [Fact]
+    public async Task GetMyApplicationsAsync_ShouldReturnApplicationsForCurrentCandidateEmailWithCanWithdrawFlag()
+    {
+        // Arrange
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer" };
+        var applications = new List<JobApplication>
+        {
+            new()
+            {
+                JobApplicationId = 1,
+                JobPostingId = 1,
+                JobPosting = jobPosting,
+                CandidateEmail = "jane@example.com",
+                ApplicationStatus = ApplicationStatusEnum.Screening,
+                Interviews = new List<Interview>()
+            },
+            new()
+            {
+                JobApplicationId = 2,
+                JobPostingId = 1,
+                JobPosting = jobPosting,
+                CandidateEmail = "jane@example.com",
+                ApplicationStatus = ApplicationStatusEnum.Hired,
+                Interviews = new List<Interview>()
+            }
+        };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("jane@example.com")).ReturnsAsync(applications);
+
+        // Act
+        var result = await _service.GetMyApplicationsAsync();
+
+        // Assert
+        result.Should().HaveCount(2);
+        result.Single(a => a.JobApplicationId == 1).CanWithdraw.Should().BeTrue();
+        result.Single(a => a.JobApplicationId == 2).CanWithdraw.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task WithdrawMyApplicationAsync_WithOwnActiveApplication_ShouldSetWithdrawnAndRecordHistory()
+    {
+        // Arrange
+        var entity = new JobApplication { JobApplicationId = 1, CandidateEmail = "jane@example.com", ApplicationStatus = ApplicationStatusEnum.Screening };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        // Act
+        await _service.WithdrawMyApplicationAsync(1);
+
+        // Assert
+        entity.ApplicationStatus.Should().Be(ApplicationStatusEnum.Withdrawn);
+        entity.StatusHistory.Should().ContainSingle();
+        entity.StatusHistory.Single().ToStatus.Should().Be(ApplicationStatusEnum.Withdrawn);
+        entity.StatusHistory.Single().ReasonId.Should().BeNull();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task WithdrawMyApplicationAsync_WithAnotherCandidatesApplication_ShouldThrowNotFoundException()
+    {
+        // Arrange: entity belongs to a different candidate than the caller (jane@example.com).
+        var entity = new JobApplication { JobApplicationId = 1, CandidateEmail = "someoneelse@example.com", ApplicationStatus = ApplicationStatusEnum.Screening };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+
+        // Act
+        var act = () => _service.WithdrawMyApplicationAsync(1);
+
+        // Assert
+        await act.Should().ThrowAsync<NotFoundException>();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task WithdrawMyApplicationAsync_WithTerminalStatus_ShouldThrowInvalidStatusTransitionException()
+    {
+        // Arrange: Hired is terminal, cannot transition to Withdrawn.
+        var entity = new JobApplication { JobApplicationId = 1, CandidateEmail = "jane@example.com", ApplicationStatus = ApplicationStatusEnum.Hired };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+
+        // Act
+        var act = () => _service.WithdrawMyApplicationAsync(1);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task WithdrawMyApplicationAsync_AlreadyWithdrawn_ShouldBeIdempotentNoOp()
+    {
+        // Arrange
+        var entity = new JobApplication { JobApplicationId = 1, CandidateEmail = "jane@example.com", ApplicationStatus = ApplicationStatusEnum.Withdrawn };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+
+        // Act
+        await _service.WithdrawMyApplicationAsync(1);
+
+        // Assert
+        entity.StatusHistory.Should().BeEmpty();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
     }
 }

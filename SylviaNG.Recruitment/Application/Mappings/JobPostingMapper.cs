@@ -192,6 +192,38 @@ namespace SylviaNG.Recruitment.Application.Mappings
             };
         }
 
+        // ── Candidate Self-Service (US-040) ────────────────────────────────
+
+        public static MyApplicationResponse ToMyApplicationResponse(this JobApplication entity, bool canWithdraw)
+        {
+            return new MyApplicationResponse
+            {
+                JobApplicationId = entity.JobApplicationId,
+                JobPostingId = entity.JobPostingId,
+                JobPostingTitle = entity.JobPosting?.Title,
+                AppliedDate = entity.AppliedDate,
+                ApplicationStatus = entity.ApplicationStatus,
+                CanWithdraw = canWithdraw,
+                Interviews = entity.Interviews
+                    .Where(i => i.IsActive)
+                    .OrderBy(i => i.ScheduledDate)
+                    .Select(i => i.ToMyApplicationInterviewResponse())
+                    .ToList()
+            };
+        }
+
+        public static MyApplicationInterviewResponse ToMyApplicationInterviewResponse(this Interview entity)
+        {
+            return new MyApplicationInterviewResponse
+            {
+                InterviewId = entity.InterviewId,
+                ScheduledDate = entity.ScheduledDate,
+                Location = entity.Location,
+                MeetingLink = entity.MeetingLink,
+                Round = entity.Round
+            };
+        }
+
         public static ApplicationStatusHistoryResponse ToResponse(this ApplicationStatusHistory entity)
         {
             return new ApplicationStatusHistoryResponse

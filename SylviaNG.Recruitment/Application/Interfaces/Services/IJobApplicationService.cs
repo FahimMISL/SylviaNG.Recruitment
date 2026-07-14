@@ -39,5 +39,15 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
 
         /// <summary>Best-effort bulk status move across multiple applications (US-035 AC5).</summary>
         Task<JobApplicationBulkStatusUpdateResponse> BulkUpdateStatusAsync(JobApplicationBulkStatusUpdateRequest request);
+
+        /// <summary>Every application the current authenticated candidate has submitted (US-040 AC1/AC2/AC3).</summary>
+        Task<List<MyApplicationResponse>> GetMyApplicationsAsync();
+
+        /// <summary>
+        /// Candidate withdraws their own active application (US-040 AC4). No-op if already
+        /// Withdrawn; throws if the application belongs to a different candidate or is in a
+        /// terminal state that can no longer transition to Withdrawn.
+        /// </summary>
+        Task WithdrawMyApplicationAsync(long jobApplicationId);
     }
 }

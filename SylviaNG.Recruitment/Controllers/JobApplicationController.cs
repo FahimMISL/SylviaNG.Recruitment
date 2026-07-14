@@ -144,5 +144,29 @@ namespace SylviaNG.Recruitment.Controllers
             var result = await _mediator.Send(new JobApplicationSubmitCommand(request, ApplicationSourceEnum.Admin));
             return Ok(result);
         }
+
+        /// <summary>
+        /// The current candidate's own submitted applications, with status, interview dates,
+        /// and a computed CanWithdraw flag per row (US-040 AC1/AC2/AC3).
+        /// </summary>
+        [HttpGet("my-applications")]
+        [Authorize(Roles = "Candidate")]
+        public async Task<ActionResult<List<MyApplicationResponse>>> GetMyApplications()
+        {
+            var result = await _jobApplicationService.GetMyApplicationsAsync();
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Candidate withdraws their own active application (US-040 AC4). The confirmation
+        /// prompt is a frontend concern; this call performs the withdrawal directly.
+        /// </summary>
+        [HttpPatch("my-applications/{jobApplicationId}/withdraw")]
+        [Authorize(Roles = "Candidate")]
+        public async Task<ActionResult> WithdrawMyApplication(long jobApplicationId)
+        {
+            await _jobApplicationService.WithdrawMyApplicationAsync(jobApplicationId);
+            return Ok();
+        }
     }
 }
