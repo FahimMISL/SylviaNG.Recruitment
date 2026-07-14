@@ -10,6 +10,7 @@ using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.Domain.Events;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using SylviaNG.Recruitment.SharedKernel.Pagination;
 
 namespace SylviaNG.Recruitment.Tests.Services;
 
@@ -17,6 +18,7 @@ public class JobApplicationServiceTests
 {
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<IJobPostingRepository> _jobPostingRepositoryMock;
+    private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly Mock<IApplicationCvStorageService> _cvStorageServiceMock;
     private readonly Mock<IApplicationStatusReasonRepository> _statusReasonRepositoryMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
@@ -28,6 +30,7 @@ public class JobApplicationServiceTests
     {
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _jobPostingRepositoryMock = new Mock<IJobPostingRepository>();
+        _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
         _cvStorageServiceMock = new Mock<IApplicationCvStorageService>();
         _statusReasonRepositoryMock = new Mock<IApplicationStatusReasonRepository>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
@@ -40,6 +43,7 @@ public class JobApplicationServiceTests
         _service = new JobApplicationService(
             _jobApplicationRepositoryMock.Object,
             _jobPostingRepositoryMock.Object,
+            _candidateProfileRepositoryMock.Object,
             _cvStorageServiceMock.Object,
             _statusReasonRepositoryMock.Object,
             _currentUserServiceMock.Object,
@@ -414,7 +418,12 @@ public class JobApplicationServiceTests
             .Setup(r => r.GetAllMatchingIdsAsync(1, ApplicationStatusEnum.Applied, ApplicationSourceEnum.External, null, null))
             .ReturnsAsync(expectedIds);
 
-        var result = await _service.GetDashboardMatchingIdsAsync(1, ApplicationStatusEnum.Applied, ApplicationSourceEnum.External, null, null);
+        var result = await _service.GetDashboardMatchingIdsAsync(new JobApplicationAttributeFilterRequest
+        {
+            JobPostingId = 1,
+            Status = ApplicationStatusEnum.Applied,
+            Source = ApplicationSourceEnum.External
+        });
 
         result.Should().Equal(expectedIds);
     }
@@ -520,5 +529,193 @@ public class JobApplicationServiceTests
         // Assert
         entity.StatusHistory.Should().BeEmpty();
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    // ── MatchesAttributeFilter / ATS candidate-attribute filtering (US-050) ─
+
+    private static CandidateFactService.CandidateFacts Facts(
+        int? age = null,
+        double experienceYears = 0,
+        IEnumerable<string>? skills = null,
+        IEnumerable<EducationLevelEnum>? educationLevels = null,
+        string address = "") =>
+        new(age, experienceYears,
+            new HashSet<string>(skills ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase),
+            new HashSet<EducationLevelEnum>(educationLevels ?? Enumerable.Empty<EducationLevelEnum>()),
+            address);
+
+    [Fact]
+    public void MatchesAttributeFilter_MinEducationLevel_AnyDegreeMeetingMinimum_ShouldMatch()
+    {
+        var facts = Facts(educationLevels: new[] { EducationLevelEnum.SSC, EducationLevelEnum.Bachelor });
+        var filter = new JobApplicationAttributeFilterRequest { MinEducationLevel = EducationLevelEnum.Diploma };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeTrue();
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_MinEducationLevel_NoDegreeMeetingMinimum_ShouldNotMatch()
+    {
+        var facts = Facts(educationLevels: new[] { EducationLevelEnum.SSC });
+        var filter = new JobApplicationAttributeFilterRequest { MinEducationLevel = EducationLevelEnum.Bachelor };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(2.0, 5.0, 3.0, true)]
+    [InlineData(2.0, 5.0, 1.9, false)]
+    [InlineData(2.0, 5.0, 5.1, false)]
+    public void MatchesAttributeFilter_ExperienceRange_ShouldRespectMinAndMax(double min, double max, double actual, bool expected)
+    {
+        var facts = Facts(experienceYears: actual);
+        var filter = new JobApplicationAttributeFilterRequest { MinExperienceYears = (decimal)min, MaxExperienceYears = (decimal)max };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().Be(expected);
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_Skills_MatchesIfAnySelectedSkillPresent()
+    {
+        var facts = Facts(skills: new[] { "React", "SQL" });
+        var filter = new JobApplicationAttributeFilterRequest { Skills = new List<string> { "Node", "React" } };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeTrue();
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_Skills_NoneOfSelectedSkillsPresent_ShouldNotMatch()
+    {
+        var facts = Facts(skills: new[] { "React", "SQL" });
+        var filter = new JobApplicationAttributeFilterRequest { Skills = new List<string> { "Node", "Java" } };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_AgeRange_OutsideBounds_ShouldNotMatch()
+    {
+        var facts = Facts(age: 40);
+        var filter = new JobApplicationAttributeFilterRequest { MinAge = 25, MaxAge = 35 };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_AgeRange_UnknownAge_ShouldNotMatch()
+    {
+        var facts = Facts(age: null);
+        var filter = new JobApplicationAttributeFilterRequest { MinAge = 25 };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_Location_CaseInsensitiveSubstringMatch_ShouldMatch()
+    {
+        var facts = Facts(address: "House 12, Road 5, Dhanmondi, Dhaka");
+        var filter = new JobApplicationAttributeFilterRequest { Location = "dhanmondi" };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeTrue();
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_CombinedFilters_AllMustMatch()
+    {
+        var facts = Facts(age: 30, experienceYears: 4, skills: new[] { "React" },
+            educationLevels: new[] { EducationLevelEnum.Bachelor }, address: "Dhaka");
+
+        var passingFilter = new JobApplicationAttributeFilterRequest
+        {
+            MinEducationLevel = EducationLevelEnum.Diploma,
+            MinExperienceYears = 2,
+            Skills = new List<string> { "React" },
+            MinAge = 25,
+            MaxAge = 35,
+            Location = "Dhaka"
+        };
+        JobApplicationService.MatchesAttributeFilter(facts, passingFilter).Should().BeTrue();
+
+        var failingFilter = new JobApplicationAttributeFilterRequest
+        {
+            MinEducationLevel = EducationLevelEnum.Diploma,
+            MinExperienceYears = 2,
+            Skills = new List<string> { "React" },
+            MinAge = 25,
+            MaxAge = 35,
+            Location = "Chittagong" // only this field disagrees - whole filter should fail
+        };
+        JobApplicationService.MatchesAttributeFilter(facts, failingFilter).Should().BeFalse();
+    }
+
+    // ── GetDashboardPagedAsync / GetDashboardMatchingIdsAsync (US-050) ──────
+
+    [Fact]
+    public async Task GetDashboardPagedAsync_CandidateAttributeFilterWithoutJobPostingId_ShouldThrowValidation()
+    {
+        var filter = new JobApplicationAttributeFilterRequest { MinAge = 25 };
+
+        var act = () => _service.GetDashboardPagedAsync(new PagedRequest { Page = 1, PageSize = 10 }, filter);
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+    }
+
+    [Fact]
+    public async Task GetDashboardMatchingIdsAsync_CandidateAttributeFilterWithoutJobPostingId_ShouldThrowValidation()
+    {
+        var filter = new JobApplicationAttributeFilterRequest { Skills = new List<string> { "React" } };
+
+        var act = () => _service.GetDashboardMatchingIdsAsync(filter);
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+    }
+
+    [Fact]
+    public async Task GetDashboardPagedAsync_NoCandidateAttributeFilters_ShouldDelegateToFastSqlPath()
+    {
+        var filter = new JobApplicationAttributeFilterRequest { JobPostingId = 1, Status = ApplicationStatusEnum.Applied };
+        var pagedResult = new PagedResult<JobApplication>
+        {
+            Data = new List<JobApplication> { new() { JobApplicationId = 1, JobPostingId = 1, CandidateName = "Jane" } },
+            TotalCount = 1,
+            PageNumber = 1,
+            PageSize = 10
+        };
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetPaginatedAllAsync(It.IsAny<PagedRequest>(), 1, ApplicationStatusEnum.Applied, null, null, null))
+            .ReturnsAsync(pagedResult);
+
+        var result = await _service.GetDashboardPagedAsync(new PagedRequest { Page = 1, PageSize = 10 }, filter);
+
+        result.TotalCount.Should().Be(1);
+        result.Data.Should().ContainSingle(d => d.JobApplicationId == 1);
+        _candidateProfileRepositoryMock.Verify(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetDashboardMatchingIdsAsync_WithSkillFilter_ShouldJoinProfilesAndReturnOnlyMatchingIds()
+    {
+        var applications = new List<JobApplication>
+        {
+            new() { JobApplicationId = 1, JobPostingId = 1, CandidateEmail = "react-dev@x.com" },
+            new() { JobApplicationId = 2, JobPostingId = 1, CandidateEmail = "no-match@x.com" }
+        };
+        var profiles = new List<CandidateProfile>
+        {
+            new() { Email = "react-dev@x.com", Skills = new List<CandidateSkill> { new() { SkillName = "React" } } },
+            new() { Email = "no-match@x.com", Skills = new List<CandidateSkill> { new() { SkillName = "Java" } } }
+        };
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetAllByJobPostingAndScalarFiltersAsync(1, null, null, null, null))
+            .ReturnsAsync(applications);
+        _candidateProfileRepositoryMock
+            .Setup(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(profiles);
+
+        var filter = new JobApplicationAttributeFilterRequest { JobPostingId = 1, Skills = new List<string> { "React" } };
+
+        var result = await _service.GetDashboardMatchingIdsAsync(filter);
+
+        result.Should().Equal(new List<long> { 1 });
     }
 }

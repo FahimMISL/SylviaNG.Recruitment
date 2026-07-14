@@ -15,6 +15,7 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IJobPostingRepository _jobPostingRepository;
+        private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IApplicationCvStorageService _applicationCvStorageService;
         private readonly IApplicationStatusReasonRepository _applicationStatusReasonRepository;
         private readonly ICurrentUserService _currentUserService;
@@ -51,6 +52,7 @@ namespace SylviaNG.Recruitment.Application.Services
         public JobApplicationService(
             IJobApplicationRepository jobApplicationRepository,
             IJobPostingRepository jobPostingRepository,
+            ICandidateProfileRepository candidateProfileRepository,
             IApplicationCvStorageService applicationCvStorageService,
             IApplicationStatusReasonRepository applicationStatusReasonRepository,
             ICurrentUserService currentUserService,
@@ -59,6 +61,7 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             _jobApplicationRepository = jobApplicationRepository;
             _jobPostingRepository = jobPostingRepository;
+            _candidateProfileRepository = candidateProfileRepository;
             _applicationCvStorageService = applicationCvStorageService;
             _applicationStatusReasonRepository = applicationStatusReasonRepository;
             _currentUserService = currentUserService;
@@ -181,20 +184,41 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<PagedResult<JobApplicationDashboardResponse>> GetDashboardPagedAsync(
             PagedRequest request,
-            long? jobPostingId,
-            ApplicationStatusEnum? status,
-            ApplicationSourceEnum? source,
-            DateTime? dateFrom,
-            DateTime? dateTo)
+            JobApplicationAttributeFilterRequest filter)
         {
-            var pagedResult = await _jobApplicationRepository.GetPaginatedAllAsync(request, jobPostingId, status, source, dateFrom, dateTo);
+            ValidateAttributeFilterRequest(filter);
+
+            if (!filter.HasCandidateAttributeFilters)
+            {
+                var pagedResult = await _jobApplicationRepository.GetPaginatedAllAsync(
+                    request, filter.JobPostingId, filter.Status, filter.Source, filter.DateFrom, filter.DateTo);
+
+                return new PagedResult<JobApplicationDashboardResponse>
+                {
+                    Data = pagedResult.Data.Select(e => e.ToDashboardResponse()).ToList(),
+                    TotalCount = pagedResult.TotalCount,
+                    PageNumber = pagedResult.PageNumber,
+                    PageSize = pagedResult.PageSize
+                };
+            }
+
+            // Candidate-attribute filters require an in-memory join (email->profile, no FK), so
+            // pagination happens after filtering here rather than in SQL - same tradeoff already
+            // accepted by ShortlistFilterEvaluationService for single-vacancy datasets. Sorting is
+            // fixed to AppliedDate desc on this path (column sort isn't supported alongside
+            // candidate-attribute filters).
+            var matched = await GetAttributeFilteredApplicationsAsync(filter);
+            var page = matched
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
 
             return new PagedResult<JobApplicationDashboardResponse>
             {
-                Data = pagedResult.Data.Select(e => e.ToDashboardResponse()).ToList(),
-                TotalCount = pagedResult.TotalCount,
-                PageNumber = pagedResult.PageNumber,
-                PageSize = pagedResult.PageSize
+                Data = page.Select(e => e.ToDashboardResponse()).ToList(),
+                TotalCount = matched.Count,
+                PageNumber = request.Page,
+                PageSize = request.PageSize
             };
         }
 
@@ -206,14 +230,90 @@ namespace SylviaNG.Recruitment.Application.Services
             return entity.ToDetailResponse();
         }
 
-        public async Task<List<long>> GetDashboardMatchingIdsAsync(
-            long? jobPostingId,
-            ApplicationStatusEnum? status,
-            ApplicationSourceEnum? source,
-            DateTime? dateFrom,
-            DateTime? dateTo)
+        public async Task<List<long>> GetDashboardMatchingIdsAsync(JobApplicationAttributeFilterRequest filter)
         {
-            return await _jobApplicationRepository.GetAllMatchingIdsAsync(jobPostingId, status, source, dateFrom, dateTo);
+            ValidateAttributeFilterRequest(filter);
+
+            if (!filter.HasCandidateAttributeFilters)
+                return await _jobApplicationRepository.GetAllMatchingIdsAsync(filter.JobPostingId, filter.Status, filter.Source, filter.DateFrom, filter.DateTo);
+
+            var matched = await GetAttributeFilteredApplicationsAsync(filter);
+            return matched.Select(a => a.JobApplicationId).ToList();
+        }
+
+        private static void ValidateAttributeFilterRequest(JobApplicationAttributeFilterRequest filter)
+        {
+            if (filter.HasCandidateAttributeFilters && !filter.JobPostingId.HasValue)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(filter.JobPostingId),
+                        "JobPostingId is required when filtering by education, experience, skills, location, or age.")
+                });
+            }
+        }
+
+        private async Task<List<JobApplication>> GetAttributeFilteredApplicationsAsync(JobApplicationAttributeFilterRequest filter)
+        {
+            var applications = await _jobApplicationRepository.GetAllByJobPostingAndScalarFiltersAsync(
+                filter.JobPostingId!.Value, filter.Status, filter.Source, filter.DateFrom, filter.DateTo);
+
+            var emails = applications
+                .Select(a => a.CandidateEmail)
+                .Where(e => !string.IsNullOrEmpty(e))
+                .Distinct()
+                .Cast<string>()
+                .ToList();
+
+            var profiles = await _candidateProfileRepository.GetByEmailsAsync(emails);
+            var profilesByEmail = profiles.ToDictionary(p => p.Email, p => p, StringComparer.OrdinalIgnoreCase);
+
+            var matched = new List<JobApplication>();
+            foreach (var application in applications)
+            {
+                CandidateProfile? profile = null;
+                if (!string.IsNullOrEmpty(application.CandidateEmail))
+                    profilesByEmail.TryGetValue(application.CandidateEmail, out profile);
+
+                if (profile == null)
+                    continue;
+
+                var facts = CandidateFactService.BuildFacts(profile);
+                if (MatchesAttributeFilter(facts, filter))
+                    matched.Add(application);
+            }
+
+            return matched.OrderByDescending(a => a.AppliedDate).ToList();
+        }
+
+        public static bool MatchesAttributeFilter(CandidateFactService.CandidateFacts facts, JobApplicationAttributeFilterRequest filter)
+        {
+            if (filter.MinEducationLevel.HasValue
+                && !facts.EducationLevels.Any(l => (int)l >= (int)filter.MinEducationLevel.Value))
+                return false;
+
+            if (filter.MinExperienceYears.HasValue && facts.TotalExperienceYears < (double)filter.MinExperienceYears.Value)
+                return false;
+
+            if (filter.MaxExperienceYears.HasValue && facts.TotalExperienceYears > (double)filter.MaxExperienceYears.Value)
+                return false;
+
+            if (filter.Skills != null && filter.Skills.Count > 0
+                && !filter.Skills.Any(skill => facts.SkillNames.Contains(skill)))
+                return false;
+
+            if (!string.IsNullOrWhiteSpace(filter.Location)
+                && !facts.AddressText.Contains(filter.Location, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (filter.MinAge.HasValue && (!facts.Age.HasValue || facts.Age.Value < filter.MinAge.Value))
+                return false;
+
+            if (filter.MaxAge.HasValue && (!facts.Age.HasValue || facts.Age.Value > filter.MaxAge.Value))
+                return false;
+
+            return true;
         }
 
         public async Task<List<ApplicationStatusReasonResponse>> GetStatusReasonsAsync(ApplicationStatusEnum status)

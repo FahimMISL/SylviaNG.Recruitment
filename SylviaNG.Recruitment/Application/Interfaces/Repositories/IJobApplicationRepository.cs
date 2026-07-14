@@ -31,6 +31,18 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// <summary>Every application for one job posting, unpaginated - for shortlist filter evaluation (US-043).</summary>
         Task<List<JobApplication>> GetAllByJobPostingIdAsync(long jobPostingId);
 
+        /// <summary>
+        /// Every application for one job posting matching the scalar (status/source/date) filters,
+        /// unpaginated - feeds the in-memory candidate-attribute filter pass for US-050, mirroring
+        /// ShortlistFilterEvaluationService's existing single-vacancy-load pattern.
+        /// </summary>
+        Task<List<JobApplication>> GetAllByJobPostingAndScalarFiltersAsync(
+            long jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo);
+
         /// <summary>IDs of every application matching the ATS dashboard filters, unpaginated - backs
         /// "select all N matching applications" bulk selection across pages (US-047 AC5).</summary>
         Task<List<long>> GetAllMatchingIdsAsync(

@@ -73,19 +73,17 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// ATS dashboard: paginated, filterable view of every application across all job postings (US-035).
+        /// ATS dashboard: paginated, filterable view of every application across all job postings (US-035),
+        /// plus candidate-attribute filters (education/experience/skills/location/age) scoped to one
+        /// vacancy (US-050).
         /// </summary>
         [HttpGet("dashboard/paged")]
         [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult<PagedResult<JobApplicationDashboardResponse>>> GetDashboardPaged(
             [FromQuery] PagedRequest request,
-            [FromQuery] long? jobPostingId,
-            [FromQuery] ApplicationStatusEnum? status,
-            [FromQuery] ApplicationSourceEnum? source,
-            [FromQuery] DateTime? dateFrom,
-            [FromQuery] DateTime? dateTo)
+            [FromQuery] JobApplicationAttributeFilterRequest filter)
         {
-            var result = await _jobApplicationService.GetDashboardPagedAsync(request, jobPostingId, status, source, dateFrom, dateTo);
+            var result = await _jobApplicationService.GetDashboardPagedAsync(request, filter);
             return Ok(result);
         }
 
@@ -106,14 +104,9 @@ namespace SylviaNG.Recruitment.Controllers
         /// </summary>
         [HttpGet("dashboard/matching-ids")]
         [Authorize(Roles = "Admin,HR")]
-        public async Task<ActionResult<List<long>>> GetDashboardMatchingIds(
-            [FromQuery] long? jobPostingId,
-            [FromQuery] ApplicationStatusEnum? status,
-            [FromQuery] ApplicationSourceEnum? source,
-            [FromQuery] DateTime? dateFrom,
-            [FromQuery] DateTime? dateTo)
+        public async Task<ActionResult<List<long>>> GetDashboardMatchingIds([FromQuery] JobApplicationAttributeFilterRequest filter)
         {
-            var result = await _jobApplicationService.GetDashboardMatchingIdsAsync(jobPostingId, status, source, dateFrom, dateTo);
+            var result = await _jobApplicationService.GetDashboardMatchingIdsAsync(filter);
             return Ok(result);
         }
 

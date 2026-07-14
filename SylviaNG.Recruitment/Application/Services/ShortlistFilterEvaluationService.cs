@@ -90,7 +90,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 if (profile == null)
                     continue;
 
-                var facts = BuildFacts(profile);
+                var facts = CandidateFactService.BuildFacts(profile);
 
                 if (criteria.Count > 0 && Evaluate(criteria, combineWith, facts))
                     passingIds.Add(application.JobApplicationId);
@@ -119,57 +119,15 @@ namespace SylviaNG.Recruitment.Application.Services
             });
         }
 
-        // ── Candidate fact derivation ───────────────────────────────────
-
-        private sealed record CandidateFacts(
-            int? Age,
-            double TotalExperienceYears,
-            HashSet<string> SkillNames,
-            HashSet<EducationLevelEnum> EducationLevels,
-            string AddressText);
-
-        private static CandidateFacts BuildFacts(CandidateProfile? profile)
-        {
-            if (profile == null)
-            {
-                return new CandidateFacts(null, 0, new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                    new HashSet<EducationLevelEnum>(), string.Empty);
-            }
-
-            var age = profile.DateOfBirth.HasValue ? CalculateAge(profile.DateOfBirth.Value, DateTime.UtcNow) : (int?)null;
-
-            var totalExperienceYears = profile.WorkExperiences?
-                .Sum(w => ((w.EndDate ?? DateTime.UtcNow) - w.StartDate).TotalDays / 365.25) ?? 0;
-
-            var skillNames = new HashSet<string>(
-                profile.Skills?.Select(s => s.SkillName).Where(n => !string.IsNullOrWhiteSpace(n)) ?? Enumerable.Empty<string>(),
-                StringComparer.OrdinalIgnoreCase);
-
-            var educationLevels = new HashSet<EducationLevelEnum>(
-                profile.Educations?.Where(e => e.EducationLevel.HasValue).Select(e => e.EducationLevel!.Value) ?? Enumerable.Empty<EducationLevelEnum>());
-
-            var addressText = string.Join(" ", new[] { profile.PresentAddress, profile.PermanentAddress }.Where(a => !string.IsNullOrWhiteSpace(a)));
-
-            return new CandidateFacts(age, totalExperienceYears, skillNames, educationLevels, addressText);
-        }
-
-        private static int CalculateAge(DateTime dateOfBirth, DateTime asOf)
-        {
-            var age = asOf.Year - dateOfBirth.Year;
-            if (dateOfBirth.Date > asOf.AddYears(-age))
-                age--;
-            return age;
-        }
-
         // ── Evaluation ───────────────────────────────────────────────────
 
-        private static bool Evaluate(List<ShortlistFilterCriterionRequest> criteria, FilterCombinatorEnum combineWith, CandidateFacts facts)
+        private static bool Evaluate(List<ShortlistFilterCriterionRequest> criteria, FilterCombinatorEnum combineWith, CandidateFactService.CandidateFacts facts)
         {
             var results = criteria.Select(c => EvaluateCriterion(c, facts)).ToList();
             return combineWith == FilterCombinatorEnum.And ? results.All(r => r) : results.Any(r => r);
         }
 
-        private static bool EvaluateCriterion(ShortlistFilterCriterionRequest criterion, CandidateFacts facts)
+        private static bool EvaluateCriterion(ShortlistFilterCriterionRequest criterion, CandidateFactService.CandidateFacts facts)
         {
             switch (criterion.CriterionType)
             {

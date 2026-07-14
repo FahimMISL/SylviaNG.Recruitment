@@ -19,26 +19,20 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// </summary>
         Task<JobApplicationResponse> SubmitAsync(JobApplicationSubmitRequest request, ApplicationSourceEnum source);
 
-        /// <summary>ATS dashboard: all applications across every job posting, filterable (US-035 AC1/AC2/AC3).</summary>
+        /// <summary>
+        /// ATS dashboard: all applications across every job posting, filterable by status/source/date
+        /// (US-035 AC1/AC2/AC3), plus candidate-attribute filters scoped to one vacancy (US-050).
+        /// </summary>
         Task<PagedResult<JobApplicationDashboardResponse>> GetDashboardPagedAsync(
             PagedRequest request,
-            long? jobPostingId,
-            ApplicationStatusEnum? status,
-            ApplicationSourceEnum? source,
-            DateTime? dateFrom,
-            DateTime? dateTo);
+            JobApplicationAttributeFilterRequest filter);
 
         /// <summary>Full application detail including status-history audit trail (US-035 AC4).</summary>
         Task<JobApplicationDetailResponse> GetDetailAsync(long jobApplicationId);
 
         /// <summary>IDs of every application matching the ATS dashboard filters, unpaginated - backs
         /// "select all N matching applications" bulk selection across pages (US-047 AC5).</summary>
-        Task<List<long>> GetDashboardMatchingIdsAsync(
-            long? jobPostingId,
-            ApplicationStatusEnum? status,
-            ApplicationSourceEnum? source,
-            DateTime? dateFrom,
-            DateTime? dateTo);
+        Task<List<long>> GetDashboardMatchingIdsAsync(JobApplicationAttributeFilterRequest filter);
 
         /// <summary>Reject/withdraw reasons for the given status, for the dropdown (US-036 AC3).</summary>
         Task<List<ApplicationStatusReasonResponse>> GetStatusReasonsAsync(ApplicationStatusEnum status);

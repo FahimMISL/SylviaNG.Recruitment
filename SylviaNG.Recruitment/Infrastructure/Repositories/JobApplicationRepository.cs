@@ -99,5 +99,16 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(a => a.JobPostingId == jobPostingId)
                 .ToListAsync();
         }
+
+        public async Task<List<JobApplication>> GetAllByJobPostingAndScalarFiltersAsync(
+            long jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo)
+        {
+            return await BuildDashboardFilterQuery(jobPostingId, status, source, dateFrom, dateTo)
+                .ToListAsync();
+        }
     }
 }
