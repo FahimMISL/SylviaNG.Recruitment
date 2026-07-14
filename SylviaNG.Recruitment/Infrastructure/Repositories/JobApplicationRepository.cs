@@ -51,16 +51,37 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             DateTime? dateFrom,
             DateTime? dateTo)
         {
-            var query = _dbSet
-                .Include(a => a.JobPosting)
+            var query = BuildDashboardFilterQuery(jobPostingId, status, source, dateFrom, dateTo)
+                .Include(a => a.JobPosting);
+
+            return await query.ToPaginatedResultAsync(request);
+        }
+
+        public async Task<List<long>> GetAllMatchingIdsAsync(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo)
+        {
+            return await BuildDashboardFilterQuery(jobPostingId, status, source, dateFrom, dateTo)
+                .Select(a => a.JobApplicationId)
+                .ToListAsync();
+        }
+
+        private IQueryable<JobApplication> BuildDashboardFilterQuery(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo)
+        {
+            return _dbSet
                 .Where(a => jobPostingId == null || a.JobPostingId == jobPostingId)
                 .Where(a => status == null || a.ApplicationStatus == status)
                 .Where(a => source == null || a.Source == source)
                 .Where(a => dateFrom == null || a.AppliedDate == null || a.AppliedDate >= dateFrom)
-                .Where(a => dateTo == null || a.AppliedDate == null || a.AppliedDate <= dateTo)
-                .AsQueryable();
-
-            return await query.ToPaginatedResultAsync(request);
+                .Where(a => dateTo == null || a.AppliedDate == null || a.AppliedDate <= dateTo);
         }
 
         public async Task<JobApplication?> GetByIdWithHistoryAsync(long jobApplicationId)

@@ -101,6 +101,23 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
+        /// IDs of every application matching the dashboard filters, unpaginated - backs "select all
+        /// N matching applications" bulk selection across pages (US-047 AC5).
+        /// </summary>
+        [HttpGet("dashboard/matching-ids")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<List<long>>> GetDashboardMatchingIds(
+            [FromQuery] long? jobPostingId,
+            [FromQuery] ApplicationStatusEnum? status,
+            [FromQuery] ApplicationSourceEnum? source,
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo)
+        {
+            var result = await _jobApplicationService.GetDashboardMatchingIdsAsync(jobPostingId, status, source, dateFrom, dateTo);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Configurable reject/withdraw reasons for the given target status (US-036 AC3).
         /// </summary>
         [HttpGet("status-reasons")]

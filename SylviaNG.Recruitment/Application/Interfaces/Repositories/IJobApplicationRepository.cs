@@ -30,5 +30,14 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>Every application for one job posting, unpaginated - for shortlist filter evaluation (US-043).</summary>
         Task<List<JobApplication>> GetAllByJobPostingIdAsync(long jobPostingId);
+
+        /// <summary>IDs of every application matching the ATS dashboard filters, unpaginated - backs
+        /// "select all N matching applications" bulk selection across pages (US-047 AC5).</summary>
+        Task<List<long>> GetAllMatchingIdsAsync(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo);
     }
 }

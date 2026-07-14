@@ -31,6 +31,15 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// <summary>Full application detail including status-history audit trail (US-035 AC4).</summary>
         Task<JobApplicationDetailResponse> GetDetailAsync(long jobApplicationId);
 
+        /// <summary>IDs of every application matching the ATS dashboard filters, unpaginated - backs
+        /// "select all N matching applications" bulk selection across pages (US-047 AC5).</summary>
+        Task<List<long>> GetDashboardMatchingIdsAsync(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo);
+
         /// <summary>Reject/withdraw reasons for the given status, for the dropdown (US-036 AC3).</summary>
         Task<List<ApplicationStatusReasonResponse>> GetStatusReasonsAsync(ApplicationStatusEnum status);
 
