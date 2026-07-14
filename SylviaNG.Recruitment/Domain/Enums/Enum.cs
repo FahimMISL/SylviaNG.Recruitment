@@ -79,3 +79,19 @@ public enum StageProgressStatusEnum
     Completed,
     Rejected
 }
+
+public enum CriterionTypeEnum
+{
+    EducationLevel,
+    MinExperienceYears,
+    RequiredSkills,
+    AgeRange,
+    District,
+    MinScreeningScore
+}
+
+public enum FilterCombinatorEnum
+{
+    And,
+    Or
+}

@@ -73,6 +73,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<ApplicationStatusHistory> ApplicationStatusHistories { get; set; }
         public DbSet<ApplicationStatusReason> ApplicationStatusReasons { get; set; }
         public DbSet<JobApplicationStageProgress> JobApplicationStageProgresses { get; set; }
+        public DbSet<ShortlistFilter> ShortlistFilters { get; set; }
+        public DbSet<ShortlistFilterCriterion> ShortlistFilterCriteria { get; set; }
 
         #endregion
 
