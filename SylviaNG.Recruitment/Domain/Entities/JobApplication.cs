@@ -24,4 +24,5 @@ public class JobApplication : Audit
     public JobPosting JobPosting { get; set; } = null!;
     public ICollection<Interview> Interviews { get; set; } = new List<Interview>();
     public ICollection<ApplicationStatusHistory> StatusHistory { get; set; } = new List<ApplicationStatusHistory>();
+    public ICollection<JobApplicationStageProgress> StageProgress { get; set; } = new List<JobApplicationStageProgress>();
 }

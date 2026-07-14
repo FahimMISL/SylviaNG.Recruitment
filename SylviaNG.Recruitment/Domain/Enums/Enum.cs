@@ -71,3 +71,11 @@ public enum CandidateDocumentTypeEnum
     ExperienceLetter,
     Other
 }
+
+public enum StageProgressStatusEnum
+{
+    Pending,
+    InProgress,
+    Completed,
+    Rejected
+}
