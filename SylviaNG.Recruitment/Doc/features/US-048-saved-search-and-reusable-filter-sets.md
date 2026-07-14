@@ -32,10 +32,16 @@ HR currently re-enters the same filter combo every session — `ats-dashboard.co
 - `Application/Extensions/DependencyInjection.cs`, `Infrastructure/Extensions/DependencyInjection.cs` — DI registration.
 - `SylviaNG.Recruitment.Tests/Services/SavedSearchServiceTests.cs` — new; 10 tests covering create/duplicate-name/no-resolvable-owner/not-found/forbidden-update/admin-bypass/forbidden-delete/delete/visible-lookup.
 
-**Frontend:** not yet implemented this round — frontend `dev` branch doesn't exist yet in `sylviang.adminui.recruitment-main` (per-user instruction, deferred until it's created). The dropdown/dialog UI (`ats-dashboard.component.ts/html`, new `saved-search.interface.ts`/`saved-search.service.ts`) will land in a follow-up once that's ready.
+**Frontend** (`sylviang.adminui.recruitment-main/sylviang.adminui.recruitment-main/src/app/`) — built once frontend `dev` was created (initially deferred pending that, then completed same day):
+- `@core/interfaces/recruitment-management/saved-search.interface.ts` — new; `ISavedSearchFilterSnapshot` reuses the exact 12 properties already round-tripped by `ats-dashboard.component.ts`'s `saveFiltersToSession`/`restoreFiltersFromSession`.
+- `@core/services/recruitment/saved-search/saved-search.service.ts` — new, mirrors `ShortlistFilterService`.
+- `pages/application-tracking/application-tracking.module.ts` — added `CheckboxModule`.
+- `pages/application-tracking/ats-dashboard/ats-dashboard.component.ts/html/scss` — "Save Search" button + always-visible Saved Search dropdown/"Apply Saved Search"/"Manage Saved Searches" row (not gated by vacancy selection, unlike the Shortlist Filter row), Save Search dialog, Manage Saved Searches dialog with inline rename and Edit/Delete disabled for non-owned searches (soft gate; the backend 403 is the real enforcement).
 
 ## Verification
 
 - `dotnet test` — 224/224 passing (214 pre-existing + 10 new `SavedSearchServiceTests`, no regressions).
 - `dotnet ef database update` — confirmed `SavedSearches` table + unique `(OwnerUserName, Name)` index created on local dev Postgres.
-- End-to-end via `curl` against local Docker Postgres/Keycloak + `dotnet run`, logged in as `abir`/HR: create → 200 (id returned); duplicate name for same owner → 409; `GET /lookup` reflects it with `isOwner: true`; update (rename + share) → 200, reflected in lookup; delete → 200, lookup empty afterward. Forbidden/Admin-bypass paths verified via unit tests only — no second HR account available locally to exercise cross-user 403 over HTTP.
+- Backend end-to-end via `curl` against local Docker Postgres/Keycloak + `dotnet run`, logged in as `abir`/HR: create → 200 (id returned); duplicate name for same owner → 409; `GET /lookup` reflects it with `isOwner: true`; update (rename + share) → 200, reflected in lookup; delete → 200, lookup empty afterward. Forbidden/Admin-bypass paths verified via unit tests only — no second HR account available locally to exercise cross-user 403 over HTTP.
+- `ng build` (development config) — compiles clean.
+- Frontend end-to-end via Playwright against local Docker Postgres/Keycloak + `dotnet run` + `ng serve`, logged in as `abir`/HR: set a Status filter, Save Search (personal), Reset (confirmed filter cleared), pick the saved search from the dropdown, Apply Saved Search → confirmed the Status filter and its chip rehydrated correctly. Manage Saved Searches dialog: renamed the search (row label updated), deleted it (row removed, confirmed `0` rows left in the `SavedSearches` table afterward). No leftover test data.
