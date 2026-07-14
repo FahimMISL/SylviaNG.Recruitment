@@ -1,4 +1,5 @@
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Features.ShortlistFilters.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -13,21 +14,60 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IShortlistFilterRepository _shortlistFilterRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
+        private readonly IJobApplicationService _jobApplicationService;
 
         public ShortlistFilterEvaluationService(
             IShortlistFilterRepository shortlistFilterRepository,
             IJobApplicationRepository jobApplicationRepository,
-            ICandidateProfileRepository candidateProfileRepository)
+            ICandidateProfileRepository candidateProfileRepository,
+            IJobApplicationService jobApplicationService)
         {
             _shortlistFilterRepository = shortlistFilterRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _candidateProfileRepository = candidateProfileRepository;
+            _jobApplicationService = jobApplicationService;
         }
 
         public async Task<ShortlistFilterPreviewResponse> PreviewAsync(ShortlistFilterPreviewRequest request)
         {
             var (combineWith, criteria) = await ResolveDefinitionAsync(request);
-            var applications = await _jobApplicationRepository.GetAllByJobPostingIdAsync(request.JobPostingId);
+            var (applications, passingIds) = await EvaluateApplicationsAsync(request.JobPostingId, combineWith, criteria);
+
+            return new ShortlistFilterPreviewResponse
+            {
+                TotalApplications = applications.Count,
+                PassingCount = passingIds.Count,
+                PassingJobApplicationIds = passingIds
+            };
+        }
+
+        public async Task<ShortlistFilterApplyResponse> ApplyAsync(ShortlistFilterApplyRequest request)
+        {
+            var filter = await _shortlistFilterRepository.GetByIdWithCriteriaAsync(request.ShortlistFilterId)
+                ?? throw new NotFoundException("ShortlistFilter", request.ShortlistFilterId);
+
+            var criteria = filter.Criteria.Select(c => c.ToCriterionRequest()).ToList();
+            var (applications, passingIds) = await EvaluateApplicationsAsync(request.JobPostingId, filter.CombineWith, criteria);
+
+            var bulkResult = await _jobApplicationService.BulkUpdateStatusAsync(new JobApplicationBulkStatusUpdateRequest
+            {
+                JobApplicationIds = passingIds,
+                ToStatus = ApplicationStatusEnum.Shortlisted
+            });
+
+            return new ShortlistFilterApplyResponse
+            {
+                TotalProcessed = applications.Count,
+                TotalShortlisted = bulkResult.SucceededIds.Count,
+                TotalFailed = bulkResult.Failed.Count,
+                Failures = bulkResult.Failed
+            };
+        }
+
+        private async Task<(List<JobApplication> Applications, List<long> PassingIds)> EvaluateApplicationsAsync(
+            long jobPostingId, FilterCombinatorEnum combineWith, List<ShortlistFilterCriterionRequest> criteria)
+        {
+            var applications = await _jobApplicationRepository.GetAllByJobPostingIdAsync(jobPostingId);
 
             var emails = applications
                 .Select(a => a.CandidateEmail)
@@ -56,12 +96,7 @@ namespace SylviaNG.Recruitment.Application.Services
                     passingIds.Add(application.JobApplicationId);
             }
 
-            return new ShortlistFilterPreviewResponse
-            {
-                TotalApplications = applications.Count,
-                PassingCount = passingIds.Count,
-                PassingJobApplicationIds = passingIds
-            };
+            return (applications, passingIds);
         }
 
         private async Task<(FilterCombinatorEnum CombineWith, List<ShortlistFilterCriterionRequest> Criteria)> ResolveDefinitionAsync(ShortlistFilterPreviewRequest request)
