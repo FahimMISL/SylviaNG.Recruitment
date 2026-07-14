@@ -38,7 +38,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 MinExperienceYears = request.MinExperienceYears,
                 RequiredDistrict = request.RequiredDistrict,
                 ApplicationFeeAmount = request.ApplicationFeeAmount,
-                ApplicationFeeCurrency = request.ApplicationFeeCurrency
+                ApplicationFeeCurrency = request.ApplicationFeeCurrency,
+                HiringPipelineId = request.HiringPipelineId
             };
         }
 
@@ -66,6 +67,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             if (request.RequiredDistrict != null) entity.RequiredDistrict = request.RequiredDistrict;
             if (request.ApplicationFeeAmount.HasValue) entity.ApplicationFeeAmount = request.ApplicationFeeAmount;
             if (request.ApplicationFeeCurrency != null) entity.ApplicationFeeCurrency = request.ApplicationFeeCurrency;
+            if (request.HiringPipelineId.HasValue) entity.HiringPipelineId = request.HiringPipelineId;
         }
 
         public static JobPostingResponse ToResponse(this JobPosting entity)
@@ -97,7 +99,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 MinExperienceYears = entity.MinExperienceYears,
                 RequiredDistrict = entity.RequiredDistrict,
                 ApplicationFeeAmount = entity.ApplicationFeeAmount,
-                ApplicationFeeCurrency = entity.ApplicationFeeCurrency
+                ApplicationFeeCurrency = entity.ApplicationFeeCurrency,
+                HiringPipelineId = entity.HiringPipelineId,
+                HiringPipelineName = entity.HiringPipeline?.Name
             };
         }
 

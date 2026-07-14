@@ -13,6 +13,9 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPost
             RuleFor(x => x.Request.SiteId)
                 .GreaterThan(0).WithMessage("SiteId is required.");
 
+            RuleFor(x => x.Request.HiringPipelineId)
+                .GreaterThan(0).WithMessage("A hiring pipeline must be selected for every job opening.");
+
             RuleFor(x => x.Request.NumberOfPositions)
                 .GreaterThan(0).WithMessage("Number of positions must be greater than 0.");
 

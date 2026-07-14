@@ -59,6 +59,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<JobPostingAttachment> JobPostingAttachments { get; set; }
         public DbSet<Interview> Interviews { get; set; }
         public DbSet<Employee> Employees { get; set; }
+        public DbSet<HiringPipeline> HiringPipelines { get; set; }
+        public DbSet<PipelineStage> PipelineStages { get; set; }
+        public DbSet<PipelineStageInterviewer> PipelineStageInterviewers { get; set; }
+        public DbSet<CandidateProfile> CandidateProfiles { get; set; }
+        public DbSet<CandidateEducation> CandidateEducations { get; set; }
+        public DbSet<CandidateWorkExperience> CandidateWorkExperiences { get; set; }
+        public DbSet<CandidateSkill> CandidateSkills { get; set; }
+        public DbSet<SkillLibraryItem> SkillLibraryItems { get; set; }
+        public DbSet<CandidateCertification> CandidateCertifications { get; set; }
+        public DbSet<CandidateDocument> CandidateDocuments { get; set; }
+        public DbSet<StaffProfile> StaffProfiles { get; set; }
 
         #endregion
 

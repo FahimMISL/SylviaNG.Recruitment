@@ -36,7 +36,13 @@ public class JobPosting : Audit
     public decimal? ApplicationFeeAmount { get; set; }
     public string? ApplicationFeeCurrency { get; set; }
 
+    // Hiring pipeline binding. Nullable at the DB level so pre-existing job postings created
+    // before this feature aren't broken; JobPostingCreateValidator makes it mandatory for new
+    // job postings per the "every job opening must reference a pipeline" requirement.
+    public long? HiringPipelineId { get; set; }
+
     // Navigation properties
     public ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
     public ICollection<JobPostingAttachment> Attachments { get; set; } = new List<JobPostingAttachment>();
+    public HiringPipeline? HiringPipeline { get; set; }
 }

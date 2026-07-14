@@ -31,5 +31,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// is not in <paramref name="allowedCircularTypes"/>.
         /// </summary>
         Task<JobPosting?> GetOpenByIdAndCircularTypesAsync(long jobPostingId, IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes);
+
+        /// <summary>Count of postings with the given status, for dashboard summary stats.</summary>
+        Task<int> CountByStatusAsync(JobStatusEnum status);
     }
 }

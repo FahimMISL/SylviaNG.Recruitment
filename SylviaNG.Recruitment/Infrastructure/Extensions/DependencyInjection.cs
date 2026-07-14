@@ -74,6 +74,15 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IJobPostingRepository, JobPostingRepository>();
             services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
             services.AddScoped<IJobPostingAttachmentRepository, JobPostingAttachmentRepository>();
+            services.AddScoped<IHiringPipelineRepository, HiringPipelineRepository>();
+            services.AddScoped<ICandidateProfileRepository, CandidateProfileRepository>();
+            services.AddScoped<ICandidateEducationRepository, CandidateEducationRepository>();
+            services.AddScoped<ICandidateWorkExperienceRepository, CandidateWorkExperienceRepository>();
+            services.AddScoped<ICandidateSkillRepository, CandidateSkillRepository>();
+            services.AddScoped<ISkillLibraryItemRepository, SkillLibraryItemRepository>();
+            services.AddScoped<ICandidateCertificationRepository, CandidateCertificationRepository>();
+            services.AddScoped<ICandidateDocumentRepository, CandidateDocumentRepository>();
+            services.AddScoped<IStaffProfileRepository, StaffProfileRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -85,6 +94,21 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // File storage (local disk, backs career-portal / internal-job-board CV uploads)
             services.Configure<ApplicationCvStorageSettings>(configuration.GetSection(ApplicationCvStorageSettings.SectionName));
             services.AddScoped<IApplicationCvStorageService, LocalApplicationCvStorageService>();
+
+            // Size/extension policy for candidate profile photo/signature and document uploads
+            // (both reuse the IFileStorageService/FileStorageSettings root above - see plan decision).
+            services.Configure<CandidatePhotoSignatureSettings>(configuration.GetSection(CandidatePhotoSignatureSettings.SectionName));
+            services.Configure<CandidateDocumentSettings>(configuration.GetSection(CandidateDocumentSettings.SectionName));
+
+            // Free, local, regex/heuristic resume parsing (no external AI API) - see plan decision.
+            services.AddScoped<IResumeParsingService, ResumeParsingService>();
+
+            // Keycloak REST client (login token proxy + Admin REST user registration)
+            services.Configure<KeycloakSettings>(configuration.GetSection(KeycloakSettings.SectionName));
+            services.AddHttpClient<IKeycloakClient, KeycloakClient>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
 
             // Kafka — disabled, no broker reachable at configured BootstrapServers
             // services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));

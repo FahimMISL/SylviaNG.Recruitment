@@ -1,0 +1,28 @@
+using FluentValidation;
+
+namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateEducationCreate
+{
+    public class CandidateEducationCreateValidator : AbstractValidator<CandidateEducationCreateCommand>
+    {
+        public CandidateEducationCreateValidator()
+        {
+            RuleFor(x => x.Request.DegreeTitle)
+                .NotEmpty().WithMessage("DegreeTitle is required.")
+                .MaximumLength(200).WithMessage("DegreeTitle must not exceed 200 characters.");
+
+            RuleFor(x => x.Request.Institution)
+                .NotEmpty().WithMessage("Institution is required.")
+                .MaximumLength(200).WithMessage("Institution must not exceed 200 characters.");
+
+            RuleFor(x => x.Request.PassingYear)
+                .InclusiveBetween(1950, DateTime.UtcNow.Year).WithMessage($"PassingYear must be between 1950 and {DateTime.UtcNow.Year}.");
+
+            RuleFor(x => x.Request.Result)
+                .NotEmpty().WithMessage("Result is required.")
+                .MaximumLength(50).WithMessage("Result must not exceed 50 characters.");
+
+            RuleFor(x => x.Request.MajorSubject)
+                .MaximumLength(200).WithMessage("MajorSubject must not exceed 200 characters.");
+        }
+    }
+}

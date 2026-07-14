@@ -40,6 +40,16 @@ namespace SylviaNG.Recruitment.Middlewares
                 _logger.LogWarning(ex, "Invalid status transition.");
                 await HandleExceptionAsync(context, StatusCodes.Status400BadRequest, ex.Message);
             }
+            catch (ResourceInUseException ex)
+            {
+                _logger.LogWarning(ex, "Resource in use.");
+                await HandleExceptionAsync(context, StatusCodes.Status409Conflict, ex.Message);
+            }
+            catch (KeycloakUnavailableException ex)
+            {
+                _logger.LogError(ex, "Keycloak unavailable.");
+                await HandleExceptionAsync(context, StatusCodes.Status503ServiceUnavailable, "The authentication server is currently unavailable. Please try again later.");
+            }
             catch (FluentValidation.ValidationException ex)
             {
                 _logger.LogWarning(ex, "Validation failed.");

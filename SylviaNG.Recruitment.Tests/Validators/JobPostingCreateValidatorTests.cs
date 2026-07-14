@@ -20,7 +20,8 @@ public class JobPostingCreateValidatorTests
             SiteId = 1,
             NumberOfPositions = 2,
             PostingDate = new DateTime(2025, 1, 1),
-            ClosingDate = new DateTime(2025, 6, 30)
+            ClosingDate = new DateTime(2025, 6, 30),
+            HiringPipelineId = 1
         });
 
         // Act

@@ -87,7 +87,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
                     RoleClaimType = ClaimTypes.Role
                 };
 
-                options.Events = BuildEvents();
+                options.Events = BuildEvents(mapKeycloakRealmRoles: true);
             })
             .AddJwtBearer(LocalScheme, options =>
             {
@@ -111,7 +111,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             return services;
         }
 
-        private static JwtBearerEvents BuildEvents() => new()
+        private static JwtBearerEvents BuildEvents(bool mapKeycloakRealmRoles = false) => new()
         {
             OnAuthenticationFailed = context =>
             {
@@ -120,7 +120,36 @@ namespace SylviaNG.Recruitment.Application.Extensions
             },
             OnTokenValidated = context =>
             {
-                Console.WriteLine("Token validated successfully");
+                // Keycloak emits realm roles as a JSON blob in the realm_access claim,
+                // not as ClaimTypes.Role. Copy them across so existing
+                // [Authorize(Roles = "Admin,HR")] attributes keep working unchanged.
+                if (mapKeycloakRealmRoles && context.Principal?.Identity is ClaimsIdentity identity)
+                {
+                    var realmAccess = identity.FindFirst("realm_access")?.Value;
+                    if (!string.IsNullOrEmpty(realmAccess))
+                    {
+                        try
+                        {
+                            using var json = System.Text.Json.JsonDocument.Parse(realmAccess);
+                            if (json.RootElement.TryGetProperty("roles", out var roles))
+                            {
+                                foreach (var role in roles.EnumerateArray())
+                                {
+                                    var roleName = role.GetString();
+                                    if (!string.IsNullOrEmpty(roleName) && !identity.HasClaim(ClaimTypes.Role, roleName))
+                                    {
+                                        identity.AddClaim(new Claim(ClaimTypes.Role, roleName));
+                                    }
+                                }
+                            }
+                        }
+                        catch (System.Text.Json.JsonException)
+                        {
+                            // Malformed realm_access — leave the principal without mapped roles.
+                        }
+                    }
+                }
+
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
