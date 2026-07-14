@@ -8,6 +8,7 @@ using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.Domain.Events;
 using SylviaNG.Recruitment.SharedKernel.Generic;
 
 namespace SylviaNG.Recruitment.Tests.Services;
@@ -69,6 +70,7 @@ public class JobApplicationServiceTests
     [Theory]
     [InlineData(ApplicationSourceEnum.External)]
     [InlineData(ApplicationSourceEnum.Internal)]
+    [InlineData(ApplicationSourceEnum.Admin)]
     public async Task SubmitAsync_WithValidRequestAndOpenMatchingPosting_ShouldSaveApplicationAndReturnResponse(ApplicationSourceEnum source)
     {
         // Arrange
@@ -183,6 +185,79 @@ public class JobApplicationServiceTests
         await act.Should().ThrowAsync<NotFoundException>();
         _jobApplicationRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplication>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    // ── SubmitAsync with Admin source (US-034) ────────────────────────────
+
+    [Fact]
+    public async Task SubmitAsync_WithAdminSource_ShouldAllowAnyCircularTypeAndRaiseNotificationEvent()
+    {
+        // Arrange: an InternalOnly posting, which External/Internal-sourced applies could not reach,
+        // but HR applying on behalf should be able to (US-034 AC1: "any open vacancy").
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open, CircularType = CircularTypeEnum.InternalOnly };
+
+        IReadOnlyCollection<CircularTypeEnum>? capturedCircularTypes = null;
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .Callback<long, IReadOnlyCollection<CircularTypeEnum>>((_, types) => capturedCircularTypes = types)
+            .ReturnsAsync(jobPosting);
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a =>
+            {
+                a.JobApplicationId = 10;
+                savedEntity = a;
+            });
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = CreateRequest(resume: null);
+
+        // Act
+        await _service.SubmitAsync(request, ApplicationSourceEnum.Admin);
+
+        // Assert
+        capturedCircularTypes.Should().Contain(new[] { CircularTypeEnum.ExternalOnly, CircularTypeEnum.InternalOnly, CircularTypeEnum.Both });
+        savedEntity.Should().NotBeNull();
+        savedEntity!.DomainEvents.Should().ContainSingle(e => e is JobApplicationSubmittedOnBehalfEvent);
+        var raisedEvent = (JobApplicationSubmittedOnBehalfEvent)savedEntity.DomainEvents.Single();
+        raisedEvent.JobApplicationId.Should().Be(10);
+        raisedEvent.CandidateEmail.Should().Be("jane@example.com");
+    }
+
+    [Theory]
+    [InlineData(ApplicationSourceEnum.External)]
+    [InlineData(ApplicationSourceEnum.Internal)]
+    public async Task SubmitAsync_WithNonAdminSource_ShouldNotRaiseNotificationEvent(ApplicationSourceEnum source)
+    {
+        // Arrange
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open };
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a => savedEntity = a);
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = CreateRequest(resume: null);
+
+        // Act
+        await _service.SubmitAsync(request, source);
+
+        // Assert
+        savedEntity!.DomainEvents.Should().BeEmpty();
     }
 
     // ── UpdateStatusAsync (US-036) ────────────────────────────────────────
