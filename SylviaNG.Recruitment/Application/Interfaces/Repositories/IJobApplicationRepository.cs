@@ -1,4 +1,5 @@
 using SylviaNG.Recruitment.Domain.Entities;
+using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
 
@@ -14,5 +15,17 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>Every application by this candidate's email, across all postings (HR profile view, US-009 AC4).</summary>
         Task<List<JobApplication>> GetByCandidateEmailAsync(string email);
+
+        /// <summary>Cross-job-posting ATS dashboard query with optional filters (US-035 AC1/AC2).</summary>
+        Task<PagedResult<JobApplication>> GetPaginatedAllAsync(
+            PagedRequest request,
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo);
+
+        /// <summary>Application detail including its full status-history + reason (US-035 AC4, US-036 AC2).</summary>
+        Task<JobApplication?> GetByIdWithHistoryAsync(long jobApplicationId);
     }
 }

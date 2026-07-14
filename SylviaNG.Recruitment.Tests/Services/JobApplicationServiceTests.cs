@@ -17,6 +17,8 @@ public class JobApplicationServiceTests
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<IJobPostingRepository> _jobPostingRepositoryMock;
     private readonly Mock<IApplicationCvStorageService> _cvStorageServiceMock;
+    private readonly Mock<IApplicationStatusReasonRepository> _statusReasonRepositoryMock;
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly JobApplicationService _service;
 
@@ -25,12 +27,18 @@ public class JobApplicationServiceTests
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _jobPostingRepositoryMock = new Mock<IJobPostingRepository>();
         _cvStorageServiceMock = new Mock<IApplicationCvStorageService>();
+        _statusReasonRepositoryMock = new Mock<IApplicationStatusReasonRepository>();
+        _currentUserServiceMock = new Mock<ICurrentUserService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
+
+        _currentUserServiceMock.Setup(s => s.GetCurrentUserName()).Returns("abir");
 
         _service = new JobApplicationService(
             _jobApplicationRepositoryMock.Object,
             _jobPostingRepositoryMock.Object,
             _cvStorageServiceMock.Object,
+            _statusReasonRepositoryMock.Object,
+            _currentUserServiceMock.Object,
             _unitOfWorkMock.Object);
     }
 
@@ -175,5 +183,129 @@ public class JobApplicationServiceTests
         await act.Should().ThrowAsync<NotFoundException>();
         _jobApplicationRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplication>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    // ── UpdateStatusAsync (US-036) ────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateStatusAsync_WithLegalTransition_ShouldUpdateStatusAndRecordHistory()
+    {
+        // Arrange
+        var entity = new JobApplication { JobApplicationId = 1, ApplicationStatus = ApplicationStatusEnum.Applied };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = new JobApplicationStatusUpdateRequest { ToStatus = ApplicationStatusEnum.Screening };
+
+        // Act
+        await _service.UpdateStatusAsync(1, request);
+
+        // Assert
+        entity.ApplicationStatus.Should().Be(ApplicationStatusEnum.Screening);
+        entity.StatusHistory.Should().ContainSingle();
+        var history = entity.StatusHistory.Single();
+        history.FromStatus.Should().Be(ApplicationStatusEnum.Applied);
+        history.ToStatus.Should().Be(ApplicationStatusEnum.Screening);
+        history.ChangedByUserName.Should().Be("abir");
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_WithIllegalTransition_ShouldThrowInvalidStatusTransitionException()
+    {
+        // Arrange: Applied cannot jump straight to Hired.
+        var entity = new JobApplication { JobApplicationId = 1, ApplicationStatus = ApplicationStatusEnum.Applied };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+
+        var request = new JobApplicationStatusUpdateRequest { ToStatus = ApplicationStatusEnum.Hired };
+
+        // Act
+        var act = () => _service.UpdateStatusAsync(1, request);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_ToRejectedWithoutReason_ShouldThrowValidationException()
+    {
+        // Arrange
+        var entity = new JobApplication { JobApplicationId = 1, ApplicationStatus = ApplicationStatusEnum.Screening };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+
+        var request = new JobApplicationStatusUpdateRequest { ToStatus = ApplicationStatusEnum.Rejected };
+
+        // Act
+        var act = () => _service.UpdateStatusAsync(1, request);
+
+        // Assert
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_ToRejectedWithReason_ShouldSucceed()
+    {
+        // Arrange
+        var entity = new JobApplication { JobApplicationId = 1, ApplicationStatus = ApplicationStatusEnum.Screening };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = new JobApplicationStatusUpdateRequest { ToStatus = ApplicationStatusEnum.Rejected, ReasonId = 2, Note = "Not a fit" };
+
+        // Act
+        await _service.UpdateStatusAsync(1, request);
+
+        // Assert
+        entity.ApplicationStatus.Should().Be(ApplicationStatusEnum.Rejected);
+        entity.StatusHistory.Single().ReasonId.Should().Be(2);
+        entity.StatusHistory.Single().Note.Should().Be("Not a fit");
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_WithUnknownId_ShouldThrowNotFoundException()
+    {
+        // Arrange
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(99)).ReturnsAsync((JobApplication?)null);
+
+        var request = new JobApplicationStatusUpdateRequest { ToStatus = ApplicationStatusEnum.Screening };
+
+        // Act
+        var act = () => _service.UpdateStatusAsync(99, request);
+
+        // Assert
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    // ── BulkUpdateStatusAsync (US-035 AC5) ─────────────────────────────────
+
+    [Fact]
+    public async Task BulkUpdateStatusAsync_WithMixOfValidAndInvalidIds_ShouldPartiallySucceed()
+    {
+        // Arrange: id 1 is a legal transition, id 2 is illegal, id 3 doesn't exist.
+        var entity1 = new JobApplication { JobApplicationId = 1, ApplicationStatus = ApplicationStatusEnum.Applied };
+        var entity2 = new JobApplication { JobApplicationId = 2, ApplicationStatus = ApplicationStatusEnum.Hired };
+
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity1);
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(entity2);
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(3)).ReturnsAsync((JobApplication?)null);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = new JobApplicationBulkStatusUpdateRequest
+        {
+            JobApplicationIds = new List<long> { 1, 2, 3 },
+            ToStatus = ApplicationStatusEnum.Screening
+        };
+
+        // Act
+        var result = await _service.BulkUpdateStatusAsync(request);
+
+        // Assert
+        result.SucceededIds.Should().ContainSingle().Which.Should().Be(1);
+        result.Failed.Should().HaveCount(2);
+        result.Failed.Select(f => f.JobApplicationId).Should().BeEquivalentTo(new long[] { 2, 3 });
+        entity1.ApplicationStatus.Should().Be(ApplicationStatusEnum.Screening);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
     }
 }

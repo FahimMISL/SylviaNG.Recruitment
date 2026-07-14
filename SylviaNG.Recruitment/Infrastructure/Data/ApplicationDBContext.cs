@@ -70,6 +70,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<CandidateCertification> CandidateCertifications { get; set; }
         public DbSet<CandidateDocument> CandidateDocuments { get; set; }
         public DbSet<StaffProfile> StaffProfiles { get; set; }
+        public DbSet<ApplicationStatusHistory> ApplicationStatusHistories { get; set; }
+        public DbSet<ApplicationStatusReason> ApplicationStatusReasons { get; set; }
 
         #endregion
 
