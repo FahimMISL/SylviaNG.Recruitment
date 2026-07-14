@@ -77,6 +77,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IHiringPipelineRepository, HiringPipelineRepository>();
             services.AddScoped<IJobApplicationStageProgressRepository, JobApplicationStageProgressRepository>();
             services.AddScoped<IShortlistFilterRepository, ShortlistFilterRepository>();
+            services.AddScoped<ICandidateRecommendationRepository, CandidateRecommendationRepository>();
             services.AddScoped<ICandidateProfileRepository, CandidateProfileRepository>();
             services.AddScoped<ICandidateEducationRepository, CandidateEducationRepository>();
             services.AddScoped<ICandidateWorkExperienceRepository, CandidateWorkExperienceRepository>();
