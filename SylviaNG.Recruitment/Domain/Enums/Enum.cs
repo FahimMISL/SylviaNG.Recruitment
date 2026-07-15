@@ -95,3 +95,9 @@ public enum FilterCombinatorEnum
     And,
     Or
 }
+
+public enum HrOverrideDecisionEnum
+{
+    Approved,
+    Rejected
+}

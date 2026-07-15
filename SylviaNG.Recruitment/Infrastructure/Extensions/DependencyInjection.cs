@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Infrastructure.Data;
 using SylviaNG.Recruitment.Infrastructure.Interceptors;
 using SylviaNG.Recruitment.Infrastructure.Kafka;
@@ -77,6 +78,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IHiringPipelineRepository, HiringPipelineRepository>();
             services.AddScoped<IJobApplicationStageProgressRepository, JobApplicationStageProgressRepository>();
             services.AddScoped<IShortlistFilterRepository, ShortlistFilterRepository>();
+            services.AddScoped<IAutoShortlistRunRepository, AutoShortlistRunRepository>();
             services.AddScoped<ICandidateProfileRepository, CandidateProfileRepository>();
             services.AddScoped<ICandidateEducationRepository, CandidateEducationRepository>();
             services.AddScoped<ICandidateWorkExperienceRepository, CandidateWorkExperienceRepository>();
@@ -113,6 +115,32 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
                 client.Timeout = TimeSpan.FromSeconds(10);
             });
 
+            // Groq REST client (AI-Powered Auto-Shortlisting, US-046 "Ai" scoring provider)
+            services.Configure<GroqSettings>(configuration.GetSection(GroqSettings.SectionName));
+            services.AddHttpClient<IGroqClient, GroqClient>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+
+            // Manual vs AI shortlist scoring switch (US-046) - same pattern as Database:Provider
+            // above: flip ShortlistScoring:Provider, no code change, to swap implementations.
+            services.AddScoped<ManualShortlistScoringService>();
+            services.AddScoped<AiShortlistScoringService>();
+
+            var shortlistScoringProvider = configuration["ShortlistScoring:Provider"];
+            services.AddScoped<IShortlistScoringService>(sp =>
+            {
+                var provider = NormalizeShortlistScoringProvider(shortlistScoringProvider);
+
+                return provider switch
+                {
+                    "manual" => sp.GetRequiredService<ManualShortlistScoringService>(),
+                    "ai" => sp.GetRequiredService<AiShortlistScoringService>(),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported shortlist scoring provider: {shortlistScoringProvider}. Supported providers: Manual, Ai.")
+                };
+            });
+
             // Kafka — disabled, no broker reachable at configured BootstrapServers
             // services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
             // services.AddHostedService<EmployeeEventConsumer>();
@@ -124,6 +152,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
         {
             if (string.IsNullOrWhiteSpace(provider))
                 throw new ArgumentNullException(nameof(provider), "Database provider is not specified.");
+
+            return provider.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizeShortlistScoringProvider(string? provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new ArgumentNullException(nameof(provider), "ShortlistScoring provider is not specified.");
 
             return provider.Trim().ToLowerInvariant();
         }
