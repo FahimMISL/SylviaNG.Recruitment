@@ -256,7 +256,7 @@ namespace SylviaNG.Recruitment.Controllers
             return Ok();
         }
 
-        // ── Resume parse (free, local, regex/heuristic — no AI API, no persistence) ──
+        // ── Resume parse (Heuristic or Ai provider, see ResumeParsing:Provider — no persistence) ──
 
         /// <summary>
         /// Parses an uploaded resume (PDF/DOCX) and returns best-effort extracted fields for the
