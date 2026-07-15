@@ -256,12 +256,13 @@ namespace SylviaNG.Recruitment.Controllers
             return Ok();
         }
 
-        // ── Resume parse (Heuristic or Ai provider, see ResumeParsing:Provider — no persistence) ──
+        // ── Resume parse (Heuristic or Ai provider, see ResumeParsing:Provider) ──
 
         /// <summary>
         /// Parses an uploaded resume (PDF/DOCX) and returns best-effort extracted fields for the
-        /// frontend to prefill section forms with. Nothing is saved - candidate reviews and hits
-        /// Save per section as usual.
+        /// frontend to prefill section forms with - the candidate still reviews and hits Save per
+        /// section as usual. The file itself is also saved as a Resume CandidateDocument in the
+        /// same request (see CandidateResumeParseResponse.ResumeDocumentSaved).
         /// </summary>
         [HttpPost("me/resume-parse")]
         public async Task<ActionResult<CandidateResumeParseResponse>> ParseResume([FromForm] IFormFile file)

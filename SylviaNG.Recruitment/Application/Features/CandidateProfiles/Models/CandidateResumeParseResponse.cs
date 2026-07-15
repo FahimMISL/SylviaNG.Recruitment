@@ -6,8 +6,9 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
     /// Best-effort result of parsing an uploaded resume, produced by either the "Heuristic"
     /// (free, local, regex-based) or "Ai" (Groq-backed) IResumeParsingService implementation -
     /// see ParsingProvider/AiParsingDegraded. Frontend prefills form controls from this; the
-    /// candidate must still review and hit Save per section - nothing here is persisted
-    /// automatically.
+    /// candidate must still review and hit Save per section for the extracted fields. The
+    /// uploaded file itself is saved separately as a Resume-type CandidateDocument in the same
+    /// request (see ResumeDocumentSaved) so the candidate never has to upload it a second time.
     /// </summary>
     public class CandidateResumeParseResponse
     {
@@ -26,6 +27,13 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         /// <summary>True only when the Ai provider was configured/attempted but fell back to Heuristic.</summary>
         public bool AiParsingDegraded { get; set; }
+
+        /// <summary>
+        /// True when the uploaded file was also saved as a Resume document (visible/downloadable
+        /// from the Documents section). False on the rare case that save failed - parsing itself
+        /// still succeeds and returns above, so a document-save failure never blocks prefill.
+        /// </summary>
+        public bool ResumeDocumentSaved { get; set; }
     }
 
     public class CandidateResumeParsedEducation
