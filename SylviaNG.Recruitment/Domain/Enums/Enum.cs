@@ -69,6 +69,7 @@ public enum CandidateDocumentTypeEnum
     NID,
     EducationCertificate,
     ExperienceLetter,
+    Resume,
     Other
 }
 
@@ -94,4 +95,10 @@ public enum FilterCombinatorEnum
 {
     And,
     Or
+}
+
+public enum HrOverrideDecisionEnum
+{
+    Approved,
+    Rejected
 }

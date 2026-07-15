@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Infrastructure.Data;
 using SylviaNG.Recruitment.Infrastructure.Interceptors;
 using SylviaNG.Recruitment.Infrastructure.Kafka;
@@ -77,6 +78,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IHiringPipelineRepository, HiringPipelineRepository>();
             services.AddScoped<IJobApplicationStageProgressRepository, JobApplicationStageProgressRepository>();
             services.AddScoped<IShortlistFilterRepository, ShortlistFilterRepository>();
+            services.AddScoped<IAutoShortlistRunRepository, AutoShortlistRunRepository>();
             services.AddScoped<ICandidateProfileRepository, CandidateProfileRepository>();
             services.AddScoped<ICandidateEducationRepository, CandidateEducationRepository>();
             services.AddScoped<ICandidateWorkExperienceRepository, CandidateWorkExperienceRepository>();
@@ -103,14 +105,59 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.Configure<CandidatePhotoSignatureSettings>(configuration.GetSection(CandidatePhotoSignatureSettings.SectionName));
             services.Configure<CandidateDocumentSettings>(configuration.GetSection(CandidateDocumentSettings.SectionName));
 
-            // Free, local, regex/heuristic resume parsing (no external AI API) - see plan decision.
-            services.AddScoped<IResumeParsingService, ResumeParsingService>();
+            // Heuristic vs AI resume parsing switch - same pattern as ShortlistScoring:Provider
+            // below: flip ResumeParsing:Provider, no code change, to swap implementations.
+            // AiResumeParsingService falls back to HeuristicResumeParsingService in-process on
+            // any Groq failure, so this factory only ever needs to resolve the configured
+            // provider - the fallback isn't a DI concern.
+            services.AddScoped<HeuristicResumeParsingService>();
+            services.AddScoped<AiResumeParsingService>();
+
+            var resumeParsingProvider = configuration["ResumeParsing:Provider"];
+            services.AddScoped<IResumeParsingService>(sp =>
+            {
+                var provider = NormalizeResumeParsingProvider(resumeParsingProvider);
+
+                return provider switch
+                {
+                    "heuristic" => sp.GetRequiredService<HeuristicResumeParsingService>(),
+                    "ai" => sp.GetRequiredService<AiResumeParsingService>(),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported resume parsing provider: {resumeParsingProvider}. Supported providers: Heuristic, Ai.")
+                };
+            });
 
             // Keycloak REST client (login token proxy + Admin REST user registration)
             services.Configure<KeycloakSettings>(configuration.GetSection(KeycloakSettings.SectionName));
             services.AddHttpClient<IKeycloakClient, KeycloakClient>(client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
+            });
+
+            // Groq REST client (AI-Powered Auto-Shortlisting, US-046 "Ai" scoring provider)
+            services.Configure<GroqSettings>(configuration.GetSection(GroqSettings.SectionName));
+            services.AddHttpClient<IGroqClient, GroqClient>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+
+            // Manual vs AI shortlist scoring switch (US-046) - same pattern as Database:Provider
+            // above: flip ShortlistScoring:Provider, no code change, to swap implementations.
+            services.AddScoped<ManualShortlistScoringService>();
+            services.AddScoped<AiShortlistScoringService>();
+
+            var shortlistScoringProvider = configuration["ShortlistScoring:Provider"];
+            services.AddScoped<IShortlistScoringService>(sp =>
+            {
+                var provider = NormalizeShortlistScoringProvider(shortlistScoringProvider);
+
+                return provider switch
+                {
+                    "manual" => sp.GetRequiredService<ManualShortlistScoringService>(),
+                    "ai" => sp.GetRequiredService<AiShortlistScoringService>(),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported shortlist scoring provider: {shortlistScoringProvider}. Supported providers: Manual, Ai.")
+                };
             });
 
             // Kafka — disabled, no broker reachable at configured BootstrapServers
@@ -124,6 +171,22 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
         {
             if (string.IsNullOrWhiteSpace(provider))
                 throw new ArgumentNullException(nameof(provider), "Database provider is not specified.");
+
+            return provider.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizeShortlistScoringProvider(string? provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new ArgumentNullException(nameof(provider), "ShortlistScoring provider is not specified.");
+
+            return provider.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizeResumeParsingProvider(string? provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new ArgumentNullException(nameof(provider), "ResumeParsing provider is not specified.");
 
             return provider.Trim().ToLowerInvariant();
         }
