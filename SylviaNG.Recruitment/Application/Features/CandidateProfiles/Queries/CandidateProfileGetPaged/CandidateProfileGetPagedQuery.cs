@@ -7,10 +7,12 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.Ca
     public class CandidateProfileGetPagedQuery : IRequest<PagedResult<CandidateProfileSummaryResponse>>
     {
         public PagedRequest Request { get; set; }
+        public List<string>? Tags { get; set; }
 
-        public CandidateProfileGetPagedQuery(PagedRequest request)
+        public CandidateProfileGetPagedQuery(PagedRequest request, List<string>? tags = null)
         {
             Request = request;
+            Tags = tags;
         }
     }
 }

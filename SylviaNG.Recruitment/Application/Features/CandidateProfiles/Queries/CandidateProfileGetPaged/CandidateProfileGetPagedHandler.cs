@@ -21,7 +21,7 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.Ca
             // set here for the fields HR actually searches candidates by (US-034 AC1 depends on this).
             query.Request.SearchProperties = new[] { "FullName", "Email" };
 
-            return await _candidateProfileService.GetPagedAsync(query.Request);
+            return await _candidateProfileService.GetPagedAsync(query.Request, query.Tags);
         }
     }
 }
