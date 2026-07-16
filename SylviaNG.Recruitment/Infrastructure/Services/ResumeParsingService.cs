@@ -27,16 +27,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
 
         public async Task<CandidateResumeParseResponse> ParseAsync(IFormFile file)
         {
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-
-            var text = extension switch
-            {
-                ".pdf" => await ExtractPdfTextAsync(file),
-                ".docx" => await ExtractDocxTextAsync(file),
-                // The FluentValidation validator already restricts uploads to .pdf/.docx before
-                // this runs, so this branch should be unreachable via the API.
-                _ => throw new ArgumentException($"Unsupported resume file type: {extension}. Use .pdf or .docx.")
-            };
+            var text = await ExtractRawTextAsync(file);
 
             var lines = text.Split('\n')
                 .Select(l => l.Trim())
@@ -53,6 +44,23 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 Skills = ExtractSkills(sections),
                 Educations = ExtractEducations(sections),
                 WorkExperiences = ExtractWorkExperiences(sections)
+            };
+        }
+
+        // Raw text only, no field parsing - shared with JobApplicationService so a submitted
+        // resume's text can be persisted for CV Bank search (US-045) without re-implementing
+        // PDF/DOCX extraction there.
+        public async Task<string> ExtractRawTextAsync(IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            return extension switch
+            {
+                ".pdf" => await ExtractPdfTextAsync(file),
+                ".docx" => await ExtractDocxTextAsync(file),
+                // The FluentValidation validator already restricts uploads to .pdf/.docx before
+                // this runs, so this branch should be unreachable via the API.
+                _ => throw new ArgumentException($"Unsupported resume file type: {extension}. Use .pdf or .docx.")
             };
         }
 

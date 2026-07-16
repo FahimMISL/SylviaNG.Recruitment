@@ -106,6 +106,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // Free, local, regex/heuristic resume parsing (no external AI API) - see plan decision.
             services.AddScoped<IResumeParsingService, ResumeParsingService>();
 
+            services.AddScoped<ICandidateTalentPoolRepository, CandidateTalentPoolRepository>();
+
             // Keycloak REST client (login token proxy + Admin REST user registration)
             services.Configure<KeycloakSettings>(configuration.GetSection(KeycloakSettings.SectionName));
             services.AddHttpClient<IKeycloakClient, KeycloakClient>(client =>

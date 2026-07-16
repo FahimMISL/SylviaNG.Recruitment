@@ -10,5 +10,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     public interface IResumeParsingService
     {
         Task<CandidateResumeParseResponse> ParseAsync(IFormFile file);
+
+        /// <summary>Raw text only (no field parsing) - used to persist CV content for CV Bank search (US-045).</summary>
+        Task<string> ExtractRawTextAsync(IFormFile file);
     }
 }

@@ -17,5 +17,12 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// so this is matched by CandidateEmail - same join precedent as US-040.
         /// </summary>
         Task<List<CandidateProfile>> GetByEmailsAsync(IEnumerable<string> emails);
+
+        /// <summary>
+        /// Every active profile with all sections included (education/work-experience/skills/
+        /// certifications/documents), for CV Bank's in-memory Boolean search evaluation (US-045)
+        /// - same full-scan precedent as GetByEmailsAsync/ShortlistFilterEvaluationService.
+        /// </summary>
+        Task<List<CandidateProfile>> GetAllActiveWithDetailsAsync();
     }
 }

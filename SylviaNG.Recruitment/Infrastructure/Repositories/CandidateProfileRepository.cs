@@ -32,5 +32,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(c => emailSet.Contains(c.Email))
                 .ToListAsync();
         }
+
+        public async Task<List<CandidateProfile>> GetAllActiveWithDetailsAsync()
+        {
+            return await _dbSet
+                .Include(c => c.Educations)
+                .Include(c => c.WorkExperiences)
+                .Include(c => c.Skills)
+                .Include(c => c.Certifications)
+                .Include(c => c.Documents)
+                .Where(c => c.IsActive)
+                .ToListAsync();
+        }
     }
 }

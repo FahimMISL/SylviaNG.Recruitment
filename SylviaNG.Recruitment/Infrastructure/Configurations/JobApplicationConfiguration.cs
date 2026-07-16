@@ -28,6 +28,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(a => a.CoverLetter)
                 .HasColumnType("text");
 
+            builder.Property(a => a.ResumeExtractedText)
+                .HasColumnType("text");
+
             builder.Property(a => a.ApplicationStatus)
                 .HasConversion<string>()
                 .HasMaxLength(50);

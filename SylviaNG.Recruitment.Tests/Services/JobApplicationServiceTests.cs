@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
@@ -23,6 +24,7 @@ public class JobApplicationServiceTests
     private readonly Mock<IApplicationStatusReasonRepository> _statusReasonRepositoryMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
+    private readonly Mock<IResumeParsingService> _resumeParsingServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly JobApplicationService _service;
 
@@ -35,6 +37,7 @@ public class JobApplicationServiceTests
         _statusReasonRepositoryMock = new Mock<IApplicationStatusReasonRepository>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
+        _resumeParsingServiceMock = new Mock<IResumeParsingService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
 
         _currentUserServiceMock.Setup(s => s.GetCurrentUserName()).Returns("abir");
@@ -48,7 +51,9 @@ public class JobApplicationServiceTests
             _statusReasonRepositoryMock.Object,
             _currentUserServiceMock.Object,
             _currentCandidateServiceMock.Object,
-            _unitOfWorkMock.Object);
+            _resumeParsingServiceMock.Object,
+            _unitOfWorkMock.Object,
+            Mock.Of<ILogger<JobApplicationService>>());
     }
 
     private static IFormFile CreateFormFile(string fileName = "resume.pdf", string content = "dummy content")
@@ -122,6 +127,68 @@ public class JobApplicationServiceTests
         savedEntity.AppliedDate.Should().NotBeNull();
         _jobApplicationRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplication>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WithResume_ShouldPersistExtractedResumeText()
+    {
+        // Arrange
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open };
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        var resume = CreateFormFile();
+        _cvStorageServiceMock
+            .Setup(s => s.SaveAsync(It.IsAny<Stream>(), "resume.pdf", "1"))
+            .ReturnsAsync(("abc123.pdf", "uploads/applications/1/abc123.pdf"));
+        _resumeParsingServiceMock.Setup(s => s.ExtractRawTextAsync(resume)).ReturnsAsync("Kubernetes expert with 5 years experience");
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a => savedEntity = a);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        // Act
+        await _service.SubmitAsync(CreateRequest(resume: resume), ApplicationSourceEnum.External);
+
+        // Assert
+        savedEntity!.ResumeExtractedText.Should().Be("Kubernetes expert with 5 years experience");
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WhenResumeExtractionThrows_ShouldStillSaveApplicationWithNullExtractedText()
+    {
+        // Arrange
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open };
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        var resume = CreateFormFile();
+        _cvStorageServiceMock
+            .Setup(s => s.SaveAsync(It.IsAny<Stream>(), "resume.pdf", "1"))
+            .ReturnsAsync(("abc123.pdf", "uploads/applications/1/abc123.pdf"));
+        _resumeParsingServiceMock.Setup(s => s.ExtractRawTextAsync(resume)).ThrowsAsync(new InvalidOperationException("corrupt PDF"));
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a => savedEntity = a);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        // Act
+        var act = () => _service.SubmitAsync(CreateRequest(resume: resume), ApplicationSourceEnum.External);
+
+        // Assert - extraction failure must not fail submission
+        await act.Should().NotThrowAsync();
+        savedEntity!.ResumeExtractedText.Should().BeNull();
+        savedEntity.ResumeUrl.Should().Be("uploads/applications/1/abc123.pdf");
     }
 
     [Fact]
