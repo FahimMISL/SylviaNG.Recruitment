@@ -26,5 +26,17 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
         public string? SignaturePath { get; set; }
 
         public int CompletenessPercentage { get; set; }
+
+        // Internal candidate / Core HR pre-population (US-005).
+        /// <summary>True when this profile was matched to a Core HR Employee record (AC4).</summary>
+        public bool IsInternal { get; set; }
+        public string? DepartmentName { get; set; }
+        public string? DesignationName { get; set; }
+
+        /// <summary>
+        /// True when the candidate has edited a Core-HR-pre-populated field (FullName/Phone)
+        /// since it was fetched - surfaced to HR (AC2). Always false for external candidates.
+        /// </summary>
+        public bool HasPrepopulatedFieldEdits { get; set; }
     }
 }

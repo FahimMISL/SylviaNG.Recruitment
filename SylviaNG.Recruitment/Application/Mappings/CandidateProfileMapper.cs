@@ -53,7 +53,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PermanentAddress = entity.PermanentAddress,
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 SignaturePath = entity.SignaturePath,
-                CompletenessPercentage = CalculateCompleteness(entity)
+                CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.EmployeeId.HasValue,
+                HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity)
             };
         }
 
@@ -91,6 +93,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 SignaturePath = entity.SignaturePath,
                 CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.EmployeeId.HasValue,
+                HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity),
                 Educations = entity.Educations.Select(e => e.ToResponse()).ToList(),
                 WorkExperiences = entity.WorkExperiences.Select(e => e.ToResponse()).ToList(),
                 Skills = entity.Skills.Select(e => e.ToResponse()).ToList(),
@@ -127,6 +131,19 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 completedSections++; // Documents
 
             return completedSections * 100 / TotalSections;
+        }
+
+        // US-005 AC2: an internal candidate's pre-populated FullName/Phone were snapshotted at
+        // provisioning time; if the live value has since diverged, flag it for HR. Always false
+        // for external candidates (Prepopulated* stay null for them).
+        private static bool HasPrepopulatedFieldEdits(CandidateProfile entity)
+        {
+            if (!entity.EmployeeId.HasValue)
+                return false;
+
+            var nameChanged = entity.PrepopulatedFullName != null && entity.FullName != entity.PrepopulatedFullName;
+            var phoneChanged = entity.PrepopulatedPhone != null && entity.Phone != entity.PrepopulatedPhone;
+            return nameChanged || phoneChanged;
         }
 
         // ── CandidateEducation Mappings ───────────────────────────────────
