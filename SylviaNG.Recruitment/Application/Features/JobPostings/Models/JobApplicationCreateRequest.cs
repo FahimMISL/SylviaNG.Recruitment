@@ -10,5 +10,6 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public string? CandidatePhone { get; set; }
         public string? ResumeUrl { get; set; }
         public string? CoverLetter { get; set; }
+        public ApplicationSourceEnum Source { get; set; } = ApplicationSourceEnum.Admin;
     }
 }
