@@ -155,4 +155,166 @@ public class CandidateProfileServiceTests
         await act.Should().ThrowAsync<NotFoundException>();
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
     }
+
+    // ── US-003: Identity-field lock ─────────────────────────────────────
+
+    private CandidateProfile SetUpCurrentProfile(string email = "alice@example.com", string? phone = "01711111111", string? nationalId = "1234567890")
+    {
+        var entity = new CandidateProfile
+        {
+            CandidateProfileId = 1,
+            FullName = "Alice Rahman",
+            Email = email,
+            Phone = phone,
+            NationalId = nationalId,
+        };
+
+        _currentCandidateServiceMock.Setup(s => s.GetOrCreateCurrentProfileIdAsync()).ReturnsAsync(1);
+        _candidateProfileRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+
+        return entity;
+    }
+
+    [Fact]
+    public async Task UpdateContactAsync_WhenNoApplicationsExist_ShouldAllowEmailChange()
+    {
+        // Arrange
+        var entity = SetUpCurrentProfile();
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+            .ReturnsAsync(new List<JobApplication>());
+
+        var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfileContactUpdateRequest
+        {
+            Email = "alice.new@example.com",
+            Phone = "01711111111",
+        };
+
+        // Act
+        await _service.UpdateContactAsync(request);
+
+        // Assert
+        entity.Email.Should().Be("alice.new@example.com");
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateContactAsync_WhenApplicationsExist_AndEmailChanged_ShouldThrowValidationException()
+    {
+        // Arrange
+        var entity = SetUpCurrentProfile();
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+            .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
+
+        var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfileContactUpdateRequest
+        {
+            Email = "alice.new@example.com",
+            Phone = "01711111111",
+        };
+
+        // Act
+        var act = () => _service.UpdateContactAsync(request);
+
+        // Assert
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        entity.Email.Should().Be("alice@example.com");
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateContactAsync_WhenApplicationsExist_ButEmailAndPhoneUnchanged_ShouldAllowAddressUpdate()
+    {
+        // Arrange
+        var entity = SetUpCurrentProfile();
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+            .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
+
+        var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfileContactUpdateRequest
+        {
+            Email = "alice@example.com",
+            Phone = "01711111111",
+            PresentAddress = "New address, Dhaka",
+        };
+
+        // Act
+        await _service.UpdateContactAsync(request);
+
+        // Assert
+        entity.PresentAddress.Should().Be("New address, Dhaka");
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateContactAsync_WhenApplicationsExist_AndPhoneReformattedButSameDigits_ShouldAllow()
+    {
+        // Arrange
+        var entity = SetUpCurrentProfile(phone: "01711111111");
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+            .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
+
+        var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfileContactUpdateRequest
+        {
+            Email = "alice@example.com",
+            Phone = "017-1111-1111",
+        };
+
+        // Act
+        await _service.UpdateContactAsync(request);
+
+        // Assert
+        entity.Phone.Should().Be("017-1111-1111");
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePersonalInfoAsync_WhenApplicationsExist_AndNationalIdChanged_ShouldThrowValidationException()
+    {
+        // Arrange
+        var entity = SetUpCurrentProfile();
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+            .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
+
+        var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfilePersonalInfoUpdateRequest
+        {
+            FullName = "Alice Rahman",
+            NationalId = "9999999999",
+        };
+
+        // Act
+        var act = () => _service.UpdatePersonalInfoAsync(request);
+
+        // Assert
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        entity.NationalId.Should().Be("1234567890");
+    }
+
+    [Fact]
+    public async Task GetMyProfileAsync_WhenApplicationsExist_ShouldReturnHasSubmittedApplicationTrue()
+    {
+        // Arrange
+        var entity = new CandidateProfile
+        {
+            CandidateProfileId = 1,
+            FullName = "Alice Rahman",
+            Email = "alice@example.com",
+            Educations = new List<CandidateEducation>(),
+            WorkExperiences = new List<CandidateWorkExperience>(),
+            Skills = new List<CandidateSkill>(),
+            Certifications = new List<CandidateCertification>(),
+            Documents = new List<CandidateDocument>(),
+        };
+
+        _currentCandidateServiceMock.Setup(s => s.GetOrCreateCurrentProfileIdAsync()).ReturnsAsync(1);
+        _candidateProfileRepositoryMock.Setup(r => r.GetByIdWithIncludeAsync(
+            It.IsAny<Expression<Func<CandidateProfile, bool>>>(),
+            It.IsAny<Expression<Func<CandidateProfile, object>>[]>()))
+            .ReturnsAsync(entity);
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+            .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
+
+        // Act
+        var result = await _service.GetMyProfileAsync();
+
+        // Assert
+        result.HasSubmittedApplication.Should().BeTrue();
+    }
 }
