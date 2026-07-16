@@ -97,7 +97,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Certifications = entity.Certifications.Select(e => e.ToResponse()).ToList(),
                 Documents = entity.Documents.Select(e => e.ToResponse()).ToList(),
                 ApplicationHistory = applications.Select(a => a.ToResponse()).ToList(),
-                HrNotes = entity.HrNotes
+                HrNotes = entity.HrNotes,
+                Tags = entity.Tags.Select(t => t.TagName).ToList()
             };
         }
 
@@ -233,6 +234,17 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 SkillName = entity.SkillName,
                 SkillLibraryItemId = entity.SkillLibraryItemId,
                 ProficiencyLevel = entity.ProficiencyLevel
+            };
+        }
+
+        // ── CandidateTag Mappings (US-041, HR-only) ─────────────────────────
+
+        public static CandidateTagResponse ToResponse(this CandidateTag entity)
+        {
+            return new CandidateTagResponse
+            {
+                CandidateTagId = entity.CandidateTagId,
+                TagName = entity.TagName
             };
         }
 

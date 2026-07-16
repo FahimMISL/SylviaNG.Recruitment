@@ -43,5 +43,8 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         /// <summary>HR-only annotation (AC5) - never shown to or editable by the candidate.</summary>
         public string? HrNotes { get; set; }
+
+        /// <summary>HR-only tags (US-041 AC1/AC4) - never shown to or editable by the candidate.</summary>
+        public List<string> Tags { get; set; } = new();
     }
 }

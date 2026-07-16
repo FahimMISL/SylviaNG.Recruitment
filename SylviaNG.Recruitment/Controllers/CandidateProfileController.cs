@@ -21,6 +21,8 @@ using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.Candi
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateResumeParse;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateSkillCreate;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateSkillDelete;
+using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateTagCreate;
+using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateTagDelete;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateWorkExperienceCreate;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateWorkExperienceDelete;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateWorkExperienceUpdate;
@@ -32,6 +34,8 @@ using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.Candid
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateProfileGetMe;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateProfileGetPaged;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateSkillGetAll;
+using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateTagGetAll;
+using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateTagSuggestions;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateWorkExperienceGetAll;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
 
@@ -277,9 +281,9 @@ namespace SylviaNG.Recruitment.Controllers
         /// </summary>
         [HttpGet("paged")]
         [Authorize(Roles = "Admin,HR")]
-        public async Task<ActionResult<PagedResult<CandidateProfileSummaryResponse>>> GetPaged([FromQuery] PagedRequest request)
+        public async Task<ActionResult<PagedResult<CandidateProfileSummaryResponse>>> GetPaged([FromQuery] PagedRequest request, [FromQuery] List<string>? tags)
         {
-            var result = await _mediator.Send(new CandidateProfileGetPagedQuery(request));
+            var result = await _mediator.Send(new CandidateProfileGetPagedQuery(request, tags));
             return Ok(result);
         }
 
@@ -304,6 +308,44 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult> UpdateHrNotes(long candidateProfileId, [FromBody] CandidateProfileHrNotesUpdateRequest request)
         {
             await _mediator.Send(new CandidateProfileHrNotesUpdateCommand(candidateProfileId, request.HrNotes));
+            return Ok();
+        }
+
+        // ── Tags (US-041, HR/Admin-only - never visible to the candidate) ──
+
+        /// <summary>
+        /// Distinct tag names already used across candidates, for the add-tag autocomplete and
+        /// the candidate-list/ATS dashboard tag filter's suggestion source (AC2).
+        /// </summary>
+        [HttpGet("tags/suggestions")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<List<string>>> GetTagSuggestions([FromQuery] string? search)
+        {
+            var result = await _mediator.Send(new CandidateTagSuggestionsQuery(search));
+            return Ok(result);
+        }
+
+        [HttpGet("{candidateProfileId:long}/tags")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<List<CandidateTagResponse>>> GetTags(long candidateProfileId)
+        {
+            var result = await _mediator.Send(new CandidateTagGetAllQuery(candidateProfileId));
+            return Ok(result);
+        }
+
+        [HttpPost("{candidateProfileId:long}/tags")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<long>> CreateTag(long candidateProfileId, [FromBody] CandidateTagCreateRequest request)
+        {
+            var id = await _mediator.Send(new CandidateTagCreateCommand(candidateProfileId, request));
+            return Ok(id);
+        }
+
+        [HttpDelete("{candidateProfileId:long}/tags/{candidateTagId:long}")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult> DeleteTag(long candidateProfileId, long candidateTagId)
+        {
+            await _mediator.Send(new CandidateTagDeleteCommand(candidateProfileId, candidateTagId));
             return Ok();
         }
     }

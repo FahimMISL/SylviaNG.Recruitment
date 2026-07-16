@@ -62,6 +62,22 @@ public class CandidateProfileServiceTests
     }
 
     [Fact]
+    public async Task GetPagedAsync_WithTags_ShouldPassTagsThroughToRepository()
+    {
+        // Arrange
+        var request = new PagedRequest { Page = 1, PageSize = 10 };
+        var tags = new List<string> { "Leadership Potential" };
+        _candidateProfileRepositoryMock.Setup(r => r.GetPagedAsync(request, tags))
+            .ReturnsAsync(new PagedResult<CandidateProfile> { Data = new List<CandidateProfile>(), TotalCount = 0, PageNumber = 1, PageSize = 10 });
+
+        // Act
+        await _service.GetPagedAsync(request, tags);
+
+        // Assert
+        _candidateProfileRepositoryMock.Verify(r => r.GetPagedAsync(request, tags), Times.Once);
+    }
+
+    [Fact]
     public async Task GetProfileDetailAsync_WithExistingId_ShouldReturnDetailWithApplicationHistory()
     {
         // Arrange
