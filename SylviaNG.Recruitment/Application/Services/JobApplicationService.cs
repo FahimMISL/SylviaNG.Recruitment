@@ -1,4 +1,5 @@
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Utilities;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -34,17 +35,20 @@ namespace SylviaNG.Recruitment.Application.Services
         // Applied->Shortlisted is legal directly (not just via Screening) so US-044's automated
         // filter apply can fast-track a fresh application without a manual screening bump first -
         // that's the whole point of "without manual screening of every application" in US-043.
+        // US-038 AC3/AC4: DuplicateDismissed is reachable from any active stage, same as Withdrawn -
+        // HR can resolve a duplicate at whatever point in the pipeline it's noticed.
         private static readonly Dictionary<ApplicationStatusEnum, ApplicationStatusEnum[]> LegalStatusTransitions = new()
         {
-            [ApplicationStatusEnum.Applied] = new[] { ApplicationStatusEnum.Screening, ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.Screening] = new[] { ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.Shortlisted] = new[] { ApplicationStatusEnum.InterviewScheduled, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.InterviewScheduled] = new[] { ApplicationStatusEnum.Interviewed, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.Interviewed] = new[] { ApplicationStatusEnum.Offered, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.Offered] = new[] { ApplicationStatusEnum.Hired, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
+            [ApplicationStatusEnum.Applied] = new[] { ApplicationStatusEnum.Screening, ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.Screening] = new[] { ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.Shortlisted] = new[] { ApplicationStatusEnum.InterviewScheduled, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.InterviewScheduled] = new[] { ApplicationStatusEnum.Interviewed, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.Interviewed] = new[] { ApplicationStatusEnum.Offered, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.Offered] = new[] { ApplicationStatusEnum.Hired, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
             [ApplicationStatusEnum.Hired] = Array.Empty<ApplicationStatusEnum>(),
             [ApplicationStatusEnum.Rejected] = Array.Empty<ApplicationStatusEnum>(),
-            [ApplicationStatusEnum.Withdrawn] = Array.Empty<ApplicationStatusEnum>()
+            [ApplicationStatusEnum.Withdrawn] = Array.Empty<ApplicationStatusEnum>(),
+            [ApplicationStatusEnum.DuplicateDismissed] = Array.Empty<ApplicationStatusEnum>()
         };
 
         private static readonly ApplicationStatusEnum[] StatusesRequiringReason = { ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn };
@@ -474,6 +478,152 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             return LegalStatusTransitions.TryGetValue(currentStatus, out var allowedTransitions)
                 && allowedTransitions.Contains(ApplicationStatusEnum.Withdrawn);
+        }
+
+        // ── Duplicate Detection (US-038) ──────────────────────────────────
+
+        public async Task<List<JobApplicationDuplicateGroupResponse>> GetDuplicatesAsync(long jobPostingId)
+        {
+            var applications = await _jobApplicationRepository.GetAllByJobPostingIdAsync(jobPostingId);
+            return BuildDuplicateGroups(applications);
+        }
+
+        public async Task ResolveDuplicatesAsync(JobApplicationDuplicateResolveRequest request)
+        {
+            if (request.DuplicateJobApplicationIds.Count == 0)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.DuplicateJobApplicationIds),
+                        "At least one duplicate application id is required.")
+                });
+            }
+
+            if (request.DuplicateJobApplicationIds.Contains(request.PrimaryJobApplicationId))
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.PrimaryJobApplicationId),
+                        "PrimaryJobApplicationId must not also appear in DuplicateJobApplicationIds.")
+                });
+            }
+
+            // Re-derive the duplicate group server-side rather than trusting the client's grouping,
+            // so HR can't dismiss an application that isn't actually part of a detected duplicate set.
+            var groups = await GetDuplicatesAsync(request.JobPostingId);
+            var group = groups.FirstOrDefault(g => g.Applications.Any(a => a.JobApplicationId == request.PrimaryJobApplicationId));
+
+            if (group == null || request.DuplicateJobApplicationIds.Any(id => !group.Applications.Any(a => a.JobApplicationId == id)))
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.DuplicateJobApplicationIds),
+                        "The supplied applications are not a detected duplicate group for this vacancy.")
+                });
+            }
+
+            foreach (var duplicateId in request.DuplicateJobApplicationIds)
+            {
+                var entity = await _jobApplicationRepository.GetByIdAsync(duplicateId)
+                    ?? throw new NotFoundException("JobApplication", duplicateId);
+
+                await ApplyStatusChangeAsync(entity, new JobApplicationStatusUpdateRequest
+                {
+                    ToStatus = ApplicationStatusEnum.DuplicateDismissed,
+                    Note = $"Duplicate of application #{request.PrimaryJobApplicationId}, dismissed by HR."
+                });
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        private static List<JobApplicationDuplicateGroupResponse> BuildDuplicateGroups(List<JobApplication> applications)
+        {
+            var candidates = applications
+                .Where(a => a.ApplicationStatus != ApplicationStatusEnum.DuplicateDismissed)
+                .ToList();
+
+            var parent = Enumerable.Range(0, candidates.Count).ToArray();
+
+            int Find(int i) => parent[i] == i ? i : (parent[i] = Find(parent[i]));
+            void Union(int a, int b)
+            {
+                var rootA = Find(a);
+                var rootB = Find(b);
+                if (rootA != rootB) parent[rootA] = rootB;
+            }
+
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                for (var j = i + 1; j < candidates.Count; j++)
+                {
+                    if (AreDuplicates(candidates[i], candidates[j]))
+                        Union(i, j);
+                }
+            }
+
+            return candidates
+                .Select((app, index) => (app, root: Find(index)))
+                .GroupBy(x => x.root)
+                .Where(g => g.Count() > 1)
+                .Select(g =>
+                {
+                    var members = g.Select(x => x.app).ToList();
+                    return new JobApplicationDuplicateGroupResponse
+                    {
+                        Applications = members.OrderBy(m => m.AppliedDate).Select(m => m.ToDuplicateItemResponse()).ToList(),
+                        MatchedOn = DetermineMatchedOn(members)
+                    };
+                })
+                .ToList();
+        }
+
+        private static bool AreDuplicates(JobApplication a, JobApplication b)
+        {
+            if (!string.IsNullOrEmpty(a.CandidateEmail) && !string.IsNullOrEmpty(b.CandidateEmail)
+                && string.Equals(a.CandidateEmail, b.CandidateEmail, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var phoneA = PhoneNormalizer.Normalize(a.CandidatePhone);
+            var phoneB = PhoneNormalizer.Normalize(b.CandidatePhone);
+            if (phoneA != null && phoneB != null && phoneA == phoneB)
+                return true;
+
+            if (!string.IsNullOrEmpty(a.CandidateNationalId) && !string.IsNullOrEmpty(b.CandidateNationalId)
+                && string.Equals(a.CandidateNationalId, b.CandidateNationalId, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
+        }
+
+        private static List<string> DetermineMatchedOn(List<JobApplication> members)
+        {
+            var pairs = members
+                .SelectMany((a, i) => members.Skip(i + 1).Select(b => (a, b)))
+                .ToList();
+
+            var reasons = new List<string>();
+
+            if (pairs.Any(p => !string.IsNullOrEmpty(p.a.CandidateEmail) && !string.IsNullOrEmpty(p.b.CandidateEmail)
+                && string.Equals(p.a.CandidateEmail, p.b.CandidateEmail, StringComparison.OrdinalIgnoreCase)))
+                reasons.Add("Email");
+
+            if (pairs.Any(p =>
+            {
+                var phoneA = PhoneNormalizer.Normalize(p.a.CandidatePhone);
+                var phoneB = PhoneNormalizer.Normalize(p.b.CandidatePhone);
+                return phoneA != null && phoneB != null && phoneA == phoneB;
+            }))
+                reasons.Add("Phone");
+
+            if (pairs.Any(p => !string.IsNullOrEmpty(p.a.CandidateNationalId) && !string.IsNullOrEmpty(p.b.CandidateNationalId)
+                && string.Equals(p.a.CandidateNationalId, p.b.CandidateNationalId, StringComparison.OrdinalIgnoreCase)))
+                reasons.Add("NationalId");
+
+            return reasons;
         }
     }
 }

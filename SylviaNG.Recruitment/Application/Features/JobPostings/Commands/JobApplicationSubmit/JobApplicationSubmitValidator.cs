@@ -36,6 +36,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobAppl
                 .Matches(@"^[0-9+\-\s()]+$").WithMessage("CandidatePhone must be a valid phone number.")
                 .When(x => !string.IsNullOrEmpty(x.Request.CandidatePhone));
 
+            RuleFor(x => x.Request.CandidateNationalId)
+                .MaximumLength(50).WithMessage("CandidateNationalId must not exceed 50 characters.")
+                .When(x => !string.IsNullOrEmpty(x.Request.CandidateNationalId));
+
             RuleFor(x => x.Request.CoverLetter)
                 .MaximumLength(5000).WithMessage("CoverLetter must not exceed 5000 characters.");
 

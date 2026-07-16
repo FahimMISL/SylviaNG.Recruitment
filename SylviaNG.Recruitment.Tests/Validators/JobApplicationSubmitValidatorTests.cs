@@ -39,6 +39,7 @@ public class JobApplicationSubmitValidatorTests
         string candidateName = "Jane Doe",
         string candidateEmail = "jane@example.com",
         string? candidatePhone = "+880123456789",
+        string? candidateNationalId = "1234567890",
         string? coverLetter = "I am interested in this role.",
         IFormFile? resume = null,
         ApplicationSourceEnum source = ApplicationSourceEnum.External)
@@ -49,6 +50,7 @@ public class JobApplicationSubmitValidatorTests
             CandidateName = candidateName,
             CandidateEmail = candidateEmail,
             CandidatePhone = candidatePhone,
+            CandidateNationalId = candidateNationalId,
             CoverLetter = coverLetter,
             Resume = resume ?? CreateFormFile()
         }, source);
@@ -165,6 +167,20 @@ public class JobApplicationSubmitValidatorTests
         // Assert
         result.IsValid.Should().BeFalse();
         result.Errors.Should().ContainSingle(e => e.PropertyName == "Request.CandidatePhone");
+    }
+
+    [Fact]
+    public void Validate_WithOverlongNationalId_ShouldHaveError()
+    {
+        // Arrange
+        var command = CreateCommand(candidateNationalId: new string('1', 51));
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle(e => e.PropertyName == "Request.CandidateNationalId");
     }
 
     [Fact]

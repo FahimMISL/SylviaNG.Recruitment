@@ -178,5 +178,29 @@ namespace SylviaNG.Recruitment.Controllers
             await _jobApplicationService.WithdrawMyApplicationAsync(jobApplicationId);
             return Ok();
         }
+
+        /// <summary>
+        /// Applications to this vacancy that share an email, national ID, or phone number across
+        /// different channels, grouped for side-by-side review (US-038 AC1/AC2).
+        /// </summary>
+        [HttpGet("job-posting/{jobPostingId}/duplicates")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<List<JobApplicationDuplicateGroupResponse>>> GetDuplicates(long jobPostingId)
+        {
+            var result = await _jobApplicationService.GetDuplicatesAsync(jobPostingId);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// HR keeps one application as primary and dismisses the rest of a detected duplicate
+        /// group (US-038 AC3/AC4).
+        /// </summary>
+        [HttpPatch("duplicates/resolve")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult> ResolveDuplicates([FromBody] JobApplicationDuplicateResolveRequest request)
+        {
+            await _jobApplicationService.ResolveDuplicatesAsync(request);
+            return Ok();
+        }
     }
 }

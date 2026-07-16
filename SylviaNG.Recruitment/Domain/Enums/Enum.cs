@@ -27,7 +27,8 @@ public enum ApplicationStatusEnum
     Offered,
     Hired,
     Rejected,
-    Withdrawn
+    Withdrawn,
+    DuplicateDismissed
 }
 
 public enum UserRoleEnum

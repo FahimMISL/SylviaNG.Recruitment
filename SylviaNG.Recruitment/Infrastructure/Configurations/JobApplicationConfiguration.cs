@@ -22,6 +22,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(a => a.CandidatePhone)
                 .HasMaxLength(50);
 
+            builder.Property(a => a.CandidateNationalId)
+                .HasMaxLength(50);
+
             builder.Property(a => a.ResumeUrl)
                 .HasMaxLength(500);
 
