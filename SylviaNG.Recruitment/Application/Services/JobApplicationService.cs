@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
@@ -13,6 +15,8 @@ namespace SylviaNG.Recruitment.Application.Services
 {
     public class JobApplicationService : IJobApplicationService
     {
+        private static readonly HashSet<string> ExtractableResumeExtensions = new(StringComparer.OrdinalIgnoreCase) { ".pdf", ".docx" };
+
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IJobPostingRepository _jobPostingRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
@@ -20,7 +24,9 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IApplicationStatusReasonRepository _applicationStatusReasonRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICurrentCandidateService _currentCandidateService;
+        private readonly IResumeParsingService _resumeParsingService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<JobApplicationService> _logger;
 
         private static readonly CircularTypeEnum[] ExternalCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.Both };
         private static readonly CircularTypeEnum[] InternalCircularTypes = { CircularTypeEnum.InternalOnly, CircularTypeEnum.Both };
@@ -57,7 +63,9 @@ namespace SylviaNG.Recruitment.Application.Services
             IApplicationStatusReasonRepository applicationStatusReasonRepository,
             ICurrentUserService currentUserService,
             ICurrentCandidateService currentCandidateService,
-            IUnitOfWork unitOfWork)
+            IResumeParsingService resumeParsingService,
+            IUnitOfWork unitOfWork,
+            ILogger<JobApplicationService> logger)
         {
             _jobApplicationRepository = jobApplicationRepository;
             _jobPostingRepository = jobPostingRepository;
@@ -66,7 +74,9 @@ namespace SylviaNG.Recruitment.Application.Services
             _applicationStatusReasonRepository = applicationStatusReasonRepository;
             _currentUserService = currentUserService;
             _currentCandidateService = currentCandidateService;
+            _resumeParsingService = resumeParsingService;
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         public async Task<long> CreateAsync(JobApplicationCreateRequest request)
@@ -162,6 +172,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 var (_, filePath) = await _applicationCvStorageService.SaveAsync(
                     request.Resume.OpenReadStream(), request.Resume.FileName, jobPosting.JobPostingId.ToString());
                 entity.ResumeUrl = filePath;
+                entity.ResumeExtractedText = await TryExtractResumeTextAsync(request.Resume);
             }
 
             await _jobApplicationRepository.AddAsync(entity);
@@ -178,6 +189,24 @@ namespace SylviaNG.Recruitment.Application.Services
 
             entity.JobPosting = jobPosting;
             return entity.ToResponse();
+        }
+
+        // Best-effort: a failed extraction must not fail the application submission itself.
+        private async Task<string?> TryExtractResumeTextAsync(IFormFile resume)
+        {
+            var extension = Path.GetExtension(resume.FileName);
+            if (!ExtractableResumeExtensions.Contains(extension))
+                return null;
+
+            try
+            {
+                return await _resumeParsingService.ExtractRawTextAsync(resume);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to extract resume text for CV Bank search; application is still saved.");
+                return null;
+            }
         }
 
         // ── ATS Dashboard / Status Update (US-035 / US-036) ───────────────
