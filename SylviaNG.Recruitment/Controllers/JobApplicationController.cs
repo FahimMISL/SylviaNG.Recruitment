@@ -178,5 +178,17 @@ namespace SylviaNG.Recruitment.Controllers
             await _jobApplicationService.WithdrawMyApplicationAsync(jobApplicationId);
             return Ok();
         }
+
+        /// <summary>
+        /// Real-time check of the current candidate's profile against a job posting's own
+        /// eligibility criteria - age/education/experience/district (US-024 AC2/AC3).
+        /// </summary>
+        [HttpGet("job-posting/{jobPostingId}/eligibility")]
+        [Authorize(Roles = "Candidate")]
+        public async Task<ActionResult<JobEligibilityResponse>> CheckEligibility(long jobPostingId)
+        {
+            var result = await _jobApplicationService.CheckEligibilityAsync(jobPostingId);
+            return Ok(result);
+        }
     }
 }

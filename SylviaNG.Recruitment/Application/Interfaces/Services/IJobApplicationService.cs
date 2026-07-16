@@ -52,5 +52,12 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// terminal state that can no longer transition to Withdrawn.
         /// </summary>
         Task WithdrawMyApplicationAsync(long jobApplicationId);
+
+        /// <summary>
+        /// Checks the current authenticated candidate's profile against a job posting's own
+        /// eligibility criteria (age/education/experience/district) and returns which, if any,
+        /// requirements are unmet (US-024 AC2/AC3).
+        /// </summary>
+        Task<JobEligibilityResponse> CheckEligibilityAsync(long jobPostingId);
     }
 }

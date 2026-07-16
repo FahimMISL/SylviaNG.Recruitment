@@ -475,5 +475,25 @@ namespace SylviaNG.Recruitment.Application.Services
             return LegalStatusTransitions.TryGetValue(currentStatus, out var allowedTransitions)
                 && allowedTransitions.Contains(ApplicationStatusEnum.Withdrawn);
         }
+
+        public async Task<JobEligibilityResponse> CheckEligibilityAsync(long jobPostingId)
+        {
+            var jobPosting = await _jobPostingRepository.GetByIdAsync(jobPostingId)
+                ?? throw new NotFoundException("JobPosting", jobPostingId);
+
+            var profileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+            var profile = await _candidateProfileRepository.GetByIdWithIncludeAsync(
+                p => p.CandidateProfileId == profileId,
+                p => p.Educations, p => p.WorkExperiences, p => p.Skills);
+
+            var facts = CandidateFactService.BuildFacts(profile);
+            var unmetRequirements = JobEligibilityEvaluator.Evaluate(jobPosting, facts);
+
+            return new JobEligibilityResponse
+            {
+                IsEligible = unmetRequirements.Count == 0,
+                UnmetRequirements = unmetRequirements
+            };
+        }
     }
 }
