@@ -70,7 +70,10 @@ namespace SylviaNG.Recruitment.Application.Mappings
             };
         }
 
-        public static CandidateProfileDetailResponse ToDetailResponse(this CandidateProfile entity, List<JobApplication> applications)
+        public static CandidateProfileDetailResponse ToDetailResponse(
+            this CandidateProfile entity,
+            List<JobApplication> applications,
+            List<TalentPoolCandidate> poolMemberships)
         {
             return new CandidateProfileDetailResponse
             {
@@ -97,7 +100,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Certifications = entity.Certifications.Select(e => e.ToResponse()).ToList(),
                 Documents = entity.Documents.Select(e => e.ToResponse()).ToList(),
                 ApplicationHistory = applications.Select(a => a.ToResponse()).ToList(),
-                HrNotes = entity.HrNotes
+                HrNotes = entity.HrNotes,
+                TalentPools = poolMemberships.Select(m => m.ToBadgeResponse()).ToList()
             };
         }
 

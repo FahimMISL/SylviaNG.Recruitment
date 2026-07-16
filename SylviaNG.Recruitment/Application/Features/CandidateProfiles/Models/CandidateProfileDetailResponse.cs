@@ -1,4 +1,5 @@
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
+using SylviaNG.Recruitment.Application.Features.TalentPools.Models;
 
 namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 {
@@ -43,5 +44,8 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         /// <summary>HR-only annotation (AC5) - never shown to or editable by the candidate.</summary>
         public string? HrNotes { get; set; }
+
+        /// <summary>Named talent pools this candidate belongs to (US-039 AC2) - HR/Admin view only.</summary>
+        public List<TalentPoolBadgeResponse> TalentPools { get; set; } = new();
     }
 }

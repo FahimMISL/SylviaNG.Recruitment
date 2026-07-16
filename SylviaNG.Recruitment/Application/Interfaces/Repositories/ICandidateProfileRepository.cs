@@ -8,8 +8,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
     {
         Task<CandidateProfile?> GetByKeycloakSubjectIdAsync(string keycloakSubjectId);
 
-        /// <summary>Paged, searchable candidate list for the HR/Admin view (US-009).</summary>
-        Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request);
+        /// <summary>
+        /// Paged, searchable candidate list for the HR/Admin view (US-009), optionally narrowed to
+        /// members of the given talent pools (US-039 AC4).
+        /// </summary>
+        Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null);
 
         /// <summary>
         /// Bulk-resolve profiles by email, with education/work-experience/skills included, for

@@ -13,6 +13,7 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
+        private readonly ITalentPoolCandidateRepository _talentPoolCandidateRepository;
         private readonly ICurrentCandidateService _currentCandidateService;
         private readonly IFileStorageService _fileStorageService;
         private readonly IUnitOfWork _unitOfWork;
@@ -20,12 +21,14 @@ namespace SylviaNG.Recruitment.Application.Services
         public CandidateProfileService(
             ICandidateProfileRepository candidateProfileRepository,
             IJobApplicationRepository jobApplicationRepository,
+            ITalentPoolCandidateRepository talentPoolCandidateRepository,
             ICurrentCandidateService currentCandidateService,
             IFileStorageService fileStorageService,
             IUnitOfWork unitOfWork)
         {
             _candidateProfileRepository = candidateProfileRepository;
             _jobApplicationRepository = jobApplicationRepository;
+            _talentPoolCandidateRepository = talentPoolCandidateRepository;
             _currentCandidateService = currentCandidateService;
             _fileStorageService = fileStorageService;
             _unitOfWork = unitOfWork;
@@ -42,9 +45,9 @@ namespace SylviaNG.Recruitment.Application.Services
             return entity.ToResponse();
         }
 
-        public async Task<PagedResult<CandidateProfileSummaryResponse>> GetPagedAsync(PagedRequest request)
+        public async Task<PagedResult<CandidateProfileSummaryResponse>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null)
         {
-            var pagedResult = await _candidateProfileRepository.GetPagedAsync(request);
+            var pagedResult = await _candidateProfileRepository.GetPagedAsync(request, talentPoolIds);
 
             return new PagedResult<CandidateProfileSummaryResponse>
             {
@@ -63,8 +66,9 @@ namespace SylviaNG.Recruitment.Application.Services
                 ?? throw new NotFoundException("CandidateProfile", candidateProfileId);
 
             var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(entity.Email);
+            var poolMemberships = await _talentPoolCandidateRepository.GetAllByCandidateProfileIdAsync(candidateProfileId);
 
-            return entity.ToDetailResponse(applications);
+            return entity.ToDetailResponse(applications, poolMemberships);
         }
 
         public async Task UpdateHrNotesAsync(long candidateProfileId, string? hrNotes)

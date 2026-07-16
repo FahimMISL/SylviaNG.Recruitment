@@ -126,6 +126,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidatePhone = request.CandidatePhone,
                 ResumeUrl = request.ResumeUrl,
                 CoverLetter = request.CoverLetter,
+                Source = request.Source,
                 IsActive = true
             };
         }

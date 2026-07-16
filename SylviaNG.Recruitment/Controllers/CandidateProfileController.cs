@@ -277,9 +277,11 @@ namespace SylviaNG.Recruitment.Controllers
         /// </summary>
         [HttpGet("paged")]
         [Authorize(Roles = "Admin,HR")]
-        public async Task<ActionResult<PagedResult<CandidateProfileSummaryResponse>>> GetPaged([FromQuery] PagedRequest request)
+        public async Task<ActionResult<PagedResult<CandidateProfileSummaryResponse>>> GetPaged(
+            [FromQuery] PagedRequest request,
+            [FromQuery] List<long>? talentPoolIds = null)
         {
-            var result = await _mediator.Send(new CandidateProfileGetPagedQuery(request));
+            var result = await _mediator.Send(new CandidateProfileGetPagedQuery(request, talentPoolIds));
             return Ok(result);
         }
 
