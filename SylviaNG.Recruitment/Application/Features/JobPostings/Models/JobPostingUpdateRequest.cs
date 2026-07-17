@@ -29,5 +29,6 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public decimal? ApplicationFeeAmount { get; set; }
         public string? ApplicationFeeCurrency { get; set; }
         public long? HiringPipelineId { get; set; }
+        public long? AssessmentWorkflowId { get; set; }
     }
 }
