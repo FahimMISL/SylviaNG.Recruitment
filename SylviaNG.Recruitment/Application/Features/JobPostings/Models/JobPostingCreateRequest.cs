@@ -31,5 +31,8 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
 
         // Every job opening must reference a hiring pipeline (see JobPostingCreateValidator).
         public long HiringPipelineId { get; set; }
+
+        // Assessment workflow binding (US-051). Optional, unlike HiringPipelineId.
+        public long? AssessmentWorkflowId { get; set; }
     }
 }
