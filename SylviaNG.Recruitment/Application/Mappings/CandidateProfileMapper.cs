@@ -101,7 +101,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
             };
         }
 
-        private static int CalculateCompleteness(CandidateProfile entity)
+        /// <summary>Public so JobApplicationService can re-run the same calculation for the
+        /// US-007 AC4 minimum-completeness submit gate.</summary>
+        public static int CalculateCompleteness(CandidateProfile entity)
         {
             var completedSections = 0;
 

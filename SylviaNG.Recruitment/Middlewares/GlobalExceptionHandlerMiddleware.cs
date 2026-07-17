@@ -50,6 +50,11 @@ namespace SylviaNG.Recruitment.Middlewares
                 _logger.LogError(ex, "Keycloak unavailable.");
                 await HandleExceptionAsync(context, StatusCodes.Status503ServiceUnavailable, "The authentication server is currently unavailable. Please try again later.");
             }
+            catch (SslCommerzUnavailableException ex)
+            {
+                _logger.LogError(ex, "SSLCommerz payment gateway unavailable.");
+                await HandleExceptionAsync(context, StatusCodes.Status503ServiceUnavailable, "The payment gateway is currently unavailable. Please try again later.");
+            }
             catch (FluentValidation.ValidationException ex)
             {
                 _logger.LogWarning(ex, "Validation failed.");

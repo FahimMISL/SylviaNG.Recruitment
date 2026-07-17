@@ -25,4 +25,5 @@ public class JobApplication : Audit
     public ICollection<Interview> Interviews { get; set; } = new List<Interview>();
     public ICollection<ApplicationStatusHistory> StatusHistory { get; set; } = new List<ApplicationStatusHistory>();
     public ICollection<JobApplicationStageProgress> StageProgress { get; set; } = new List<JobApplicationStageProgress>();
+    public ICollection<Payment> Payments { get; set; } = new List<Payment>();
 }
