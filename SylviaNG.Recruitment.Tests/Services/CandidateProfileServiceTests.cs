@@ -373,6 +373,8 @@ public class CandidateProfileServiceTests
             It.IsAny<Expression<Func<CandidateProfile, bool>>>(),
             It.IsAny<Expression<Func<CandidateProfile, object>>[]>()))
             .ReturnsAsync(entity);
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync(It.IsAny<string>()))
+            .ReturnsAsync(new List<JobApplication>());
     }
 
     [Fact]

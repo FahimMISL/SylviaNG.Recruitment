@@ -1008,6 +1008,7 @@ public class JobApplicationServiceTests
             {
                 new()
                 {
+                    FullName = "Jane Doe",
                     Email = "jane@example.com",
                     DateOfBirth = new DateTime(1995, 1, 1),
                     Gender = "Female",
@@ -1015,7 +1016,7 @@ public class JobApplicationServiceTests
                     PresentAddress = "Dhaka",
                     Educations = new List<CandidateEducation> { new() },
                     WorkExperiences = new List<CandidateWorkExperience> { new() }
-                } // 4/7 sections ≈ 57%
+                } // FullName/Email/Educations/WorkExperiences = 4/7 sections ≈ 57%
             });
 
         var result = await _service.SubmitAsync(CreateRequest(), ApplicationSourceEnum.External);
