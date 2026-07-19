@@ -2,6 +2,7 @@ using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using Finbuckle.MultiTenant.Extensions;
 using Microsoft.EntityFrameworkCore;
 using SylviaNG.Recruitment.Application.Common.Settings;
+using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
@@ -88,6 +89,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ICandidateDocumentRepository, CandidateDocumentRepository>();
             services.AddScoped<IStaffProfileRepository, StaffProfileRepository>();
             services.AddScoped<IApplicationStatusReasonRepository, ApplicationStatusReasonRepository>();
+            services.AddScoped<IPaymentRepository, PaymentRepository>();
+            services.AddScoped<IApplicationSettingRepository, ApplicationSettingRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -139,6 +142,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
                     _ => throw new InvalidOperationException(
                         $"Unsupported shortlist scoring provider: {shortlistScoringProvider}. Supported providers: Manual, Ai.")
                 };
+            });
+
+            // SSLCommerz payment gateway client (EP-17) - bounded timeout since InitiateAsync now
+            // runs inline inside the apply-form submit request, alongside multipart CV parsing.
+            services.Configure<SslCommerzSettings>(configuration.GetSection(SslCommerzSettings.SectionName));
+            services.AddHttpClient<ISslCommerzPaymentGateway, SslCommerzPaymentGateway>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(10);
             });
 
             // Kafka — disabled, no broker reachable at configured BootstrapServers

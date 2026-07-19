@@ -27,7 +27,11 @@ public enum ApplicationStatusEnum
     Offered,
     Hired,
     Rejected,
-    Withdrawn
+    Withdrawn,
+
+    /// <summary>EP-17: application submitted to a fee-configured vacancy, waiting on SSLCommerz
+    /// payment confirmation before it becomes a real Applied record.</summary>
+    AwaitingPayment
 }
 
 public enum UserRoleEnum
@@ -100,4 +104,14 @@ public enum HrOverrideDecisionEnum
 {
     Approved,
     Rejected
+}
+
+/// <summary>EP-17: lifecycle of a single SSLCommerz payment attempt against a JobApplication.</summary>
+public enum PaymentStatusEnum
+{
+    Pending,
+    Initiated,
+    Success,
+    Failed,
+    Cancelled
 }

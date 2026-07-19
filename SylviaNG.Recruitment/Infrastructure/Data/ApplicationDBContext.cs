@@ -77,6 +77,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<ShortlistFilterCriterion> ShortlistFilterCriteria { get; set; }
         public DbSet<AutoShortlistRun> AutoShortlistRuns { get; set; }
         public DbSet<AutoShortlistResult> AutoShortlistResults { get; set; }
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<ApplicationSetting> ApplicationSettings { get; set; }
 
         #endregion
 

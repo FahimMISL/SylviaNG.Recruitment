@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
+using SylviaNG.Recruitment.Application.Features.Payments.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
@@ -23,6 +24,8 @@ public class JobApplicationServiceTests
     private readonly Mock<IApplicationStatusReasonRepository> _statusReasonRepositoryMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
+    private readonly Mock<IPaymentService> _paymentServiceMock;
+    private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly JobApplicationService _service;
 
@@ -35,10 +38,16 @@ public class JobApplicationServiceTests
         _statusReasonRepositoryMock = new Mock<IApplicationStatusReasonRepository>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
+        _paymentServiceMock = new Mock<IPaymentService>();
+        _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
 
         _currentUserServiceMock.Setup(s => s.GetCurrentUserName()).Returns("abir");
         _currentCandidateServiceMock.Setup(s => s.GetCurrentEmailAsync()).ReturnsAsync("jane@example.com");
+
+        // Gate disabled by default (mirrors the seeded 0 = off), so existing SubmitAsync cases
+        // that never set up profile-completeness fixtures are unaffected (US-007 AC4).
+        _applicationSettingServiceMock.Setup(s => s.GetMinimumProfileCompletenessPercentageAsync()).ReturnsAsync(0);
 
         _service = new JobApplicationService(
             _jobApplicationRepositoryMock.Object,
@@ -48,6 +57,8 @@ public class JobApplicationServiceTests
             _statusReasonRepositoryMock.Object,
             _currentUserServiceMock.Object,
             _currentCandidateServiceMock.Object,
+            _paymentServiceMock.Object,
+            _applicationSettingServiceMock.Object,
             _unitOfWorkMock.Object);
     }
 
@@ -717,5 +728,253 @@ public class JobApplicationServiceTests
         var result = await _service.GetDashboardMatchingIdsAsync(filter);
 
         result.Should().Equal(new List<long> { 1 });
+    }
+
+    // ── EP-17: application fee payment gating ─────────────────────────────
+
+    [Theory]
+    [InlineData(ApplicationSourceEnum.External)]
+    [InlineData(ApplicationSourceEnum.Internal)]
+    public async Task SubmitAsync_WithApplicationFeeConfigured_ShouldSetAwaitingPaymentAndInitiatePayment(ApplicationSourceEnum source)
+    {
+        // Arrange
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open, ApplicationFeeAmount = 500m, ApplicationFeeCurrency = "BDT" };
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a =>
+            {
+                a.JobApplicationId = 10;
+                savedEntity = a;
+            });
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        _paymentServiceMock.Setup(p => p.InitiateAsync(10))
+            .ReturnsAsync(new PaymentInitiateResponse { Success = true, GatewayRedirectUrl = "https://sandbox.sslcommerz.com/pay/abc" });
+
+        var request = CreateRequest(resume: null);
+
+        // Act
+        var result = await _service.SubmitAsync(request, source);
+
+        // Assert
+        savedEntity!.ApplicationStatus.Should().Be(ApplicationStatusEnum.AwaitingPayment);
+        result.PaymentRequired.Should().BeTrue();
+        result.PaymentRedirectUrl.Should().Be("https://sandbox.sslcommerz.com/pay/abc");
+        _paymentServiceMock.Verify(p => p.InitiateAsync(10), Times.Once);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WithAdminSourceOnFeeConfiguredPosting_ShouldBypassPayment()
+    {
+        // Arrange: HR applying on behalf shouldn't be forced through an SSLCommerz checkout.
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open, ApplicationFeeAmount = 500m, ApplicationFeeCurrency = "BDT" };
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a =>
+            {
+                a.JobApplicationId = 10;
+                savedEntity = a;
+            });
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = CreateRequest(resume: null);
+
+        // Act
+        var result = await _service.SubmitAsync(request, ApplicationSourceEnum.Admin);
+
+        // Assert
+        savedEntity!.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
+        result.PaymentRequired.Should().BeFalse();
+        result.PaymentRedirectUrl.Should().BeNull();
+        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WithNoFeeConfigured_ShouldApplyImmediatelyWithoutInvokingPaymentService()
+    {
+        // Arrange
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open };
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a => savedEntity = a);
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = CreateRequest(resume: null);
+
+        // Act
+        var result = await _service.SubmitAsync(request, ApplicationSourceEnum.External);
+
+        // Assert
+        savedEntity!.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
+        result.PaymentRequired.Should().BeFalse();
+        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WhenPaymentGatewayUnavailable_ShouldStillSaveApplicationWithNullRedirectUrl()
+    {
+        // Arrange: a gateway outage must not roll back the application that's already saved -
+        // the candidate should be able to retry payment later (PaymentController.Initiate).
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open, ApplicationFeeAmount = 500m, ApplicationFeeCurrency = "BDT" };
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a =>
+            {
+                a.JobApplicationId = 10;
+                savedEntity = a;
+            });
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        _paymentServiceMock.Setup(p => p.InitiateAsync(10))
+            .ThrowsAsync(new SslCommerzUnavailableException("SSLCommerz gateway is unreachable."));
+
+        var request = CreateRequest(resume: null);
+
+        // Act
+        var result = await _service.SubmitAsync(request, ApplicationSourceEnum.External);
+
+        // Assert
+        savedEntity.Should().NotBeNull();
+        savedEntity!.ApplicationStatus.Should().Be(ApplicationStatusEnum.AwaitingPayment);
+        result.PaymentRequired.Should().BeTrue();
+        result.PaymentRedirectUrl.Should().BeNull();
+        _jobApplicationRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplication>()), Times.Once);
+    }
+
+    // ── US-007 AC4: minimum profile completeness gate on submit ───────────
+
+    private static void SetUpOpenPosting(Mock<IJobPostingRepository> jobPostingRepositoryMock)
+    {
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open };
+        jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+    }
+
+    [Theory]
+    [InlineData(ApplicationSourceEnum.External)]
+    [InlineData(ApplicationSourceEnum.Internal)]
+    public async Task SubmitAsync_WhenProfileBelowConfiguredThreshold_ShouldThrowValidationException(ApplicationSourceEnum source)
+    {
+        SetUpOpenPosting(_jobPostingRepositoryMock);
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+        _applicationSettingServiceMock.Setup(s => s.GetMinimumProfileCompletenessPercentageAsync()).ReturnsAsync(50);
+        _candidateProfileRepositoryMock
+            .Setup(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new List<CandidateProfile> { new() { Email = "jane@example.com" } }); // 0/7 sections = 0%
+
+        var act = () => _service.SubmitAsync(CreateRequest(), source);
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        _jobApplicationRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplication>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WhenProfileMeetsConfiguredThreshold_ShouldSucceed()
+    {
+        SetUpOpenPosting(_jobPostingRepositoryMock);
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+        _applicationSettingServiceMock.Setup(s => s.GetMinimumProfileCompletenessPercentageAsync()).ReturnsAsync(50);
+        _candidateProfileRepositoryMock
+            .Setup(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new List<CandidateProfile>
+            {
+                new()
+                {
+                    Email = "jane@example.com",
+                    DateOfBirth = new DateTime(1995, 1, 1),
+                    Gender = "Female",
+                    Phone = "+880123456789",
+                    PresentAddress = "Dhaka",
+                    Educations = new List<CandidateEducation> { new() },
+                    WorkExperiences = new List<CandidateWorkExperience> { new() }
+                } // 4/7 sections ≈ 57%
+            });
+
+        var result = await _service.SubmitAsync(CreateRequest(), ApplicationSourceEnum.External);
+
+        result.Should().NotBeNull();
+        _jobApplicationRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplication>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WhenCandidateHasNoProfile_ShouldBypassGate()
+    {
+        // Guest apply via career portal never creates a CandidateProfile - nothing to measure
+        // against, so a configured threshold must not block a plain anonymous applicant.
+        SetUpOpenPosting(_jobPostingRepositoryMock);
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+        _applicationSettingServiceMock.Setup(s => s.GetMinimumProfileCompletenessPercentageAsync()).ReturnsAsync(50);
+        _candidateProfileRepositoryMock
+            .Setup(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new List<CandidateProfile>());
+
+        var result = await _service.SubmitAsync(CreateRequest(), ApplicationSourceEnum.External);
+
+        result.Should().NotBeNull();
+        _jobApplicationRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplication>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WithAdminSource_ShouldBypassCompletenessGateEvenBelowThreshold()
+    {
+        SetUpOpenPosting(_jobPostingRepositoryMock);
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+        _applicationSettingServiceMock.Setup(s => s.GetMinimumProfileCompletenessPercentageAsync()).ReturnsAsync(90);
+        _candidateProfileRepositoryMock
+            .Setup(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new List<CandidateProfile> { new() { Email = "jane@example.com" } }); // 0%
+
+        var result = await _service.SubmitAsync(CreateRequest(), ApplicationSourceEnum.Admin);
+
+        result.Should().NotBeNull();
+        _candidateProfileRepositoryMock.Verify(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()), Times.Never);
     }
 }

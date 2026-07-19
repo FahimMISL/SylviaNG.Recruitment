@@ -1,5 +1,6 @@
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Domain.Entities;
+using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Application.Mappings
 {
@@ -153,7 +154,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ApplicationStatus = entity.ApplicationStatus,
                 AppliedDate = entity.AppliedDate,
                 IsActive = entity.IsActive,
-                Source = entity.Source
+                Source = entity.Source,
+                PaymentRequired = entity.ApplicationStatus == ApplicationStatusEnum.AwaitingPayment
             };
         }
 

@@ -20,6 +20,8 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IApplicationStatusReasonRepository _applicationStatusReasonRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICurrentCandidateService _currentCandidateService;
+        private readonly IPaymentService _paymentService;
+        private readonly IApplicationSettingService _applicationSettingService;
         private readonly IUnitOfWork _unitOfWork;
 
         private static readonly CircularTypeEnum[] ExternalCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.Both };
@@ -44,7 +46,13 @@ namespace SylviaNG.Recruitment.Application.Services
             [ApplicationStatusEnum.Offered] = new[] { ApplicationStatusEnum.Hired, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
             [ApplicationStatusEnum.Hired] = Array.Empty<ApplicationStatusEnum>(),
             [ApplicationStatusEnum.Rejected] = Array.Empty<ApplicationStatusEnum>(),
-            [ApplicationStatusEnum.Withdrawn] = Array.Empty<ApplicationStatusEnum>()
+            [ApplicationStatusEnum.Withdrawn] = Array.Empty<ApplicationStatusEnum>(),
+
+            // EP-17: Applied = payment confirmed via SSLCommerz IPN (PaymentService writes this
+            // transition directly, bypassing this HR-user-scoped path - see PaymentService.HandleIpnAsync).
+            // Rejected lets HR close out a stale/abandoned unpaid application; Withdrawn lets a
+            // candidate with an account cancel one they never intend to pay.
+            [ApplicationStatusEnum.AwaitingPayment] = new[] { ApplicationStatusEnum.Applied, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn }
         };
 
         private static readonly ApplicationStatusEnum[] StatusesRequiringReason = { ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn };
@@ -57,6 +65,8 @@ namespace SylviaNG.Recruitment.Application.Services
             IApplicationStatusReasonRepository applicationStatusReasonRepository,
             ICurrentUserService currentUserService,
             ICurrentCandidateService currentCandidateService,
+            IPaymentService paymentService,
+            IApplicationSettingService applicationSettingService,
             IUnitOfWork unitOfWork)
         {
             _jobApplicationRepository = jobApplicationRepository;
@@ -66,6 +76,8 @@ namespace SylviaNG.Recruitment.Application.Services
             _applicationStatusReasonRepository = applicationStatusReasonRepository;
             _currentUserService = currentUserService;
             _currentCandidateService = currentCandidateService;
+            _paymentService = paymentService;
+            _applicationSettingService = applicationSettingService;
             _unitOfWork = unitOfWork;
         }
 
@@ -152,9 +164,17 @@ namespace SylviaNG.Recruitment.Application.Services
                     throw new DuplicateException("JobApplication", "CandidateEmail", request.CandidateEmail);
             }
 
+            if (source != ApplicationSourceEnum.Admin)
+                await EnsureMinimumProfileCompletenessAsync(request.CandidateEmail);
+
+            // EP-17: HR applying on a candidate's behalf bypasses payment entirely - an admin
+            // manually submitting an application isn't going to complete an SSLCommerz checkout
+            // mid-admin-flow. Every other source is gated when the vacancy has a fee configured.
+            var requiresPayment = source != ApplicationSourceEnum.Admin && jobPosting.ApplicationFeeAmount is > 0;
+
             var entity = request.ToEntity();
             entity.Source = source;
-            entity.ApplicationStatus = ApplicationStatusEnum.Applied;
+            entity.ApplicationStatus = requiresPayment ? ApplicationStatusEnum.AwaitingPayment : ApplicationStatusEnum.Applied;
             entity.AppliedDate = DateTime.UtcNow;
 
             if (request.Resume != null)
@@ -177,7 +197,59 @@ namespace SylviaNG.Recruitment.Application.Services
             }
 
             entity.JobPosting = jobPosting;
-            return entity.ToResponse();
+
+            var response = entity.ToResponse();
+
+            if (requiresPayment)
+            {
+                // A gateway outage must not roll back the application that's already saved above -
+                // leave PaymentRedirectUrl null so the frontend shows a manual retry path instead.
+                try
+                {
+                    var initiateResult = await _paymentService.InitiateAsync(entity.JobApplicationId);
+                    if (initiateResult.Success)
+                        response.PaymentRedirectUrl = initiateResult.GatewayRedirectUrl;
+                }
+                catch (SslCommerzUnavailableException)
+                {
+                    // response.PaymentRedirectUrl stays null - frontend offers a retry button.
+                }
+            }
+
+            return response;
+        }
+
+        // US-007 AC4: "A minimum completeness threshold (configurable by Admin) must be met
+        // before an application can be submitted." Only fires when CandidateEmail resolves to an
+        // existing CandidateProfile (there's no FK - matched by email, same precedent as
+        // GetAttributeFilteredApplicationsAsync/GetMyApplicationsAsync) and the Admin has actually
+        // configured a threshold (0 = disabled). A guest applicant with no profile at all - the
+        // career-portal/internal-job-board flow never requires one - has nothing to measure, so is
+        // let through unchanged.
+        private async Task EnsureMinimumProfileCompletenessAsync(string? candidateEmail)
+        {
+            if (string.IsNullOrEmpty(candidateEmail))
+                return;
+
+            var threshold = await _applicationSettingService.GetMinimumProfileCompletenessPercentageAsync();
+            if (threshold <= 0)
+                return;
+
+            var profiles = await _candidateProfileRepository.GetByEmailsAsync(new[] { candidateEmail });
+            var profile = profiles?.FirstOrDefault(p => string.Equals(p.Email, candidateEmail, StringComparison.OrdinalIgnoreCase));
+            if (profile == null)
+                return;
+
+            var completeness = CandidateProfileMapper.CalculateCompleteness(profile);
+            if (completeness < threshold)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(JobApplicationSubmitRequest.CandidateEmail),
+                        $"Your profile is {completeness}% complete. A minimum of {threshold}% completeness is required before you can submit an application.")
+                });
+            }
         }
 
         // ── ATS Dashboard / Status Update (US-035 / US-036) ───────────────
