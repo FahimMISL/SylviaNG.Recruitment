@@ -31,7 +31,9 @@ public enum ApplicationStatusEnum
 
     /// <summary>EP-17: application submitted to a fee-configured vacancy, waiting on SSLCommerz
     /// payment confirmation before it becomes a real Applied record.</summary>
-    AwaitingPayment
+    AwaitingPayment,
+
+    DuplicateDismissed
 }
 
 public enum UserRoleEnum

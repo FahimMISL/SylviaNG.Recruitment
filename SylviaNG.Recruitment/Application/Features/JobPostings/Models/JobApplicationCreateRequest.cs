@@ -8,6 +8,7 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public string CandidateName { get; set; } = string.Empty;
         public string? CandidateEmail { get; set; }
         public string? CandidatePhone { get; set; }
+        public string? CandidateNationalId { get; set; }
         public string? ResumeUrl { get; set; }
         public string? CoverLetter { get; set; }
     }
