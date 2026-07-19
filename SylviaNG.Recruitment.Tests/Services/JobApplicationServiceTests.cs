@@ -703,6 +703,8 @@ public class JobApplicationServiceTests
         _candidateProfileRepositoryMock.Verify(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()), Times.Never);
     }
 
+    }
+
     [Fact]
     public async Task GetDashboardMatchingIdsAsync_WithSkillFilter_ShouldJoinProfilesAndReturnOnlyMatchingIds()
     {
@@ -976,5 +978,67 @@ public class JobApplicationServiceTests
 
         result.Should().NotBeNull();
         _candidateProfileRepositoryMock.Verify(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckEligibilityAsync_JobPostingNotFound_ShouldThrowNotFoundException()
+    {
+        _jobPostingRepositoryMock.Setup(r => r.GetByIdAsync(99)).ReturnsAsync((JobPosting?)null);
+
+        var act = async () => await _service.CheckEligibilityAsync(99);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task CheckEligibilityAsync_ProfileMeetsAllRequirements_ShouldReturnEligible()
+    {
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", MinAge = 21, RequiredDistrict = "Dhaka" };
+        _jobPostingRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(jobPosting);
+
+        _currentCandidateServiceMock.Setup(s => s.GetOrCreateCurrentProfileIdAsync()).ReturnsAsync(5);
+
+        var profile = new CandidateProfile
+        {
+            CandidateProfileId = 5,
+            DateOfBirth = DateTime.UtcNow.AddYears(-25),
+            PresentAddress = "House 1, Dhanmondi, Dhaka"
+        };
+        _candidateProfileRepositoryMock
+            .Setup(r => r.GetByIdWithIncludeAsync(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CandidateProfile, bool>>>(),
+                It.IsAny<System.Linq.Expressions.Expression<Func<CandidateProfile, object>>[]>()))
+            .ReturnsAsync(profile);
+
+        var result = await _service.CheckEligibilityAsync(1);
+
+        result.IsEligible.Should().BeTrue();
+        result.UnmetRequirements.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CheckEligibilityAsync_ProfileMissesRequirements_ShouldReturnUnmetReasons()
+    {
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", MinAge = 30, RequiredDistrict = "Dhaka" };
+        _jobPostingRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(jobPosting);
+
+        _currentCandidateServiceMock.Setup(s => s.GetOrCreateCurrentProfileIdAsync()).ReturnsAsync(5);
+
+        var profile = new CandidateProfile
+        {
+            CandidateProfileId = 5,
+            DateOfBirth = DateTime.UtcNow.AddYears(-22),
+            PresentAddress = "House 1, Agrabad, Chattogram"
+        };
+        _candidateProfileRepositoryMock
+            .Setup(r => r.GetByIdWithIncludeAsync(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CandidateProfile, bool>>>(),
+                It.IsAny<System.Linq.Expressions.Expression<Func<CandidateProfile, object>>[]>()))
+            .ReturnsAsync(profile);
+
+        var result = await _service.CheckEligibilityAsync(1);
+
+        result.IsEligible.Should().BeFalse();
+        result.UnmetRequirements.Should().HaveCount(2);
     }
 }
