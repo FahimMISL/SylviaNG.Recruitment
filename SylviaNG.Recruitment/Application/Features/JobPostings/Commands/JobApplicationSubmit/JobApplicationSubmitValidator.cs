@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Settings;
+using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobApplicationSubmit
 {
@@ -56,6 +57,13 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobAppl
                 .Must(f => f != null && f.Length <= maxFileSizeBytes)
                 .WithMessage($"Resume size must not exceed {settings.MaxFileSizeMB} MB.")
                 .When(x => x.Request.Resume != null);
+
+            // US-005 AC3: internal candidates must attach a PDF specifically, not just any
+            // allowed extension.
+            RuleFor(x => x.Request.Resume)
+                .Must(f => f != null && string.Equals(Path.GetExtension(f.FileName), ".pdf", StringComparison.OrdinalIgnoreCase))
+                .WithMessage("Internal candidates must attach their resume as a PDF file.")
+                .When(x => x.Source == ApplicationSourceEnum.Internal && x.Request.Resume != null);
         }
     }
 }

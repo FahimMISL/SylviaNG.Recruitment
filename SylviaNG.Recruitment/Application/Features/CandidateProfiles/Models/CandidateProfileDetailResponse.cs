@@ -33,6 +33,12 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         public int CompletenessPercentage { get; set; }
 
+        // Internal candidate / Core HR pre-population (US-005).
+        public bool IsInternal { get; set; }
+        public string? DepartmentName { get; set; }
+        public string? DesignationName { get; set; }
+        public bool HasPrepopulatedFieldEdits { get; set; }
+
         public List<CandidateEducationResponse> Educations { get; set; } = new();
         public List<CandidateWorkExperienceResponse> WorkExperiences { get; set; } = new();
         public List<CandidateSkillResponse> Skills { get; set; } = new();

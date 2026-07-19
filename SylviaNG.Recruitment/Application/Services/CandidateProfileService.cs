@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
+using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Mappings;
@@ -16,7 +18,9 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ITalentPoolCandidateRepository _talentPoolCandidateRepository;
         private readonly ICurrentCandidateService _currentCandidateService;
         private readonly IFileStorageService _fileStorageService;
+        private readonly ICoreGrpcClient _coreGrpcClient;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<CandidateProfileService> _logger;
 
         public CandidateProfileService(
             ICandidateProfileRepository candidateProfileRepository,
@@ -24,14 +28,18 @@ namespace SylviaNG.Recruitment.Application.Services
             ITalentPoolCandidateRepository talentPoolCandidateRepository,
             ICurrentCandidateService currentCandidateService,
             IFileStorageService fileStorageService,
-            IUnitOfWork unitOfWork)
+            ICoreGrpcClient coreGrpcClient,
+            IUnitOfWork unitOfWork,
+            ILogger<CandidateProfileService> logger)
         {
             _candidateProfileRepository = candidateProfileRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _talentPoolCandidateRepository = talentPoolCandidateRepository;
             _currentCandidateService = currentCandidateService;
             _fileStorageService = fileStorageService;
+            _coreGrpcClient = coreGrpcClient;
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         public async Task<CandidateProfileResponse> GetMyProfileAsync()
@@ -44,6 +52,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var response = entity.ToResponse();
             response.HasSubmittedApplication = await HasSubmittedApplicationAsync(entity);
+            (response.DepartmentName, response.DesignationName) = await ResolveOrgNamesAsync(entity);
             return response;
         }
 
@@ -70,7 +79,9 @@ namespace SylviaNG.Recruitment.Application.Services
             var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(entity.Email);
             var poolMemberships = await _talentPoolCandidateRepository.GetAllByCandidateProfileIdAsync(candidateProfileId);
 
-            return entity.ToDetailResponse(applications, poolMemberships);
+            var response = entity.ToDetailResponse(applications, poolMemberships);
+            (response.DepartmentName, response.DesignationName) = await ResolveOrgNamesAsync(entity);
+            return response;
         }
 
         public async Task UpdateHrNotesAsync(long candidateProfileId, string? hrNotes)
@@ -171,6 +182,29 @@ namespace SylviaNG.Recruitment.Application.Services
             await _unitOfWork.SaveChangesAsync();
 
             await _fileStorageService.DeleteAsync(filePath);
+        }
+
+        // US-005 AC1: resolve Department/Designation display names via Core gRPC. Best-effort -
+        // if the Core service is unreachable, the profile still loads (names just stay null),
+        // same "best-effort side-effect" tolerance as resume-text extraction elsewhere.
+        private async Task<(string? DepartmentName, string? DesignationName)> ResolveOrgNamesAsync(Domain.Entities.CandidateProfile entity)
+        {
+            if (entity.DepartmentId == null && entity.DesignationId == null)
+                return (null, null);
+
+            try
+            {
+                var departmentIds = entity.DepartmentId.HasValue ? new List<long> { entity.DepartmentId.Value } : new List<long>();
+                var designationIds = entity.DesignationId.HasValue ? new List<long> { entity.DesignationId.Value } : new List<long>();
+
+                var result = await _coreGrpcClient.GetDepartmentsAndDesignationsAsync(departmentIds, designationIds);
+                return (result.Departments.FirstOrDefault()?.Name, result.Designations.FirstOrDefault()?.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to resolve department/designation names from Core service for CandidateProfile {CandidateProfileId}", entity.CandidateProfileId);
+                return (null, null);
+            }
         }
 
         private async Task<Domain.Entities.CandidateProfile> GetCurrentProfileEntityAsync()
