@@ -16,7 +16,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.FirstOrDefaultAsync(c => c.KeycloakSubjectId == keycloakSubjectId);
         }
 
-        public async Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null)
+        public async Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null, List<string>? tags = null)
         {
             var query = _dbSet.Where(c => c.IsActive).AsQueryable();
 
@@ -29,6 +29,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 query = query.Where(c => matchingProfileIds.Contains(c.CandidateProfileId));
             }
 
+            if (tags != null && tags.Count > 0)
+                query = query.Where(c => c.Tags.Any(t => tags.Contains(t.TagName)));
+
             return await query.ToPaginatedResultAsync(request);
         }
 
@@ -39,6 +42,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(c => c.Educations)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
+                .Include(c => c.Tags)
                 .Where(c => emailSet.Contains(c.Email))
                 .ToListAsync();
         }

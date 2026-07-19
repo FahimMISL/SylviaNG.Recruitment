@@ -15,14 +15,15 @@ namespace SylviaNG.Recruitment.Application.Services
             double TotalExperienceYears,
             HashSet<string> SkillNames,
             HashSet<EducationLevelEnum> EducationLevels,
-            string AddressText);
+            string AddressText,
+            HashSet<string> TagNames);
 
         public static CandidateFacts BuildFacts(CandidateProfile? profile)
         {
             if (profile == null)
             {
                 return new CandidateFacts(null, 0, new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                    new HashSet<EducationLevelEnum>(), string.Empty);
+                    new HashSet<EducationLevelEnum>(), string.Empty, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
             }
 
             var age = profile.DateOfBirth.HasValue ? CalculateAge(profile.DateOfBirth.Value, DateTime.UtcNow) : (int?)null;
@@ -39,7 +40,11 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var addressText = string.Join(" ", new[] { profile.PresentAddress, profile.PermanentAddress }.Where(a => !string.IsNullOrWhiteSpace(a)));
 
-            return new CandidateFacts(age, totalExperienceYears, skillNames, educationLevels, addressText);
+            var tagNames = new HashSet<string>(
+                profile.Tags?.Select(t => t.TagName).Where(n => !string.IsNullOrWhiteSpace(n)) ?? Enumerable.Empty<string>(),
+                StringComparer.OrdinalIgnoreCase);
+
+            return new CandidateFacts(age, totalExperienceYears, skillNames, educationLevels, addressText, tagNames);
         }
 
         public static int CalculateAge(DateTime dateOfBirth, DateTime asOf)

@@ -53,5 +53,8 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         /// <summary>Named talent pools this candidate belongs to (US-039 AC2) - HR/Admin view only.</summary>
         public List<TalentPoolBadgeResponse> TalentPools { get; set; } = new();
+
+        /// <summary>HR-only tags (US-041 AC1/AC4) - never shown to or editable by the candidate.</summary>
+        public List<string> Tags { get; set; } = new();
     }
 }

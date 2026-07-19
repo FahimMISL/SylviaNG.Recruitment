@@ -58,4 +58,5 @@ public class CandidateProfile : Audit
     public ICollection<CandidateSkill> Skills { get; set; } = new List<CandidateSkill>();
     public ICollection<CandidateCertification> Certifications { get; set; } = new List<CandidateCertification>();
     public ICollection<CandidateDocument> Documents { get; set; } = new List<CandidateDocument>();
+    public ICollection<CandidateTag> Tags { get; set; } = new List<CandidateTag>();
 }

@@ -616,11 +616,13 @@ public class JobApplicationServiceTests
         double experienceYears = 0,
         IEnumerable<string>? skills = null,
         IEnumerable<EducationLevelEnum>? educationLevels = null,
-        string address = "") =>
+        string address = "",
+        IEnumerable<string>? tags = null) =>
         new(age, experienceYears,
             new HashSet<string>(skills ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase),
             new HashSet<EducationLevelEnum>(educationLevels ?? Enumerable.Empty<EducationLevelEnum>()),
-            address);
+            address,
+            new HashSet<string>(tags ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase));
 
     [Fact]
     public void MatchesAttributeFilter_MinEducationLevel_AnyDegreeMeetingMinimum_ShouldMatch()
@@ -666,6 +668,24 @@ public class JobApplicationServiceTests
     {
         var facts = Facts(skills: new[] { "React", "SQL" });
         var filter = new JobApplicationAttributeFilterRequest { Skills = new List<string> { "Node", "Java" } };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_Tags_MatchesIfAnySelectedTagPresent()
+    {
+        var facts = Facts(tags: new[] { "Strong Communicator", "Leadership Potential" });
+        var filter = new JobApplicationAttributeFilterRequest { Tags = new List<string> { "Fast Learner", "Leadership Potential" } };
+
+        JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeTrue();
+    }
+
+    [Fact]
+    public void MatchesAttributeFilter_Tags_NoneOfSelectedTagsPresent_ShouldNotMatch()
+    {
+        var facts = Facts(tags: new[] { "Strong Communicator" });
+        var filter = new JobApplicationAttributeFilterRequest { Tags = new List<string> { "Fast Learner" } };
 
         JobApplicationService.MatchesAttributeFilter(facts, filter).Should().BeFalse();
     }

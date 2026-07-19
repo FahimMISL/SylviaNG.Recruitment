@@ -56,9 +56,9 @@ namespace SylviaNG.Recruitment.Application.Services
             return response;
         }
 
-        public async Task<PagedResult<CandidateProfileSummaryResponse>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null)
+        public async Task<PagedResult<CandidateProfileSummaryResponse>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null, List<string>? tags = null)
         {
-            var pagedResult = await _candidateProfileRepository.GetPagedAsync(request, talentPoolIds);
+            var pagedResult = await _candidateProfileRepository.GetPagedAsync(request, talentPoolIds, tags);
 
             return new PagedResult<CandidateProfileSummaryResponse>
             {
@@ -73,7 +73,7 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await _candidateProfileRepository.GetByIdWithIncludeAsync(
                 c => c.CandidateProfileId == candidateProfileId,
-                c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents)
+                c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents, c => c.Tags)
                 ?? throw new NotFoundException("CandidateProfile", candidateProfileId);
 
             var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(entity.Email);

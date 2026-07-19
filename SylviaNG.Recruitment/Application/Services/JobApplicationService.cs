@@ -418,6 +418,10 @@ namespace SylviaNG.Recruitment.Application.Services
             if (filter.MaxAge.HasValue && (!facts.Age.HasValue || facts.Age.Value > filter.MaxAge.Value))
                 return false;
 
+            if (filter.Tags != null && filter.Tags.Count > 0
+                && !filter.Tags.Any(tag => facts.TagNames.Contains(tag)))
+                return false;
+
             return true;
         }
 
