@@ -133,3 +133,18 @@ public enum RecommendationStatusEnum
     Accepted,
     Rejected
 }
+
+public enum QuestionTypeEnum
+{
+    McqSingle,
+    McqMultiple,
+    TrueFalse,
+    Subjective
+}
+
+public enum DifficultyLevelEnum
+{
+    Easy,
+    Medium,
+    Hard
+}
