@@ -75,6 +75,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<JobApplicationStageProgress> JobApplicationStageProgresses { get; set; }
         public DbSet<ShortlistFilter> ShortlistFilters { get; set; }
         public DbSet<ShortlistFilterCriterion> ShortlistFilterCriteria { get; set; }
+        public DbSet<ExamHall> ExamHalls { get; set; }
+        public DbSet<ExamHallInvigilator> ExamHallInvigilators { get; set; }
 
         #endregion
 
