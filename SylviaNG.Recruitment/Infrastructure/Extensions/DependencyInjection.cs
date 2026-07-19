@@ -86,6 +86,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ICandidateDocumentRepository, CandidateDocumentRepository>();
             services.AddScoped<IStaffProfileRepository, StaffProfileRepository>();
             services.AddScoped<IApplicationStatusReasonRepository, ApplicationStatusReasonRepository>();
+            services.AddScoped<IQuestionGroupRepository, QuestionGroupRepository>();
+            services.AddScoped<IExamQuestionRepository, ExamQuestionRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -102,6 +104,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // (both reuse the IFileStorageService/FileStorageSettings root above - see plan decision).
             services.Configure<CandidatePhotoSignatureSettings>(configuration.GetSection(CandidatePhotoSignatureSettings.SectionName));
             services.Configure<CandidateDocumentSettings>(configuration.GetSection(CandidateDocumentSettings.SectionName));
+
+            // Size/extension policy for the US-054 exam question bulk-import upload
+            services.Configure<ExamQuestionImportSettings>(configuration.GetSection(ExamQuestionImportSettings.SectionName));
 
             // Free, local, regex/heuristic resume parsing (no external AI API) - see plan decision.
             services.AddScoped<IResumeParsingService, ResumeParsingService>();

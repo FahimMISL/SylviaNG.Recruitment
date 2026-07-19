@@ -95,3 +95,18 @@ public enum FilterCombinatorEnum
     And,
     Or
 }
+
+public enum QuestionTypeEnum
+{
+    McqSingle,
+    McqMultiple,
+    TrueFalse,
+    Subjective
+}
+
+public enum DifficultyLevelEnum
+{
+    Easy,
+    Medium,
+    Hard
+}
