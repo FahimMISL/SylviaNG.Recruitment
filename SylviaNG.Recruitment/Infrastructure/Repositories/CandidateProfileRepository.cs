@@ -18,7 +18,18 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         public async Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null, List<string>? tags = null)
         {
-            var query = _dbSet.Where(c => c.IsActive).AsQueryable();
+            // CalculateCompleteness (CandidateProfileMapper.ToSummaryResponse) reads these
+            // collections - without the Includes they're always empty here, undercounting
+            // every candidate's completeness in the list regardless of their real data.
+            var query = _dbSet
+                .Where(c => c.IsActive)
+                .Include(c => c.Educations)
+                .Include(c => c.WorkExperiences)
+                .Include(c => c.Skills)
+                .Include(c => c.Certifications)
+                .Include(c => c.Documents)
+                .AsSplitQuery()
+                .AsQueryable();
 
             if (talentPoolIds != null && talentPoolIds.Count > 0)
             {

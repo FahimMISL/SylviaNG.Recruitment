@@ -121,8 +121,27 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // Size/extension policy for the US-054 exam question bulk-import upload
             services.Configure<ExamQuestionImportSettings>(configuration.GetSection(ExamQuestionImportSettings.SectionName));
 
-            // Free, local, regex/heuristic resume parsing (no external AI API) - see plan decision.
-            services.AddScoped<IResumeParsingService, ResumeParsingService>();
+            // Heuristic vs AI resume parsing switch - same pattern as ShortlistScoring:Provider
+            // below: flip ResumeParsing:Provider, no code change, to swap implementations.
+            // AiResumeParsingService falls back to HeuristicResumeParsingService in-process on
+            // any Groq failure, so this factory only ever needs to resolve the configured
+            // provider - the fallback isn't a DI concern.
+            services.AddScoped<HeuristicResumeParsingService>();
+            services.AddScoped<AiResumeParsingService>();
+
+            var resumeParsingProvider = configuration["ResumeParsing:Provider"];
+            services.AddScoped<IResumeParsingService>(sp =>
+            {
+                var provider = NormalizeResumeParsingProvider(resumeParsingProvider);
+
+                return provider switch
+                {
+                    "heuristic" => sp.GetRequiredService<HeuristicResumeParsingService>(),
+                    "ai" => sp.GetRequiredService<AiResumeParsingService>(),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported resume parsing provider: {resumeParsingProvider}. Supported providers: Heuristic, Ai.")
+                };
+            });
 
             services.AddScoped<ICandidateTalentPoolRepository, CandidateTalentPoolRepository>();
 
@@ -186,6 +205,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
         {
             if (string.IsNullOrWhiteSpace(provider))
                 throw new ArgumentNullException(nameof(provider), "ShortlistScoring provider is not specified.");
+
+            return provider.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizeResumeParsingProvider(string? provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new ArgumentNullException(nameof(provider), "ResumeParsing provider is not specified.");
 
             return provider.Trim().ToLowerInvariant();
         }

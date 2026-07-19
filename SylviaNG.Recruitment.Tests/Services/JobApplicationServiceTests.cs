@@ -790,8 +790,6 @@ public class JobApplicationServiceTests
         _candidateProfileRepositoryMock.Verify(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()), Times.Never);
     }
 
-    }
-
     [Fact]
     public async Task GetDashboardMatchingIdsAsync_WithSkillFilter_ShouldJoinProfilesAndReturnOnlyMatchingIds()
     {

@@ -116,10 +116,12 @@ namespace SylviaNG.Recruitment.Application.Mappings
         {
             var completedSections = 0;
 
-            if (entity.DateOfBirth.HasValue && !string.IsNullOrWhiteSpace(entity.Gender))
+            // Gated on each section's actual required form field (FullName / Email), not
+            // incidental optional ones - otherwise a fully-saved section can still read as 0%.
+            if (!string.IsNullOrWhiteSpace(entity.FullName))
                 completedSections++; // Personal Info
 
-            if (!string.IsNullOrWhiteSpace(entity.Phone) && !string.IsNullOrWhiteSpace(entity.PresentAddress))
+            if (!string.IsNullOrWhiteSpace(entity.Email))
                 completedSections++; // Contact
 
             if (entity.Educations.Count > 0)
