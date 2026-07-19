@@ -26,5 +26,13 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
         public string? SignaturePath { get; set; }
 
         public int CompletenessPercentage { get; set; }
+
+        /// <summary>
+        /// True once the candidate has at least one submitted JobApplication. Email, Phone, and
+        /// NationalId become read-only in that state (US-003 AC4) - JobApplication has no FK to
+        /// CandidateProfile and matches self-service lookups by Email, so changing these fields
+        /// after applying would orphan the candidate's own application history (US-003 AC1/AC2).
+        /// </summary>
+        public bool HasSubmittedApplication { get; set; }
     }
 }

@@ -42,7 +42,9 @@ namespace SylviaNG.Recruitment.Application.Services
                 c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents)
                 ?? throw new NotFoundException("CandidateProfile", profileId);
 
-            return entity.ToResponse();
+            var response = entity.ToResponse();
+            response.HasSubmittedApplication = await HasSubmittedApplicationAsync(entity);
+            return response;
         }
 
         public async Task<PagedResult<CandidateProfileSummaryResponse>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null)
@@ -87,6 +89,8 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await GetCurrentProfileEntityAsync();
 
+            await EnsureFieldNotLockedIfChangedAsync(entity, "NationalId", entity.NationalId, request.NationalId);
+
             entity.ApplyPersonalInfoUpdate(request);
             entity.UpdatedAt = DateTime.UtcNow;
 
@@ -97,6 +101,9 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task UpdateContactAsync(CandidateProfileContactUpdateRequest request)
         {
             var entity = await GetCurrentProfileEntityAsync();
+
+            await EnsureFieldNotLockedIfChangedAsync(entity, "Email", entity.Email, request.Email);
+            await EnsureFieldNotLockedIfChangedAsync(entity, "Phone", entity.Phone, request.Phone, normalizeAsPhone: true);
 
             entity.ApplyContactUpdate(request);
             entity.UpdatedAt = DateTime.UtcNow;
@@ -172,5 +179,42 @@ namespace SylviaNG.Recruitment.Application.Services
             return await _candidateProfileRepository.GetByIdAsync(profileId)
                 ?? throw new NotFoundException("CandidateProfile", profileId);
         }
+
+        // ── US-003: Identity-field lock (AC1/AC2/AC4) ──────────────────────
+        // JobApplication has no FK to CandidateProfile - self-service lookups (GetMyApplicationsAsync,
+        // WithdrawMyApplicationAsync) match by Email, so once a candidate has a submitted application,
+        // Email/Phone/NationalId must not change or the candidate's own application history orphans
+        // itself (it silently stops matching on the next lookup).
+
+        private async Task EnsureFieldNotLockedIfChangedAsync(
+            Domain.Entities.CandidateProfile entity,
+            string fieldName,
+            string? currentValue,
+            string? newValue,
+            bool normalizeAsPhone = false)
+        {
+            var changed = normalizeAsPhone
+                ? !string.Equals(NormalizePhoneDigits(currentValue), NormalizePhoneDigits(newValue), StringComparison.Ordinal)
+                : !string.Equals(currentValue, newValue, StringComparison.OrdinalIgnoreCase);
+
+            if (!changed || !await HasSubmittedApplicationAsync(entity))
+                return;
+
+            throw new FluentValidation.ValidationException(new[]
+            {
+                new FluentValidation.Results.ValidationFailure(
+                    fieldName,
+                    $"{fieldName} cannot be changed after you have submitted a job application. Contact HR support if this needs to be corrected.")
+            });
+        }
+
+        private async Task<bool> HasSubmittedApplicationAsync(Domain.Entities.CandidateProfile entity)
+        {
+            var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(entity.Email);
+            return applications.Count > 0;
+        }
+
+        private static string? NormalizePhoneDigits(string? phone) =>
+            phone == null ? null : new string(phone.Where(char.IsDigit).ToArray());
     }
 }
