@@ -21,7 +21,7 @@ public class AiShortlistScoringServiceTests
 
     private static JobPosting Posting() => new() { Title = "Software Engineer" };
     private static CandidateFactService.CandidateFacts Facts() =>
-        new(30, 5, new HashSet<string>(), new HashSet<Domain.Enums.EducationLevelEnum>(), "Dhaka");
+        new(30, 5, new HashSet<string>(), new HashSet<Domain.Enums.EducationLevelEnum>(), "Dhaka", new HashSet<string>());
 
     [Fact]
     public async Task ScoreAsync_ValidJsonResponse_ShouldReturnScoreAndExplanation()

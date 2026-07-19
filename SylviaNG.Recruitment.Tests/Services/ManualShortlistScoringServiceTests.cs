@@ -35,7 +35,7 @@ public class ManualShortlistScoringServiceTests
         HashSet<string>? skills = null,
         HashSet<EducationLevelEnum>? educationLevels = null,
         string address = "") =>
-        new(age, experience, skills ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase), educationLevels ?? new HashSet<EducationLevelEnum>(), address);
+        new(age, experience, skills ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase), educationLevels ?? new HashSet<EducationLevelEnum>(), address, new HashSet<string>());
 
     [Fact]
     public async Task ScoreAsync_NoRequirementsSet_ShouldScoreNeutralMax()

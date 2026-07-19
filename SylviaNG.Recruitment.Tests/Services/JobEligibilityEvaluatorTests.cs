@@ -15,7 +15,8 @@ public class JobEligibilityEvaluatorTests
         new(age, experienceYears,
             new HashSet<string>(StringComparer.OrdinalIgnoreCase),
             new HashSet<EducationLevelEnum>(educationLevels ?? Enumerable.Empty<EducationLevelEnum>()),
-            address);
+            address,
+            new HashSet<string>());
 
     private static JobPosting Posting(
         int? minAge = null,

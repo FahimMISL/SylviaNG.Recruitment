@@ -8,7 +8,7 @@ namespace SylviaNG.Recruitment.Tests.Services;
 public class CandidateMatchAnalyzerTests
 {
     private static CandidateFactService.CandidateFacts Facts(double experience = 0, HashSet<string>? skills = null) =>
-        new(null, experience, skills ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<EducationLevelEnum>(), string.Empty);
+        new(null, experience, skills ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<EducationLevelEnum>(), string.Empty, new HashSet<string>());
 
     [Fact]
     public void GetMatchedSkills_SkillsFoundInRequirements_ShouldReturnOnlyMatched()

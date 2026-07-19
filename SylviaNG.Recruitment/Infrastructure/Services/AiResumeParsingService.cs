@@ -60,6 +60,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
 
         public string ProviderName => "Ai";
 
+        public Task<string> ExtractRawTextAsync(IFormFile file) => _heuristicFallback.ExtractRawTextAsync(file);
+
         public async Task<CandidateResumeParseResponse> ParseAsync(IFormFile file)
         {
             try
