@@ -15,6 +15,10 @@ public class JobApplication : Audit
     public string? CandidatePhone { get; set; }
     public string? ResumeUrl { get; set; }
     public string? CoverLetter { get; set; }
+
+    // Raw text extracted from the resume file at submission time, so CV Bank search (US-045)
+    // can match against CV content without re-extracting the file on every search.
+    public string? ResumeExtractedText { get; set; }
     public ApplicationStatusEnum ApplicationStatus { get; set; } = ApplicationStatusEnum.Applied;
     public DateTime? AppliedDate { get; set; }
     public bool IsActive { get; set; } = true;
