@@ -124,3 +124,10 @@ public enum StageTypeEnum
     GroupDiscussion,
     PracticalAssessment
 }
+
+public enum RecommendationStatusEnum
+{
+    Pending,
+    Accepted,
+    Rejected
+}
