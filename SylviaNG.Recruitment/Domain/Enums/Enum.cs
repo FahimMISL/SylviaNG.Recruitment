@@ -115,3 +115,12 @@ public enum PaymentStatusEnum
     Failed,
     Cancelled
 }
+
+public enum StageTypeEnum
+{
+    WrittenTest,
+    AptitudeTest,
+    PsychometricTest,
+    GroupDiscussion,
+    PracticalAssessment
+}
