@@ -132,6 +132,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateNationalId = request.CandidateNationalId,
                 ResumeUrl = request.ResumeUrl,
                 CoverLetter = request.CoverLetter,
+                Source = request.Source,
                 IsActive = true
             };
         }

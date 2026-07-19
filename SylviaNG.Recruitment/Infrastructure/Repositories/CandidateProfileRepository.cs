@@ -16,9 +16,19 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.FirstOrDefaultAsync(c => c.KeycloakSubjectId == keycloakSubjectId);
         }
 
-        public async Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request)
+        public async Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null)
         {
             var query = _dbSet.Where(c => c.IsActive).AsQueryable();
+
+            if (talentPoolIds != null && talentPoolIds.Count > 0)
+            {
+                var matchingProfileIds = _dbContext.TalentPoolCandidates
+                    .Where(tc => talentPoolIds.Contains(tc.TalentPoolId))
+                    .Select(tc => tc.CandidateProfileId);
+
+                query = query.Where(c => matchingProfileIds.Contains(c.CandidateProfileId));
+            }
+
             return await query.ToPaginatedResultAsync(request);
         }
 

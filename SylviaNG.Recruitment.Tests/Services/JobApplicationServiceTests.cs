@@ -1108,7 +1108,6 @@ public class JobApplicationServiceTests
         result.UnmetRequirements.Should().HaveCount(2);
     }
 
-    }
     // ── GetDuplicatesAsync / ResolveDuplicatesAsync (US-038) ────────────────
 
     [Fact]

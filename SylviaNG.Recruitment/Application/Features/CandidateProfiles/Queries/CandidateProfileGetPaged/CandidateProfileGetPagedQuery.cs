@@ -8,9 +8,13 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.Ca
     {
         public PagedRequest Request { get; set; }
 
-        public CandidateProfileGetPagedQuery(PagedRequest request)
+        /// <summary>Narrow the list to members of these talent pools (US-039 AC4).</summary>
+        public List<long>? TalentPoolIds { get; set; }
+
+        public CandidateProfileGetPagedQuery(PagedRequest request, List<long>? talentPoolIds = null)
         {
             Request = request;
+            TalentPoolIds = talentPoolIds;
         }
     }
 }

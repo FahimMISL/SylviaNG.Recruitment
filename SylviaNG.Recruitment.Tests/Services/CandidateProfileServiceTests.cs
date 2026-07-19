@@ -16,6 +16,7 @@ public class CandidateProfileServiceTests
 {
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
+    private readonly Mock<ITalentPoolCandidateRepository> _talentPoolCandidateRepositoryMock;
     private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
     private readonly Mock<IFileStorageService> _fileStorageServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
@@ -25,13 +26,18 @@ public class CandidateProfileServiceTests
     {
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
+        _talentPoolCandidateRepositoryMock = new Mock<ITalentPoolCandidateRepository>();
         _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
         _fileStorageServiceMock = new Mock<IFileStorageService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
 
+        _talentPoolCandidateRepositoryMock.Setup(r => r.GetAllByCandidateProfileIdAsync(It.IsAny<long>()))
+            .ReturnsAsync(new List<TalentPoolCandidate>());
+
         _service = new CandidateProfileService(
             _candidateProfileRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object,
+            _talentPoolCandidateRepositoryMock.Object,
             _currentCandidateServiceMock.Object,
             _fileStorageServiceMock.Object,
             _unitOfWorkMock.Object);

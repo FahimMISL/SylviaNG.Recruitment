@@ -97,6 +97,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IExamHallRepository, ExamHallRepository>();
             services.AddScoped<IQuestionGroupRepository, QuestionGroupRepository>();
             services.AddScoped<IExamQuestionRepository, ExamQuestionRepository>();
+            services.AddScoped<ITalentPoolRepository, TalentPoolRepository>();
+            services.AddScoped<ITalentPoolCandidateRepository, TalentPoolCandidateRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
