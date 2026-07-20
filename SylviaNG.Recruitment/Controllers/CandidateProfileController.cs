@@ -13,6 +13,7 @@ using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.Candi
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateEducationUpdate;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateProfileContactUpdate;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateProfileHrNotesUpdate;
+using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateProfileMarkInternal;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateProfilePersonalInfoUpdate;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateProfilePhotoDelete;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.CandidateProfilePhotoUpload;
@@ -312,6 +313,18 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult> UpdateHrNotes(long candidateProfileId, [FromBody] CandidateProfileHrNotesUpdateRequest request)
         {
             await _mediator.Send(new CandidateProfileHrNotesUpdateCommand(candidateProfileId, request.HrNotes));
+            return Ok();
+        }
+
+        /// <summary>
+        /// Flags a candidate as internal regardless of Core HR Employee sync. One-way: there is no
+        /// unmark endpoint, matching the auto-assign-on-Hired behavior this mirrors.
+        /// </summary>
+        [HttpPut("{candidateProfileId:long}/mark-internal")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult> MarkInternal(long candidateProfileId)
+        {
+            await _mediator.Send(new CandidateProfileMarkInternalCommand(candidateProfileId));
             return Ok();
         }
 

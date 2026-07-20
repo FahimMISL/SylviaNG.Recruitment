@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using SylviaNG.Recruitment.SharedKernel.Audit;
 
 namespace SylviaNG.Recruitment.Domain.Entities;
@@ -45,6 +46,14 @@ public class CandidateProfile : Audit
     public long? EmployeeId { get; set; }
     public long? DepartmentId { get; set; }
     public long? DesignationId { get; set; }
+
+    // Admin override (this feature) - lets HR/Admin flag a candidate internal without a Core HR
+    // Employee sync match, and lets the Hired transition (JobApplicationService) auto-flag a
+    // newly-hired candidate. IsInternal is the single source of truth callers should read.
+    public bool IsManuallyInternal { get; set; }
+
+    [NotMapped]
+    public bool IsInternal => EmployeeId.HasValue || IsManuallyInternal;
 
     // Immutable snapshot of what Core HR supplied at provisioning time, for the editable fields
     // (FullName, Phone) only - compared against the current value to flag drift for HR (AC2)

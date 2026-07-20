@@ -96,6 +96,18 @@ namespace SylviaNG.Recruitment.Application.Services
             await _unitOfWork.SaveChangesAsync();
         }
 
+        public async Task MarkInternalAsync(long candidateProfileId)
+        {
+            var entity = await _candidateProfileRepository.GetByIdAsync(candidateProfileId)
+                ?? throw new NotFoundException("CandidateProfile", candidateProfileId);
+
+            entity.IsManuallyInternal = true;
+            entity.UpdatedAt = DateTime.UtcNow;
+
+            _candidateProfileRepository.Update(entity);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
         public async Task UpdatePersonalInfoAsync(CandidateProfilePersonalInfoUpdateRequest request)
         {
             var entity = await GetCurrentProfileEntityAsync();

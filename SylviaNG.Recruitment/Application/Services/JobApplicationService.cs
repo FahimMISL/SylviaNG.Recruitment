@@ -512,6 +512,24 @@ namespace SylviaNG.Recruitment.Application.Services
                 FromStatus = fromStatus.ToString(),
                 ToStatus = request.ToStatus.ToString()
             });
+
+            if (request.ToStatus == ApplicationStatusEnum.Hired && !string.IsNullOrEmpty(entity.CandidateEmail))
+                await MarkCandidateInternalByEmailAsync(entity.CandidateEmail);
+        }
+
+        // Hiring confirmation implies the person is now internal - auto-flag their candidate
+        // profile the same way an HR/Admin manual override does (CandidateProfile.IsInternal).
+        // Matched by email since JobApplication has no FK to CandidateProfile (see
+        // ICandidateProfileRepository.GetByEmailsAsync).
+        private async Task MarkCandidateInternalByEmailAsync(string candidateEmail)
+        {
+            var profiles = await _candidateProfileRepository.GetByEmailsAsync(new[] { candidateEmail });
+            var profile = profiles.FirstOrDefault();
+            if (profile == null || profile.IsManuallyInternal)
+                return;
+
+            profile.IsManuallyInternal = true;
+            _candidateProfileRepository.Update(profile);
         }
 
         private static void EnsureLegalStatusTransition(ApplicationStatusEnum currentStatus, ApplicationStatusEnum requestedStatus)

@@ -54,7 +54,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 SignaturePath = entity.SignaturePath,
                 CompletenessPercentage = CalculateCompleteness(entity),
-                IsInternal = entity.EmployeeId.HasValue,
+                IsInternal = entity.IsInternal,
                 HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity)
             };
         }
@@ -68,7 +68,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Email = entity.Email,
                 Phone = entity.Phone,
                 ProfilePhotoPath = entity.ProfilePhotoPath,
-                CompletenessPercentage = CalculateCompleteness(entity)
+                CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.IsInternal
             };
         }
 
@@ -96,7 +97,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 SignaturePath = entity.SignaturePath,
                 CompletenessPercentage = CalculateCompleteness(entity),
-                IsInternal = entity.EmployeeId.HasValue,
+                IsInternal = entity.IsInternal,
                 HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity),
                 Educations = entity.Educations.Select(e => e.ToResponse()).ToList(),
                 WorkExperiences = entity.WorkExperiences.Select(e => e.ToResponse()).ToList(),

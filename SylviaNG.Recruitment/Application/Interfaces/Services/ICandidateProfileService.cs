@@ -26,5 +26,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
 
         /// <summary>HR/Admin-only annotation on a candidate's profile (US-009 AC5).</summary>
         Task UpdateHrNotesAsync(long candidateProfileId, string? hrNotes);
+
+        /// <summary>
+        /// HR/Admin marks a candidate as internal regardless of Core HR Employee sync.
+        /// See CandidateProfile.IsManuallyInternal / IsInternal.
+        /// </summary>
+        Task MarkInternalAsync(long candidateProfileId);
     }
 }
