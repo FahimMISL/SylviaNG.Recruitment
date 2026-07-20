@@ -89,6 +89,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<SavedSearch> SavedSearches { get; set; }
         public DbSet<TalentPool> TalentPools { get; set; }
         public DbSet<TalentPoolCandidate> TalentPoolCandidates { get; set; }
+        public DbSet<ExamVenue> ExamVenues { get; set; }
+        public DbSet<ExamRoom> ExamRooms { get; set; }
+        public DbSet<ExamRoomInvigilator> ExamRoomInvigilators { get; set; }
 
         #endregion
 
