@@ -49,6 +49,24 @@ namespace SylviaNG.Recruitment.Middlewares
                     return;
                 }
 
+                // Binary/file responses (e.g. controller File() results, identified by a
+                // Content-Disposition header or a non-JSON/non-text Content-Type) must pass
+                // through untouched - reading them as UTF-8 text and re-serializing as JSON
+                // corrupts the bytes.
+                var contentType = context.Response.ContentType;
+                var isBinaryOrFileResponse = context.Response.Headers.ContainsKey("Content-Disposition")
+                    || (contentType != null
+                        && !contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase)
+                        && !contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase));
+
+                if (isBinaryOrFileResponse)
+                {
+                    context.Response.Body = originalBodyStream;
+                    responseBody.Seek(0, SeekOrigin.Begin);
+                    await responseBody.CopyToAsync(originalBodyStream);
+                    return;
+                }
+
                 responseBody.Seek(0, SeekOrigin.Begin);
                 var bodyText = await new StreamReader(context.Response.Body).ReadToEndAsync();
                 context.Response.Body.Seek(0, SeekOrigin.Begin);

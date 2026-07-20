@@ -35,8 +35,8 @@
 
 ## Table of Contents
 
-1. [EP-01 — Candidate Profile & CV Management](#ep-01--candidate-profile--cv-management) _(US-001–US-010)_
-2. [EP-02 — Job Vacancy Configuration](#ep-02--job-vacancy-configuration) _(US-011–US-017)_
+1. [EP-01 — Candidate Profile & CV Management](#ep-01--candidate-profile--cv-management) _(US-001–US-009)_
+2. [EP-02 — Job Vacancy Configuration](#ep-02--job-vacancy-configuration) _(US-011–US-016)_
 3. [EP-03 — Career Portal & Job Posting](#ep-03--career-portal--job-posting) _(US-018–US-024)_
 4. [EP-05 — Application & Candidate Tracking (ATS)](#ep-05--application--candidate-tracking-ats) _(US-033–US-042)_
 5. [EP-06 — Shortlisting & Filtering](#ep-06--shortlisting--filtering) _(US-043–US-050)_
@@ -45,7 +45,7 @@
 8. [EP-09 — Candidate Communication & Notifications](#ep-09--candidate-communication--notifications) _(US-073–US-079)_
 9. [EP-10 — Document & Letter Generation](#ep-10--document--letter-generation) _(US-080–US-086)_
 10. [EP-11 — Pre-Employment Verification](#ep-11--pre-employment-verification) _(US-087–US-093)_
-11. [EP-12 — Hiring & Onboarding Integration](#ep-12--hiring--onboarding-integration) _(US-094–US-099)_
+11. [EP-12 — Hiring & Onboarding Integration](#ep-12--hiring--onboarding-integration) _(US-094–US-099, US-129)_
 12. [EP-13 — Data Download & Profile Export](#ep-13--data-download--profile-export) _(US-100–US-104)_
 13. [EP-14 — Reports, Analytics & Dashboards](#ep-14--reports-analytics--dashboards) _(US-105–US-110)_
 14. [EP-15 — Access Control & User Management](#ep-15--access-control--user-management) _(US-111–US-116)_
@@ -194,25 +194,6 @@
 
 ---
 
-### US-008 — Submit Candidate Complaint or Grievance
-
-**As an** External Candidate,  
-**I want to** submit a formal complaint or grievance about my application or treatment during the recruitment process,  
-**so that** my concern is formally recorded and addressed by the HR team.
-
-**Priority:** Could Have  
-**Size:** S
-
-**Acceptance Criteria:**
-
-- AC1: The candidate can access a complaint form from their profile or application detail page.
-- AC2: The form captures complaint type, description, and optional supporting attachments.
-- AC3: A unique complaint reference number is generated and shown to the candidate.
-- AC4: The complaint is visible to HR Admin for resolution.
-- AC5: The candidate can view the status (Open / In Progress / Resolved / Closed) of their complaint.
-
----
-
 ### US-009 — HR Views Full Candidate Profile
 
 **As an** HR / Recruiter,  
@@ -229,25 +210,6 @@
 - AC3: Profile completeness percentage is shown alongside the profile.
 - AC4: Application history shows which jobs the candidate applied to, status, and dates.
 - AC5: HR cannot edit the candidate's core profile data but can annotate or tag the profile.
-
----
-
-### US-010 — Admin Configures Candidate Profile Fields
-
-**As an** Admin / Super Admin,  
-**I want to** configure which candidate profile fields are mandatory, optional, or hidden,  
-**so that** the profile form reflects only the fields relevant to our organization's requirements.
-
-**Priority:** Should Have  
-**Size:** M
-
-**Acceptance Criteria:**
-
-- AC1: The admin configuration screen lists all available profile fields with toggle controls for Mandatory / Optional / Hidden.
-- AC2: Configuration changes take effect for new registrations without affecting existing profiles.
-- AC3: Fields marked as Mandatory are highlighted in the candidate profile form.
-- AC4: At least Name, Email, and CV are always Mandatory and cannot be set to Hidden.
-- AC5: The admin can reorder field display order via drag-and-drop or ordering controls.
 
 ---
 
@@ -368,24 +330,6 @@
 
 ---
 
-### US-017 — Configure Application Fee for a Vacancy
-
-**As an** HR / Recruiter,  
-**I want to** configure an application fee for a specific vacancy,  
-**so that** candidates are required to pay before their application is officially accepted.
-
-**Priority:** Should Have  
-**Size:** M
-
-**Acceptance Criteria:**
-
-- AC1: The vacancy form includes an Application Fee section where the fee amount and currency can be specified.
-- AC2: Fee can be set to zero (free application) or a specific amount.
-- AC3: Vacancy-level fee configuration integrates with the Application Fee Management module (EP-17).
-- AC4: When a fee is configured, candidates see the fee amount on the job listing before applying.
-- AC5: Application is not moved to the Submitted state until payment is confirmed.
-
----
 
 ## EP-03 — Career Portal & Job Posting
 
@@ -1844,6 +1788,25 @@
 
 ---
 
+### US-129 — Generate Office Note for Onboarding Enclosures
+
+**As an** HR / Recruiter,  
+**I want to** generate an office note listing the enclosures accompanying a new hire's onboarding file (offer letter, appointment letter, verification summary, joining booklet),  
+**so that** the personnel file has a formal internal record referencing every enclosed document without manually compiling the list.
+
+**Priority:** Should Have  
+**Size:** S
+
+**Acceptance Criteria:**
+
+- AC1: The office note is generated from the candidate's onboarding record once the joining booklet and verification summary are available.
+- AC2: The note auto-lists all generated enclosures (offer letter, appointment letter, verification summary, joining booklet) with document name and generation date.
+- AC3: HR can add free-text remarks to the office note before finalizing.
+- AC4: The finalized office note is saved as a PDF and stored in the candidate's document history alongside the other onboarding documents.
+- AC5: The office note can be generated individually or in bulk for an entire joining batch.
+
+---
+
 ## EP-13 — Data Download & Profile Export
 
 > **Description:** Downloadable Excel/CSV reports for shortlisted candidates in single-line-per-candidate format. Supports bulk CV PDF downloads, admit card downloads, and system-generated profile exports for offline use.
@@ -2424,8 +2387,8 @@
 
 | Epic      | Title                                   | Story Count |
 | --------- | --------------------------------------- | ----------- |
-| EP-01     | Candidate Profile & CV Management       | 10          |
-| EP-02     | Job Vacancy Configuration               | 7           |
+| EP-01     | Candidate Profile & CV Management       | 8           |
+| EP-02     | Job Vacancy Configuration               | 6           |
 | EP-03     | Career Portal & Job Posting             | 7           |
 | EP-05     | Application & Candidate Tracking (ATS)  | 10          |
 | EP-06     | Shortlisting & Filtering                | 8           |
@@ -2434,38 +2397,38 @@
 | EP-09     | Candidate Communication & Notifications | 7           |
 | EP-10     | Document & Letter Generation            | 7           |
 | EP-11     | Pre-Employment Verification             | 7           |
-| EP-12     | Hiring & Onboarding Integration         | 6           |
+| EP-12     | Hiring & Onboarding Integration         | 7           |
 | EP-13     | Data Download & Profile Export          | 5           |
 | EP-14     | Reports, Analytics & Dashboards         | 6           |
 | EP-15     | Access Control & User Management        | 6           |
 | EP-16     | System Integrations                     | 6           |
 | EP-17     | Application Fee Management              | 6           |
-| **Total** |                                         | **120**     |
+| **Total** |                                         | **118**     |
 
 ### Stories by Priority
 
 | Priority    | Count | %   |
 | ----------- | ----- | --- |
-| Must Have   | 76    | 63% |
-| Should Have | 33    | 28% |
-| Could Have  | 11    | 9%  |
+| Must Have   | 76    | 64% |
+| Should Have | 32    | 27% |
+| Could Have  | 10    | 8%  |
 
 ### Stories by Actor
 
 | Actor                  | Stories Involve                                                                                                                                                                                    |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| External Candidate     | US-001–009, US-019, US-024, US-033, US-040, US-058, US-075, US-082, US-095, US-114, US-124                                                                                                         |
+| External Candidate     | US-001–007, US-009, US-019, US-024, US-033, US-040, US-058, US-075, US-082, US-095, US-114, US-124                                                                                                 |
 | Internal Candidate     | US-005, US-022, US-040                                                                                                                                                                             |
-| HR / Recruiter         | US-009, US-011–017, US-021, US-023, US-034–039, US-041–050, US-053–057, US-059–060, US-063–068, US-071, US-077–079, US-081, US-083–086, US-087–091, US-093–094, US-096–099, US-100–104, US-105–110 |
+| HR / Recruiter         | US-009, US-011–016, US-021, US-023, US-034–039, US-041–050, US-053–057, US-059–060, US-063–068, US-071, US-077–079, US-081, US-083–086, US-087–091, US-093–094, US-096–099, US-100–104, US-105–110, US-129 |
 | Hiring Manager         | US-113                                                                                                                                                                                             |
 | Interviewer / Panelist | US-066, US-072                                                                                                                                                                                     |
-| Admin / Super Admin    | US-010, US-020, US-028, US-061, US-073, US-074, US-080, US-111, US-112, US-115–116, US-117–122, US-123, US-126–128                                                                                 |
+| Admin / Super Admin    | US-020, US-028, US-061, US-073, US-074, US-080, US-111, US-112, US-115–116, US-117–122, US-123, US-126–128                                                                                         |
 
 ### Phase Summary
 
 | Phase             | Stories                |
 | ----------------- | ---------------------- |
-| Phase 1 (Current) | 117 stories            |
+| Phase 1 (Current) | 115 stories            |
 | Phase 2 (Planned) | US-061, US-090, US-092 |
 
 ---

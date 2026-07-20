@@ -53,7 +53,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PermanentAddress = entity.PermanentAddress,
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 SignaturePath = entity.SignaturePath,
-                CompletenessPercentage = CalculateCompleteness(entity)
+                CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.IsInternal,
+                HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity)
             };
         }
 
@@ -66,11 +68,15 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Email = entity.Email,
                 Phone = entity.Phone,
                 ProfilePhotoPath = entity.ProfilePhotoPath,
-                CompletenessPercentage = CalculateCompleteness(entity)
+                CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.IsInternal
             };
         }
 
-        public static CandidateProfileDetailResponse ToDetailResponse(this CandidateProfile entity, List<JobApplication> applications)
+        public static CandidateProfileDetailResponse ToDetailResponse(
+            this CandidateProfile entity,
+            List<JobApplication> applications,
+            List<TalentPoolCandidate> poolMemberships)
         {
             return new CandidateProfileDetailResponse
             {
@@ -91,24 +97,32 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 SignaturePath = entity.SignaturePath,
                 CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.IsInternal,
+                HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity),
                 Educations = entity.Educations.Select(e => e.ToResponse()).ToList(),
                 WorkExperiences = entity.WorkExperiences.Select(e => e.ToResponse()).ToList(),
                 Skills = entity.Skills.Select(e => e.ToResponse()).ToList(),
                 Certifications = entity.Certifications.Select(e => e.ToResponse()).ToList(),
                 Documents = entity.Documents.Select(e => e.ToResponse()).ToList(),
                 ApplicationHistory = applications.Select(a => a.ToResponse()).ToList(),
-                HrNotes = entity.HrNotes
+                HrNotes = entity.HrNotes,
+                TalentPools = poolMemberships.Select(m => m.ToBadgeResponse()).ToList(),
+                Tags = entity.Tags.Select(t => t.TagName).ToList()
             };
         }
 
-        private static int CalculateCompleteness(CandidateProfile entity)
+        /// <summary>Public so JobApplicationService can re-run the same calculation for the
+        /// US-007 AC4 minimum-completeness submit gate.</summary>
+        public static int CalculateCompleteness(CandidateProfile entity)
         {
             var completedSections = 0;
 
-            if (entity.DateOfBirth.HasValue && !string.IsNullOrWhiteSpace(entity.Gender))
+            // Gated on each section's actual required form field (FullName / Email), not
+            // incidental optional ones - otherwise a fully-saved section can still read as 0%.
+            if (!string.IsNullOrWhiteSpace(entity.FullName))
                 completedSections++; // Personal Info
 
-            if (!string.IsNullOrWhiteSpace(entity.Phone) && !string.IsNullOrWhiteSpace(entity.PresentAddress))
+            if (!string.IsNullOrWhiteSpace(entity.Email))
                 completedSections++; // Contact
 
             if (entity.Educations.Count > 0)
@@ -127,6 +141,19 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 completedSections++; // Documents
 
             return completedSections * 100 / TotalSections;
+        }
+
+        // US-005 AC2: an internal candidate's pre-populated FullName/Phone were snapshotted at
+        // provisioning time; if the live value has since diverged, flag it for HR. Always false
+        // for external candidates (Prepopulated* stay null for them).
+        private static bool HasPrepopulatedFieldEdits(CandidateProfile entity)
+        {
+            if (!entity.EmployeeId.HasValue)
+                return false;
+
+            var nameChanged = entity.PrepopulatedFullName != null && entity.FullName != entity.PrepopulatedFullName;
+            var phoneChanged = entity.PrepopulatedPhone != null && entity.Phone != entity.PrepopulatedPhone;
+            return nameChanged || phoneChanged;
         }
 
         // ── CandidateEducation Mappings ───────────────────────────────────
@@ -233,6 +260,17 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 SkillName = entity.SkillName,
                 SkillLibraryItemId = entity.SkillLibraryItemId,
                 ProficiencyLevel = entity.ProficiencyLevel
+            };
+        }
+
+        // ── CandidateTag Mappings (US-041, HR-only) ─────────────────────────
+
+        public static CandidateTagResponse ToResponse(this CandidateTag entity)
+        {
+            return new CandidateTagResponse
+            {
+                CandidateTagId = entity.CandidateTagId,
+                TagName = entity.TagName
             };
         }
 

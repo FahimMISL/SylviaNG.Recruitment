@@ -75,6 +75,23 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<JobApplicationStageProgress> JobApplicationStageProgresses { get; set; }
         public DbSet<ShortlistFilter> ShortlistFilters { get; set; }
         public DbSet<ShortlistFilterCriterion> ShortlistFilterCriteria { get; set; }
+        public DbSet<AutoShortlistRun> AutoShortlistRuns { get; set; }
+        public DbSet<AutoShortlistResult> AutoShortlistResults { get; set; }
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<ApplicationSetting> ApplicationSettings { get; set; }
+        public DbSet<CandidateRecommendation> CandidateRecommendations { get; set; }
+        public DbSet<CandidateTalentPool> CandidateTalentPools { get; set; }
+        public DbSet<ExamHall> ExamHalls { get; set; }
+        public DbSet<ExamHallInvigilator> ExamHallInvigilators { get; set; }
+        public DbSet<QuestionGroup> QuestionGroups { get; set; }
+        public DbSet<ExamQuestion> ExamQuestions { get; set; }
+        public DbSet<ExamQuestionOption> ExamQuestionOptions { get; set; }
+        public DbSet<SavedSearch> SavedSearches { get; set; }
+        public DbSet<TalentPool> TalentPools { get; set; }
+        public DbSet<TalentPoolCandidate> TalentPoolCandidates { get; set; }
+        public DbSet<ExamVenue> ExamVenues { get; set; }
+        public DbSet<ExamRoom> ExamRooms { get; set; }
+        public DbSet<ExamRoomInvigilator> ExamRoomInvigilators { get; set; }
 
         #endregion
 
