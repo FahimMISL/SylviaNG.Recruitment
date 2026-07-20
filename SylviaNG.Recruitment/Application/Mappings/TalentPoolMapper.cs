@@ -12,7 +12,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 TalentPoolId = entity.TalentPoolId,
                 Name = entity.Name,
                 CandidateCount = entity.Candidates.Count,
-                CreatedAt = entity.CreatedAt
+                CreatedAt = entity.CreatedAt,
+                JobPostingId = entity.JobPostingId,
+                JobPostingTitle = entity.JobPosting?.Title
             };
         }
 
@@ -31,6 +33,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
             {
                 TalentPoolId = entity.TalentPoolId,
                 Name = entity.Name,
+                JobPostingId = entity.JobPostingId,
+                JobPostingTitle = entity.JobPosting?.Title,
                 Candidates = entity.Candidates.Select(c => c.CandidateProfile.ToSummaryResponse()).ToList()
             };
         }

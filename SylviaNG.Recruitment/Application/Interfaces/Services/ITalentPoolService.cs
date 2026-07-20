@@ -5,8 +5,9 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     public interface ITalentPoolService
     {
         Task<long> CreateAsync(TalentPoolCreateRequest request);
+        Task UpdateAsync(long talentPoolId, TalentPoolUpdateRequest request);
         Task DeleteAsync(long talentPoolId);
-        Task<List<TalentPoolResponse>> GetAllAsync();
+        Task<List<TalentPoolResponse>> GetAllAsync(long? jobPostingId = null);
         Task<List<TalentPoolLookupResponse>> GetLookupAsync();
         Task<TalentPoolDetailResponse> GetByIdAsync(long talentPoolId);
 

@@ -5,5 +5,11 @@ namespace SylviaNG.Recruitment.Application.Features.TalentPools.Queries.TalentPo
 {
     public class TalentPoolGetAllQuery : IRequest<List<TalentPoolResponse>>
     {
+        public long? JobPostingId { get; set; }
+
+        public TalentPoolGetAllQuery(long? jobPostingId = null)
+        {
+            JobPostingId = jobPostingId;
+        }
     }
 }

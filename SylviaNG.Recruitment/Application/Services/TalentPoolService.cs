@@ -46,12 +46,37 @@ namespace SylviaNG.Recruitment.Application.Services
             if (exists)
                 throw new DuplicateException("TalentPool", "Name", name);
 
-            var entity = new TalentPool { Name = name };
+            if (request.JobPostingId.HasValue)
+                _ = await _jobPostingRepository.GetByIdAsync(request.JobPostingId.Value)
+                    ?? throw new NotFoundException("JobPosting", request.JobPostingId.Value);
+
+            var entity = new TalentPool { Name = name, JobPostingId = request.JobPostingId };
 
             await _talentPoolRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 
             return entity.TalentPoolId;
+        }
+
+        public async Task UpdateAsync(long talentPoolId, TalentPoolUpdateRequest request)
+        {
+            var entity = await _talentPoolRepository.GetByIdAsync(talentPoolId)
+                ?? throw new NotFoundException("TalentPool", talentPoolId);
+
+            var name = request.Name.Trim();
+
+            var exists = await _talentPoolRepository.ExistsByNameAsync(name, talentPoolId);
+            if (exists)
+                throw new DuplicateException("TalentPool", "Name", name);
+
+            if (request.JobPostingId.HasValue)
+                _ = await _jobPostingRepository.GetByIdAsync(request.JobPostingId.Value)
+                    ?? throw new NotFoundException("JobPosting", request.JobPostingId.Value);
+
+            entity.Name = name;
+            entity.JobPostingId = request.JobPostingId;
+
+            await _unitOfWork.SaveChangesAsync();
         }
 
         public async Task DeleteAsync(long talentPoolId)
@@ -63,9 +88,9 @@ namespace SylviaNG.Recruitment.Application.Services
             await _unitOfWork.SaveChangesAsync();
         }
 
-        public async Task<List<TalentPoolResponse>> GetAllAsync()
+        public async Task<List<TalentPoolResponse>> GetAllAsync(long? jobPostingId = null)
         {
-            var entities = await _talentPoolRepository.GetAllWithCandidateCountAsync();
+            var entities = await _talentPoolRepository.GetAllWithCandidateCountAsync(jobPostingId);
             return entities.Select(e => e.ToResponse()).ToList();
         }
 

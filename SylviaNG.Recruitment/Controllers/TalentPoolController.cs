@@ -6,6 +6,7 @@ using SylviaNG.Recruitment.Application.Features.TalentPools.Commands.TalentPoolC
 using SylviaNG.Recruitment.Application.Features.TalentPools.Commands.TalentPoolCreate;
 using SylviaNG.Recruitment.Application.Features.TalentPools.Commands.TalentPoolDelete;
 using SylviaNG.Recruitment.Application.Features.TalentPools.Commands.TalentPoolFastTrack;
+using SylviaNG.Recruitment.Application.Features.TalentPools.Commands.TalentPoolUpdate;
 using SylviaNG.Recruitment.Application.Features.TalentPools.Models;
 using SylviaNG.Recruitment.Application.Features.TalentPools.Queries.TalentPoolGetAll;
 using SylviaNG.Recruitment.Application.Features.TalentPools.Queries.TalentPoolGetById;
@@ -26,11 +27,11 @@ namespace SylviaNG.Recruitment.Controllers
             _mediator = mediator;
         }
 
-        /// <summary>All pools with candidate counts (AC1 pool list page).</summary>
+        /// <summary>All pools with candidate counts (AC1 pool list page), optionally filtered to a job vacancy.</summary>
         [HttpGet]
-        public async Task<ActionResult<List<TalentPoolResponse>>> GetAll()
+        public async Task<ActionResult<List<TalentPoolResponse>>> GetAll([FromQuery] long? jobPostingId)
         {
-            var result = await _mediator.Send(new TalentPoolGetAllQuery());
+            var result = await _mediator.Send(new TalentPoolGetAllQuery(jobPostingId));
             return Ok(result);
         }
 
@@ -56,6 +57,14 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var id = await _mediator.Send(new TalentPoolCreateCommand(request));
             return Ok(id);
+        }
+
+        /// <summary>Rename a pool and/or change its linked job vacancy.</summary>
+        [HttpPut("{talentPoolId:long}")]
+        public async Task<ActionResult> Update(long talentPoolId, [FromBody] TalentPoolUpdateRequest request)
+        {
+            await _mediator.Send(new TalentPoolUpdateCommand(talentPoolId, request));
+            return Ok();
         }
 
         /// <summary>Delete a pool and its memberships (candidates themselves are untouched).</summary>

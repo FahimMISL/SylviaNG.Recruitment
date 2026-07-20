@@ -7,6 +7,8 @@ namespace SylviaNG.Recruitment.Application.Features.TalentPools.Models
     {
         public long TalentPoolId { get; set; }
         public string Name { get; set; } = string.Empty;
+        public long? JobPostingId { get; set; }
+        public string? JobPostingTitle { get; set; }
         public List<CandidateProfileSummaryResponse> Candidates { get; set; } = new();
     }
 }

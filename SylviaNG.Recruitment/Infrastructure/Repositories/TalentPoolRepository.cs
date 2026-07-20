@@ -10,15 +10,22 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
     {
         public TalentPoolRepository(ApplicationDBContext dbContext) : base(dbContext) { }
 
-        public async Task<bool> ExistsByNameAsync(string name)
+        public async Task<bool> ExistsByNameAsync(string name, long? excludeId = null)
         {
-            return await _dbSet.AnyAsync(t => t.Name == name);
+            return await _dbSet.AnyAsync(t => t.Name == name && (!excludeId.HasValue || t.TalentPoolId != excludeId.Value));
         }
 
-        public async Task<List<TalentPool>> GetAllWithCandidateCountAsync()
+        public async Task<List<TalentPool>> GetAllWithCandidateCountAsync(long? jobPostingId = null)
         {
-            return await _dbSet
+            var query = _dbSet
                 .Include(p => p.Candidates)
+                .Include(p => p.JobPosting)
+                .AsQueryable();
+
+            if (jobPostingId.HasValue)
+                query = query.Where(p => p.JobPostingId == jobPostingId.Value);
+
+            return await query
                 .OrderBy(p => p.Name)
                 .ToListAsync();
         }
@@ -26,6 +33,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         public async Task<TalentPool?> GetByIdWithCandidatesAsync(long talentPoolId)
         {
             return await _dbSet
+                .Include(p => p.JobPosting)
                 .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.Educations)
                 .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.WorkExperiences)
                 .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.Skills)

@@ -80,6 +80,134 @@ public class TalentPoolServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_WithJobPostingId_ShouldValidateAndSetLink()
+    {
+        // Arrange
+        _talentPoolRepositoryMock.Setup(r => r.ExistsByNameAsync("Backend Team 2026", null)).ReturnsAsync(false);
+        _jobPostingRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new JobPosting { JobPostingId = 5 });
+
+        TalentPool? saved = null;
+        _talentPoolRepositoryMock.Setup(r => r.AddAsync(It.IsAny<TalentPool>()))
+            .Callback<TalentPool>(p => { p.TalentPoolId = 8; saved = p; })
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var id = await _service.CreateAsync(new TalentPoolCreateRequest { Name = "Backend Team 2026", JobPostingId = 5 });
+
+        // Assert
+        id.Should().Be(8);
+        saved!.JobPostingId.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithUnknownJobPostingId_ShouldThrowNotFoundException()
+    {
+        // Arrange
+        _talentPoolRepositoryMock.Setup(r => r.ExistsByNameAsync("Backend Team 2026", null)).ReturnsAsync(false);
+        _jobPostingRepositoryMock.Setup(r => r.GetByIdAsync(500)).ReturnsAsync((JobPosting?)null);
+
+        // Act
+        var act = () => _service.CreateAsync(new TalentPoolCreateRequest { Name = "Backend Team 2026", JobPostingId = 500 });
+
+        // Assert
+        await act.Should().ThrowAsync<NotFoundException>();
+        _talentPoolRepositoryMock.Verify(r => r.AddAsync(It.IsAny<TalentPool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithUnknownPool_ShouldThrowNotFoundException()
+    {
+        // Arrange
+        _talentPoolRepositoryMock.Setup(r => r.GetByIdAsync(99)).ReturnsAsync((TalentPool?)null);
+
+        // Act
+        var act = () => _service.UpdateAsync(99, new TalentPoolUpdateRequest { Name = "Renamed" });
+
+        // Assert
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RenamesPool()
+    {
+        // Arrange
+        var pool = new TalentPool { TalentPoolId = 1, Name = "Old Name" };
+        _talentPoolRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(pool);
+        _talentPoolRepositoryMock.Setup(r => r.ExistsByNameAsync("New Name", 1)).ReturnsAsync(false);
+
+        // Act
+        await _service.UpdateAsync(1, new TalentPoolUpdateRequest { Name = "New Name" });
+
+        // Assert
+        pool.Name.Should().Be("New Name");
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_LinksJobPosting()
+    {
+        // Arrange
+        var pool = new TalentPool { TalentPoolId = 1, Name = "Pool" };
+        _talentPoolRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(pool);
+        _talentPoolRepositoryMock.Setup(r => r.ExistsByNameAsync("Pool", 1)).ReturnsAsync(false);
+        _jobPostingRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new JobPosting { JobPostingId = 5 });
+
+        // Act
+        await _service.UpdateAsync(1, new TalentPoolUpdateRequest { Name = "Pool", JobPostingId = 5 });
+
+        // Assert
+        pool.JobPostingId.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_UnlinksJobPosting()
+    {
+        // Arrange
+        var pool = new TalentPool { TalentPoolId = 1, Name = "Pool", JobPostingId = 5 };
+        _talentPoolRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(pool);
+        _talentPoolRepositoryMock.Setup(r => r.ExistsByNameAsync("Pool", 1)).ReturnsAsync(false);
+
+        // Act
+        await _service.UpdateAsync(1, new TalentPoolUpdateRequest { Name = "Pool", JobPostingId = null });
+
+        // Assert
+        pool.JobPostingId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithDuplicateNameExcludingSelf_ShouldThrowDuplicateException()
+    {
+        // Arrange
+        var pool = new TalentPool { TalentPoolId = 1, Name = "Pool" };
+        _talentPoolRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(pool);
+        _talentPoolRepositoryMock.Setup(r => r.ExistsByNameAsync("Taken Name", 1)).ReturnsAsync(true);
+
+        // Act
+        var act = () => _service.UpdateAsync(1, new TalentPoolUpdateRequest { Name = "Taken Name" });
+
+        // Assert
+        await act.Should().ThrowAsync<DuplicateException>();
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithJobPostingIdFilter_PassesThroughToRepository()
+    {
+        // Arrange
+        _talentPoolRepositoryMock.Setup(r => r.GetAllWithCandidateCountAsync(5)).ReturnsAsync(new List<TalentPool>
+        {
+            new() { TalentPoolId = 1, Name = "Pool", JobPostingId = 5 }
+        });
+
+        // Act
+        var result = await _service.GetAllAsync(5);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].JobPostingId.Should().Be(5);
+        _talentPoolRepositoryMock.Verify(r => r.GetAllWithCandidateCountAsync(5), Times.Once);
+    }
+
+    [Fact]
     public async Task AddCandidatesAsync_WithUnknownPool_ShouldThrowNotFoundException()
     {
         // Arrange

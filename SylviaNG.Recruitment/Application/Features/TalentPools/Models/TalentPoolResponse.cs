@@ -7,5 +7,7 @@ namespace SylviaNG.Recruitment.Application.Features.TalentPools.Models
         public string Name { get; set; } = string.Empty;
         public int CandidateCount { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public long? JobPostingId { get; set; }
+        public string? JobPostingTitle { get; set; }
     }
 }
