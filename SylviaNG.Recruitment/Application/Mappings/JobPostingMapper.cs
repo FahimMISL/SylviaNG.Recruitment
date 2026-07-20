@@ -1,5 +1,6 @@
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Domain.Entities;
+using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Application.Mappings
 {
@@ -39,7 +40,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 RequiredDistrict = request.RequiredDistrict,
                 ApplicationFeeAmount = request.ApplicationFeeAmount,
                 ApplicationFeeCurrency = request.ApplicationFeeCurrency,
-                HiringPipelineId = request.HiringPipelineId
+                HiringPipelineId = request.HiringPipelineId,
+                AssessmentWorkflowId = request.AssessmentWorkflowId
             };
         }
 
@@ -68,6 +70,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             if (request.ApplicationFeeAmount.HasValue) entity.ApplicationFeeAmount = request.ApplicationFeeAmount;
             if (request.ApplicationFeeCurrency != null) entity.ApplicationFeeCurrency = request.ApplicationFeeCurrency;
             if (request.HiringPipelineId.HasValue) entity.HiringPipelineId = request.HiringPipelineId;
+            if (request.AssessmentWorkflowId.HasValue) entity.AssessmentWorkflowId = request.AssessmentWorkflowId;
         }
 
         public static JobPostingResponse ToResponse(this JobPosting entity)
@@ -101,7 +104,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ApplicationFeeAmount = entity.ApplicationFeeAmount,
                 ApplicationFeeCurrency = entity.ApplicationFeeCurrency,
                 HiringPipelineId = entity.HiringPipelineId,
-                HiringPipelineName = entity.HiringPipeline?.Name
+                HiringPipelineName = entity.HiringPipeline?.Name,
+                AssessmentWorkflowId = entity.AssessmentWorkflowId,
+                AssessmentWorkflowName = entity.AssessmentWorkflow?.Name
             };
         }
 
@@ -124,8 +129,10 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateName = request.CandidateName,
                 CandidateEmail = request.CandidateEmail,
                 CandidatePhone = request.CandidatePhone,
+                CandidateNationalId = request.CandidateNationalId,
                 ResumeUrl = request.ResumeUrl,
                 CoverLetter = request.CoverLetter,
+                Source = request.Source,
                 IsActive = true
             };
         }
@@ -153,7 +160,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ApplicationStatus = entity.ApplicationStatus,
                 AppliedDate = entity.AppliedDate,
                 IsActive = entity.IsActive,
-                Source = entity.Source
+                Source = entity.Source,
+                PaymentRequired = entity.ApplicationStatus == ApplicationStatusEnum.AwaitingPayment
             };
         }
 
@@ -262,8 +270,27 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateName = request.CandidateName,
                 CandidateEmail = request.CandidateEmail,
                 CandidatePhone = request.CandidatePhone,
+                CandidateNationalId = request.CandidateNationalId,
                 CoverLetter = request.CoverLetter,
                 IsActive = true
+            };
+        }
+
+        // ── Duplicate Detection (US-038) ──────────────────────────────────
+
+        public static JobApplicationDuplicateItemResponse ToDuplicateItemResponse(this JobApplication entity)
+        {
+            return new JobApplicationDuplicateItemResponse
+            {
+                JobApplicationId = entity.JobApplicationId,
+                CandidateName = entity.CandidateName,
+                CandidateEmail = entity.CandidateEmail,
+                CandidatePhone = entity.CandidatePhone,
+                CandidateNationalId = entity.CandidateNationalId,
+                Source = entity.Source,
+                ApplicationStatus = entity.ApplicationStatus,
+                AppliedDate = entity.AppliedDate,
+                ResumeUrl = entity.ResumeUrl
             };
         }
     }

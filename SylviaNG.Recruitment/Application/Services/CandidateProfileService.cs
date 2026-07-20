@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
+using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Mappings;
@@ -13,22 +15,31 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
+        private readonly ITalentPoolCandidateRepository _talentPoolCandidateRepository;
         private readonly ICurrentCandidateService _currentCandidateService;
         private readonly IFileStorageService _fileStorageService;
+        private readonly ICoreGrpcClient _coreGrpcClient;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<CandidateProfileService> _logger;
 
         public CandidateProfileService(
             ICandidateProfileRepository candidateProfileRepository,
             IJobApplicationRepository jobApplicationRepository,
+            ITalentPoolCandidateRepository talentPoolCandidateRepository,
             ICurrentCandidateService currentCandidateService,
             IFileStorageService fileStorageService,
-            IUnitOfWork unitOfWork)
+            ICoreGrpcClient coreGrpcClient,
+            IUnitOfWork unitOfWork,
+            ILogger<CandidateProfileService> logger)
         {
             _candidateProfileRepository = candidateProfileRepository;
             _jobApplicationRepository = jobApplicationRepository;
+            _talentPoolCandidateRepository = talentPoolCandidateRepository;
             _currentCandidateService = currentCandidateService;
             _fileStorageService = fileStorageService;
+            _coreGrpcClient = coreGrpcClient;
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         public async Task<CandidateProfileResponse> GetMyProfileAsync()
@@ -39,12 +50,15 @@ namespace SylviaNG.Recruitment.Application.Services
                 c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents)
                 ?? throw new NotFoundException("CandidateProfile", profileId);
 
-            return entity.ToResponse();
+            var response = entity.ToResponse();
+            response.HasSubmittedApplication = await HasSubmittedApplicationAsync(entity);
+            (response.DepartmentName, response.DesignationName) = await ResolveOrgNamesAsync(entity);
+            return response;
         }
 
-        public async Task<PagedResult<CandidateProfileSummaryResponse>> GetPagedAsync(PagedRequest request)
+        public async Task<PagedResult<CandidateProfileSummaryResponse>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null, List<string>? tags = null)
         {
-            var pagedResult = await _candidateProfileRepository.GetPagedAsync(request);
+            var pagedResult = await _candidateProfileRepository.GetPagedAsync(request, talentPoolIds, tags);
 
             return new PagedResult<CandidateProfileSummaryResponse>
             {
@@ -59,12 +73,15 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await _candidateProfileRepository.GetByIdWithIncludeAsync(
                 c => c.CandidateProfileId == candidateProfileId,
-                c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents)
+                c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents, c => c.Tags)
                 ?? throw new NotFoundException("CandidateProfile", candidateProfileId);
 
             var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(entity.Email);
+            var poolMemberships = await _talentPoolCandidateRepository.GetAllByCandidateProfileIdAsync(candidateProfileId);
 
-            return entity.ToDetailResponse(applications);
+            var response = entity.ToDetailResponse(applications, poolMemberships);
+            (response.DepartmentName, response.DesignationName) = await ResolveOrgNamesAsync(entity);
+            return response;
         }
 
         public async Task UpdateHrNotesAsync(long candidateProfileId, string? hrNotes)
@@ -83,6 +100,8 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await GetCurrentProfileEntityAsync();
 
+            await EnsureFieldNotLockedIfChangedAsync(entity, "NationalId", entity.NationalId, request.NationalId);
+
             entity.ApplyPersonalInfoUpdate(request);
             entity.UpdatedAt = DateTime.UtcNow;
 
@@ -93,6 +112,9 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task UpdateContactAsync(CandidateProfileContactUpdateRequest request)
         {
             var entity = await GetCurrentProfileEntityAsync();
+
+            await EnsureFieldNotLockedIfChangedAsync(entity, "Email", entity.Email, request.Email);
+            await EnsureFieldNotLockedIfChangedAsync(entity, "Phone", entity.Phone, request.Phone, normalizeAsPhone: true);
 
             entity.ApplyContactUpdate(request);
             entity.UpdatedAt = DateTime.UtcNow;
@@ -162,11 +184,71 @@ namespace SylviaNG.Recruitment.Application.Services
             await _fileStorageService.DeleteAsync(filePath);
         }
 
+        // US-005 AC1: resolve Department/Designation display names via Core gRPC. Best-effort -
+        // if the Core service is unreachable, the profile still loads (names just stay null),
+        // same "best-effort side-effect" tolerance as resume-text extraction elsewhere.
+        private async Task<(string? DepartmentName, string? DesignationName)> ResolveOrgNamesAsync(Domain.Entities.CandidateProfile entity)
+        {
+            if (entity.DepartmentId == null && entity.DesignationId == null)
+                return (null, null);
+
+            try
+            {
+                var departmentIds = entity.DepartmentId.HasValue ? new List<long> { entity.DepartmentId.Value } : new List<long>();
+                var designationIds = entity.DesignationId.HasValue ? new List<long> { entity.DesignationId.Value } : new List<long>();
+
+                var result = await _coreGrpcClient.GetDepartmentsAndDesignationsAsync(departmentIds, designationIds);
+                return (result.Departments.FirstOrDefault()?.Name, result.Designations.FirstOrDefault()?.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to resolve department/designation names from Core service for CandidateProfile {CandidateProfileId}", entity.CandidateProfileId);
+                return (null, null);
+            }
+        }
+
         private async Task<Domain.Entities.CandidateProfile> GetCurrentProfileEntityAsync()
         {
             var profileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
             return await _candidateProfileRepository.GetByIdAsync(profileId)
                 ?? throw new NotFoundException("CandidateProfile", profileId);
         }
+
+        // ── US-003: Identity-field lock (AC1/AC2/AC4) ──────────────────────
+        // JobApplication has no FK to CandidateProfile - self-service lookups (GetMyApplicationsAsync,
+        // WithdrawMyApplicationAsync) match by Email, so once a candidate has a submitted application,
+        // Email/Phone/NationalId must not change or the candidate's own application history orphans
+        // itself (it silently stops matching on the next lookup).
+
+        private async Task EnsureFieldNotLockedIfChangedAsync(
+            Domain.Entities.CandidateProfile entity,
+            string fieldName,
+            string? currentValue,
+            string? newValue,
+            bool normalizeAsPhone = false)
+        {
+            var changed = normalizeAsPhone
+                ? !string.Equals(NormalizePhoneDigits(currentValue), NormalizePhoneDigits(newValue), StringComparison.Ordinal)
+                : !string.Equals(currentValue, newValue, StringComparison.OrdinalIgnoreCase);
+
+            if (!changed || !await HasSubmittedApplicationAsync(entity))
+                return;
+
+            throw new FluentValidation.ValidationException(new[]
+            {
+                new FluentValidation.Results.ValidationFailure(
+                    fieldName,
+                    $"{fieldName} cannot be changed after you have submitted a job application. Contact HR support if this needs to be corrected.")
+            });
+        }
+
+        private async Task<bool> HasSubmittedApplicationAsync(Domain.Entities.CandidateProfile entity)
+        {
+            var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(entity.Email);
+            return applications.Count > 0;
+        }
+
+        private static string? NormalizePhoneDigits(string? phone) =>
+            phone == null ? null : new string(phone.Where(char.IsDigit).ToArray());
     }
 }

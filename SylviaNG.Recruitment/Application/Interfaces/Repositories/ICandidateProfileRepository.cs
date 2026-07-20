@@ -8,8 +8,12 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
     {
         Task<CandidateProfile?> GetByKeycloakSubjectIdAsync(string keycloakSubjectId);
 
-        /// <summary>Paged, searchable candidate list for the HR/Admin view (US-009).</summary>
-        Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request);
+        /// <summary>
+        /// Paged, searchable candidate list for the HR/Admin view (US-009), optionally narrowed to
+        /// members of the given talent pools (US-039 AC4) and/or candidates having any of the
+        /// given tags (US-041 AC3, ANY-match semantics, same as Skills filtering elsewhere).
+        /// </summary>
+        Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null, List<string>? tags = null);
 
         /// <summary>
         /// Bulk-resolve profiles by email, with education/work-experience/skills included, for
@@ -17,5 +21,12 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// so this is matched by CandidateEmail - same join precedent as US-040.
         /// </summary>
         Task<List<CandidateProfile>> GetByEmailsAsync(IEnumerable<string> emails);
+
+        /// <summary>
+        /// Every active profile with all sections included (education/work-experience/skills/
+        /// certifications/documents), for CV Bank's in-memory Boolean search evaluation (US-045)
+        /// - same full-scan precedent as GetByEmailsAsync/ShortlistFilterEvaluationService.
+        /// </summary>
+        Task<List<CandidateProfile>> GetAllActiveWithDetailsAsync();
     }
 }

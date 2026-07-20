@@ -27,7 +27,13 @@ public enum ApplicationStatusEnum
     Offered,
     Hired,
     Rejected,
-    Withdrawn
+    Withdrawn,
+
+    /// <summary>EP-17: application submitted to a fee-configured vacancy, waiting on SSLCommerz
+    /// payment confirmation before it becomes a real Applied record.</summary>
+    AwaitingPayment,
+
+    DuplicateDismissed
 }
 
 public enum UserRoleEnum
@@ -69,6 +75,7 @@ public enum CandidateDocumentTypeEnum
     NID,
     EducationCertificate,
     ExperienceLetter,
+    Resume,
     Other
 }
 
@@ -94,4 +101,51 @@ public enum FilterCombinatorEnum
 {
     And,
     Or
+}
+
+public enum HrOverrideDecisionEnum
+{
+    Approved,
+    Rejected
+}
+
+/// <summary>EP-17: lifecycle of a single SSLCommerz payment attempt against a JobApplication.</summary>
+public enum PaymentStatusEnum
+{
+    Pending,
+    Initiated,
+    Success,
+    Failed,
+    Cancelled
+}
+
+public enum StageTypeEnum
+{
+    WrittenTest,
+    AptitudeTest,
+    PsychometricTest,
+    GroupDiscussion,
+    PracticalAssessment
+}
+
+public enum RecommendationStatusEnum
+{
+    Pending,
+    Accepted,
+    Rejected
+}
+
+public enum QuestionTypeEnum
+{
+    McqSingle,
+    McqMultiple,
+    TrueFalse,
+    Subjective
+}
+
+public enum DifficultyLevelEnum
+{
+    Easy,
+    Medium,
+    Hard
 }

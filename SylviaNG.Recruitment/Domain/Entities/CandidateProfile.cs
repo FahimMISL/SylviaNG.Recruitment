@@ -37,10 +37,26 @@ public class CandidateProfile : Audit
 
     public bool IsActive { get; set; } = true;
 
+    // Internal candidate / Core HR pre-population (US-005). Set once at first provisioning
+    // (CurrentCandidateService) when the logged-in user's email matches an Employee row - never
+    // re-synced afterward, so it can't clobber later candidate edits. EmployeeId presence alone
+    // distinguishes internal vs external (AC4); no separate flag needed. Department/Designation
+    // are Core-HR-owned org data, shown read-only, not part of the editable profile form.
+    public long? EmployeeId { get; set; }
+    public long? DepartmentId { get; set; }
+    public long? DesignationId { get; set; }
+
+    // Immutable snapshot of what Core HR supplied at provisioning time, for the editable fields
+    // (FullName, Phone) only - compared against the current value to flag drift for HR (AC2)
+    // without needing a mutable flag that can go stale.
+    public string? PrepopulatedFullName { get; set; }
+    public string? PrepopulatedPhone { get; set; }
+
     // Navigation properties
     public ICollection<CandidateEducation> Educations { get; set; } = new List<CandidateEducation>();
     public ICollection<CandidateWorkExperience> WorkExperiences { get; set; } = new List<CandidateWorkExperience>();
     public ICollection<CandidateSkill> Skills { get; set; } = new List<CandidateSkill>();
     public ICollection<CandidateCertification> Certifications { get; set; } = new List<CandidateCertification>();
     public ICollection<CandidateDocument> Documents { get; set; } = new List<CandidateDocument>();
+    public ICollection<CandidateTag> Tags { get; set; } = new List<CandidateTag>();
 }
