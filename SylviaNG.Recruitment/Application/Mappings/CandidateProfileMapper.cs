@@ -23,6 +23,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             entity.MaritalStatus = request.MaritalStatus;
             entity.Religion = request.Religion;
             entity.Nationality = request.Nationality;
+            entity.BloodGroup = request.BloodGroup;
         }
 
         public static void ApplyContactUpdate(this CandidateProfile entity, CandidateProfileContactUpdateRequest request)
@@ -47,6 +48,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 MaritalStatus = entity.MaritalStatus,
                 Religion = entity.Religion,
                 Nationality = entity.Nationality,
+                BloodGroup = entity.BloodGroup,
                 Email = entity.Email,
                 Phone = entity.Phone,
                 PresentAddress = entity.PresentAddress,
@@ -84,6 +86,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 MaritalStatus = entity.MaritalStatus,
                 Religion = entity.Religion,
                 Nationality = entity.Nationality,
+                BloodGroup = entity.BloodGroup,
                 Email = entity.Email,
                 Phone = entity.Phone,
                 PresentAddress = entity.PresentAddress,
@@ -105,7 +108,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
         {
             var completedSections = 0;
 
-            if (entity.DateOfBirth.HasValue && !string.IsNullOrWhiteSpace(entity.Gender))
+            if (entity.DateOfBirth.HasValue && entity.Gender.HasValue)
                 completedSections++; // Personal Info
 
             if (!string.IsNullOrWhiteSpace(entity.Phone) && !string.IsNullOrWhiteSpace(entity.PresentAddress))

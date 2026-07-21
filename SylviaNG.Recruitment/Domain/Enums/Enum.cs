@@ -95,3 +95,38 @@ public enum FilterCombinatorEnum
     And,
     Or
 }
+
+public enum GenderEnum
+{
+    Male,
+    Female,
+    Other
+}
+
+public enum MaritalStatusEnum
+{
+    Single,
+    Married,
+    Other
+}
+
+public enum ReligionEnum
+{
+    Islam,
+    Hinduism,
+    Christianity,
+    Buddhism,
+    Other
+}
+
+public enum BloodGroupEnum
+{
+    APositive,
+    ANegative,
+    BPositive,
+    BNegative,
+    ABPositive,
+    ABNegative,
+    OPositive,
+    ONegative
+}

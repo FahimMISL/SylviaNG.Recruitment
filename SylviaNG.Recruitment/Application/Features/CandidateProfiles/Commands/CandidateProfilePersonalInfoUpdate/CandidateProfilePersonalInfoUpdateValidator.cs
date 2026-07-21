@@ -20,7 +20,8 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.C
                 .When(x => x.Request.DateOfBirth.HasValue);
 
             RuleFor(x => x.Request.Gender)
-                .MaximumLength(20).WithMessage("Gender must not exceed 20 characters.");
+                .IsInEnum().WithMessage("Gender must be a valid value.")
+                .When(x => x.Request.Gender.HasValue);
 
             RuleFor(x => x.Request.NationalId)
                 .MaximumLength(50).WithMessage("NationalId must not exceed 50 characters.");
@@ -32,13 +33,19 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.C
                 .MaximumLength(200).WithMessage("MotherName must not exceed 200 characters.");
 
             RuleFor(x => x.Request.MaritalStatus)
-                .MaximumLength(20).WithMessage("MaritalStatus must not exceed 20 characters.");
+                .IsInEnum().WithMessage("MaritalStatus must be a valid value.")
+                .When(x => x.Request.MaritalStatus.HasValue);
 
             RuleFor(x => x.Request.Religion)
-                .MaximumLength(50).WithMessage("Religion must not exceed 50 characters.");
+                .IsInEnum().WithMessage("Religion must be a valid value.")
+                .When(x => x.Request.Religion.HasValue);
 
             RuleFor(x => x.Request.Nationality)
                 .MaximumLength(100).WithMessage("Nationality must not exceed 100 characters.");
+
+            RuleFor(x => x.Request.BloodGroup)
+                .IsInEnum().WithMessage("BloodGroup must be a valid value.")
+                .When(x => x.Request.BloodGroup.HasValue);
         }
     }
 }
