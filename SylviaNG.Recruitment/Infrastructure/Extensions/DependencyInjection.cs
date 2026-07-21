@@ -96,7 +96,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IApplicationStatusReasonRepository, ApplicationStatusReasonRepository>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IApplicationSettingRepository, ApplicationSettingRepository>();
-            services.AddScoped<IExamHallRepository, ExamHallRepository>();
             services.AddScoped<IQuestionGroupRepository, QuestionGroupRepository>();
             services.AddScoped<IExamQuestionRepository, ExamQuestionRepository>();
             services.AddScoped<ITalentPoolRepository, TalentPoolRepository>();
