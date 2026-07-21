@@ -67,6 +67,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<CandidateWorkExperience> CandidateWorkExperiences { get; set; }
         public DbSet<CandidateSkill> CandidateSkills { get; set; }
         public DbSet<SkillLibraryItem> SkillLibraryItems { get; set; }
+        public DbSet<UniversityLibraryItem> UniversityLibraryItems { get; set; }
         public DbSet<CandidateCertification> CandidateCertifications { get; set; }
         public DbSet<CandidateDocument> CandidateDocuments { get; set; }
         public DbSet<StaffProfile> StaffProfiles { get; set; }

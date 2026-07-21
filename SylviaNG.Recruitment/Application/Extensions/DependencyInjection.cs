@@ -43,6 +43,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<ICandidateWorkExperienceService, CandidateWorkExperienceService>();
             services.AddScoped<ICandidateSkillService, CandidateSkillService>();
             services.AddScoped<ISkillLibraryService, SkillLibraryService>();
+            services.AddScoped<IUniversityLibraryService, UniversityLibraryService>();
             services.AddScoped<ICandidateCertificationService, CandidateCertificationService>();
             services.AddScoped<ICandidateDocumentService, CandidateDocumentService>();
             services.AddScoped<IStaffProfileService, StaffProfileService>();
