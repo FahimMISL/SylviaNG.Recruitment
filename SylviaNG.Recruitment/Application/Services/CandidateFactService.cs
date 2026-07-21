@@ -37,7 +37,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var educationLevels = new HashSet<EducationLevelEnum>(
                 profile.Educations?.Where(e => e.EducationLevel.HasValue).Select(e => e.EducationLevel!.Value) ?? Enumerable.Empty<EducationLevelEnum>());
 
-            var addressText = string.Join(" ", new[] { profile.PresentAddress, profile.PermanentAddress }.Where(a => !string.IsNullOrWhiteSpace(a)));
+            var addressText = string.Join(" ", new[] { profile.PresentAddressDetail, profile.PermanentAddressDetail }.Where(a => !string.IsNullOrWhiteSpace(a)));
 
             return new CandidateFacts(age, totalExperienceYears, skillNames, educationLevels, addressText);
         }

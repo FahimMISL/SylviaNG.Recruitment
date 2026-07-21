@@ -29,8 +29,15 @@ namespace SylviaNG.Recruitment.Application.Mappings
         {
             entity.Email = request.Email;
             entity.Phone = request.Phone;
-            entity.PresentAddress = request.PresentAddress;
-            entity.PermanentAddress = request.PermanentAddress;
+            entity.MobileOperator = request.MobileOperator;
+            entity.PresentDivisionId = request.PresentDivisionId;
+            entity.PresentDistrictId = request.PresentDistrictId;
+            entity.PresentThanaId = request.PresentThanaId;
+            entity.PresentAddressDetail = request.PresentAddressDetail;
+            entity.HomeDivisionId = request.HomeDivisionId;
+            entity.HomeDistrictId = request.HomeDistrictId;
+            entity.HomeThanaId = request.HomeThanaId;
+            entity.PermanentAddressDetail = request.PermanentAddressDetail;
         }
 
         public static CandidateProfileResponse ToResponse(this CandidateProfile entity)
@@ -49,8 +56,15 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Nationality = entity.Nationality,
                 Email = entity.Email,
                 Phone = entity.Phone,
-                PresentAddress = entity.PresentAddress,
-                PermanentAddress = entity.PermanentAddress,
+                MobileOperator = entity.MobileOperator,
+                PresentDivisionId = entity.PresentDivisionId,
+                PresentDistrictId = entity.PresentDistrictId,
+                PresentThanaId = entity.PresentThanaId,
+                PresentAddressDetail = entity.PresentAddressDetail,
+                HomeDivisionId = entity.HomeDivisionId,
+                HomeDistrictId = entity.HomeDistrictId,
+                HomeThanaId = entity.HomeThanaId,
+                PermanentAddressDetail = entity.PermanentAddressDetail,
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 SignaturePath = entity.SignaturePath,
                 CompletenessPercentage = CalculateCompleteness(entity)
@@ -86,8 +100,15 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Nationality = entity.Nationality,
                 Email = entity.Email,
                 Phone = entity.Phone,
-                PresentAddress = entity.PresentAddress,
-                PermanentAddress = entity.PermanentAddress,
+                MobileOperator = entity.MobileOperator,
+                PresentDivisionId = entity.PresentDivisionId,
+                PresentDistrictId = entity.PresentDistrictId,
+                PresentThanaId = entity.PresentThanaId,
+                PresentAddressDetail = entity.PresentAddressDetail,
+                HomeDivisionId = entity.HomeDivisionId,
+                HomeDistrictId = entity.HomeDistrictId,
+                HomeThanaId = entity.HomeThanaId,
+                PermanentAddressDetail = entity.PermanentAddressDetail,
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 SignaturePath = entity.SignaturePath,
                 CompletenessPercentage = CalculateCompleteness(entity),
@@ -108,7 +129,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             if (entity.DateOfBirth.HasValue && !string.IsNullOrWhiteSpace(entity.Gender))
                 completedSections++; // Personal Info
 
-            if (!string.IsNullOrWhiteSpace(entity.Phone) && !string.IsNullOrWhiteSpace(entity.PresentAddress))
+            if (!string.IsNullOrWhiteSpace(entity.Phone) && !string.IsNullOrWhiteSpace(entity.PresentAddressDetail))
                 completedSections++; // Contact
 
             if (entity.Educations.Count > 0)

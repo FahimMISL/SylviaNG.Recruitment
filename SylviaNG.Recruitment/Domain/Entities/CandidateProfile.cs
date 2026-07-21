@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Audit;
 
 namespace SylviaNG.Recruitment.Domain.Entities;
@@ -25,8 +26,19 @@ public class CandidateProfile : Audit
     // Contact
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
-    public string? PresentAddress { get; set; }
-    public string? PermanentAddress { get; set; }
+    public MobileOperatorEnum? MobileOperator { get; set; }
+
+    // Present address: Division -> District -> Thana (all seeded lookups) + free-text detail line
+    public long? PresentDivisionId { get; set; }
+    public long? PresentDistrictId { get; set; }
+    public long? PresentThanaId { get; set; }
+    public string? PresentAddressDetail { get; set; }
+
+    // Home address: same Division -> District -> Thana shape + free-text detail line
+    public long? HomeDivisionId { get; set; }
+    public long? HomeDistrictId { get; set; }
+    public long? HomeThanaId { get; set; }
+    public string? PermanentAddressDetail { get; set; }
 
     // Photo/Signature (build phase 5)
     public string? ProfilePhotoPath { get; set; }

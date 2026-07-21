@@ -95,3 +95,13 @@ public enum FilterCombinatorEnum
     And,
     Or
 }
+
+public enum MobileOperatorEnum
+{
+    Grameenphone,
+    Banglalink,
+    Robi,
+    Airtel,
+    Teletalk,
+    Other
+}
