@@ -29,6 +29,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             var query = _dbSet
                 .Include(j => j.Applications)
                 .Include(j => j.HiringPipeline)
+                .Include(j => j.AssessmentWorkflow)
                 .AsQueryable();
 
             return await query.ToPaginatedResultAsync(request);
@@ -66,7 +67,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         private static IQueryable<JobPosting> ApplyAudienceFilter(IQueryable<JobPosting> query, IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes)
         {
-            return query.Where(j => j.Status == JobStatusEnum.Open && allowedCircularTypes.Contains(j.CircularType));
+            var now = DateTime.UtcNow;
+            return query.Where(j => j.Status == JobStatusEnum.Open && allowedCircularTypes.Contains(j.CircularType) && (j.ClosingDate == null || j.ClosingDate >= now));
         }
 
         public async Task<int> CountByStatusAsync(JobStatusEnum status)
