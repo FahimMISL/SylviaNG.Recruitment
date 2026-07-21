@@ -26,6 +26,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(c => c.PermanentAddress).HasMaxLength(500);
             builder.Property(c => c.ProfilePhotoPath).HasMaxLength(500);
             builder.Property(c => c.SignaturePath).HasMaxLength(500);
+            builder.Property(c => c.PrepopulatedFullName).HasMaxLength(200);
+            builder.Property(c => c.PrepopulatedPhone).HasMaxLength(50);
 
             builder.HasIndex(c => c.KeycloakSubjectId).IsUnique();
         }

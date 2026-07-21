@@ -11,15 +11,18 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
+        private readonly IEmployeeRepository _employeeRepository;
         private readonly IUnitOfWork _unitOfWork;
 
         public CurrentCandidateService(
             IHttpContextAccessor httpContextAccessor,
             ICandidateProfileRepository candidateProfileRepository,
+            IEmployeeRepository employeeRepository,
             IUnitOfWork unitOfWork)
         {
             _httpContextAccessor = httpContextAccessor;
             _candidateProfileRepository = candidateProfileRepository;
+            _employeeRepository = employeeRepository;
             _unitOfWork = unitOfWork;
         }
 
@@ -71,6 +74,29 @@ namespace SylviaNG.Recruitment.Application.Services
                 Email = email,
                 IsActive = true
             };
+
+            // US-005 AC1/AC4: first-login-only Core HR pre-population. Only runs when the profile
+            // is first created, never on later logins, so it can't clobber a candidate's own edits.
+            // No match (Employee not synced yet, or genuinely external) leaves the profile exactly
+            // as it is for an external candidate today.
+            if (!string.IsNullOrEmpty(email))
+            {
+                var employee = await _employeeRepository.GetByEmailAsync(email);
+                if (employee != null)
+                {
+                    profile.EmployeeId = employee.EmployeeId;
+                    profile.DepartmentId = employee.DepartmentId;
+                    profile.DesignationId = employee.DesignatioId;
+
+                    if (!string.IsNullOrWhiteSpace(employee.EmployeeName))
+                        profile.FullName = employee.EmployeeName;
+                    if (!string.IsNullOrWhiteSpace(employee.Phone))
+                        profile.Phone = employee.Phone;
+
+                    profile.PrepopulatedFullName = profile.FullName;
+                    profile.PrepopulatedPhone = profile.Phone;
+                }
+            }
 
             await _candidateProfileRepository.AddAsync(profile);
             await _unitOfWork.SaveChangesAsync();

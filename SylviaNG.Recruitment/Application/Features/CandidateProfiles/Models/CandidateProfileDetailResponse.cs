@@ -1,4 +1,5 @@
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
+using SylviaNG.Recruitment.Application.Features.TalentPools.Models;
 
 namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 {
@@ -32,6 +33,12 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         public int CompletenessPercentage { get; set; }
 
+        // Internal candidate / Core HR pre-population (US-005).
+        public bool IsInternal { get; set; }
+        public string? DepartmentName { get; set; }
+        public string? DesignationName { get; set; }
+        public bool HasPrepopulatedFieldEdits { get; set; }
+
         public List<CandidateEducationResponse> Educations { get; set; } = new();
         public List<CandidateWorkExperienceResponse> WorkExperiences { get; set; } = new();
         public List<CandidateSkillResponse> Skills { get; set; } = new();
@@ -43,5 +50,11 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         /// <summary>HR-only annotation (AC5) - never shown to or editable by the candidate.</summary>
         public string? HrNotes { get; set; }
+
+        /// <summary>Named talent pools this candidate belongs to (US-039 AC2) - HR/Admin view only.</summary>
+        public List<TalentPoolBadgeResponse> TalentPools { get; set; } = new();
+
+        /// <summary>HR-only tags (US-041 AC1/AC4) - never shown to or editable by the candidate.</summary>
+        public List<string> Tags { get; set; } = new();
     }
 }

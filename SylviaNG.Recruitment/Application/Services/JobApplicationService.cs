@@ -1,4 +1,7 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Utilities;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -13,6 +16,8 @@ namespace SylviaNG.Recruitment.Application.Services
 {
     public class JobApplicationService : IJobApplicationService
     {
+        private static readonly HashSet<string> ExtractableResumeExtensions = new(StringComparer.OrdinalIgnoreCase) { ".pdf", ".docx" };
+
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IJobPostingRepository _jobPostingRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
@@ -20,7 +25,11 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IApplicationStatusReasonRepository _applicationStatusReasonRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICurrentCandidateService _currentCandidateService;
+        private readonly IPaymentService _paymentService;
+        private readonly IApplicationSettingService _applicationSettingService;
+        private readonly IResumeParsingService _resumeParsingService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<JobApplicationService> _logger;
 
         private static readonly CircularTypeEnum[] ExternalCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.Both };
         private static readonly CircularTypeEnum[] InternalCircularTypes = { CircularTypeEnum.InternalOnly, CircularTypeEnum.Both };
@@ -34,17 +43,26 @@ namespace SylviaNG.Recruitment.Application.Services
         // Applied->Shortlisted is legal directly (not just via Screening) so US-044's automated
         // filter apply can fast-track a fresh application without a manual screening bump first -
         // that's the whole point of "without manual screening of every application" in US-043.
+        // US-038 AC3/AC4: DuplicateDismissed is reachable from any active stage, same as Withdrawn -
+        // HR can resolve a duplicate at whatever point in the pipeline it's noticed.
         private static readonly Dictionary<ApplicationStatusEnum, ApplicationStatusEnum[]> LegalStatusTransitions = new()
         {
-            [ApplicationStatusEnum.Applied] = new[] { ApplicationStatusEnum.Screening, ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.Screening] = new[] { ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.Shortlisted] = new[] { ApplicationStatusEnum.InterviewScheduled, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.InterviewScheduled] = new[] { ApplicationStatusEnum.Interviewed, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.Interviewed] = new[] { ApplicationStatusEnum.Offered, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
-            [ApplicationStatusEnum.Offered] = new[] { ApplicationStatusEnum.Hired, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
+            [ApplicationStatusEnum.Applied] = new[] { ApplicationStatusEnum.Screening, ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.Screening] = new[] { ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.Shortlisted] = new[] { ApplicationStatusEnum.InterviewScheduled, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.InterviewScheduled] = new[] { ApplicationStatusEnum.Interviewed, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.Interviewed] = new[] { ApplicationStatusEnum.Offered, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
+            [ApplicationStatusEnum.Offered] = new[] { ApplicationStatusEnum.Hired, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn, ApplicationStatusEnum.DuplicateDismissed },
             [ApplicationStatusEnum.Hired] = Array.Empty<ApplicationStatusEnum>(),
             [ApplicationStatusEnum.Rejected] = Array.Empty<ApplicationStatusEnum>(),
-            [ApplicationStatusEnum.Withdrawn] = Array.Empty<ApplicationStatusEnum>()
+            [ApplicationStatusEnum.Withdrawn] = Array.Empty<ApplicationStatusEnum>(),
+
+            // EP-17: Applied = payment confirmed via SSLCommerz IPN (PaymentService writes this
+            // transition directly, bypassing this HR-user-scoped path - see PaymentService.HandleIpnAsync).
+            // Rejected lets HR close out a stale/abandoned unpaid application; Withdrawn lets a
+            // candidate with an account cancel one they never intend to pay.
+            [ApplicationStatusEnum.AwaitingPayment] = new[] { ApplicationStatusEnum.Applied, ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn },
+            [ApplicationStatusEnum.DuplicateDismissed] = Array.Empty<ApplicationStatusEnum>()
         };
 
         private static readonly ApplicationStatusEnum[] StatusesRequiringReason = { ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn };
@@ -57,7 +75,11 @@ namespace SylviaNG.Recruitment.Application.Services
             IApplicationStatusReasonRepository applicationStatusReasonRepository,
             ICurrentUserService currentUserService,
             ICurrentCandidateService currentCandidateService,
-            IUnitOfWork unitOfWork)
+            IPaymentService paymentService,
+            IApplicationSettingService applicationSettingService,
+            IResumeParsingService resumeParsingService,
+            IUnitOfWork unitOfWork,
+            ILogger<JobApplicationService> logger)
         {
             _jobApplicationRepository = jobApplicationRepository;
             _jobPostingRepository = jobPostingRepository;
@@ -66,7 +88,11 @@ namespace SylviaNG.Recruitment.Application.Services
             _applicationStatusReasonRepository = applicationStatusReasonRepository;
             _currentUserService = currentUserService;
             _currentCandidateService = currentCandidateService;
+            _paymentService = paymentService;
+            _applicationSettingService = applicationSettingService;
+            _resumeParsingService = resumeParsingService;
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         public async Task<long> CreateAsync(JobApplicationCreateRequest request)
@@ -152,9 +178,17 @@ namespace SylviaNG.Recruitment.Application.Services
                     throw new DuplicateException("JobApplication", "CandidateEmail", request.CandidateEmail);
             }
 
+            if (source != ApplicationSourceEnum.Admin)
+                await EnsureMinimumProfileCompletenessAsync(request.CandidateEmail);
+
+            // EP-17: HR applying on a candidate's behalf bypasses payment entirely - an admin
+            // manually submitting an application isn't going to complete an SSLCommerz checkout
+            // mid-admin-flow. Every other source is gated when the vacancy has a fee configured.
+            var requiresPayment = source != ApplicationSourceEnum.Admin && jobPosting.ApplicationFeeAmount is > 0;
+
             var entity = request.ToEntity();
             entity.Source = source;
-            entity.ApplicationStatus = ApplicationStatusEnum.Applied;
+            entity.ApplicationStatus = requiresPayment ? ApplicationStatusEnum.AwaitingPayment : ApplicationStatusEnum.Applied;
             entity.AppliedDate = DateTime.UtcNow;
 
             if (request.Resume != null)
@@ -162,6 +196,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 var (_, filePath) = await _applicationCvStorageService.SaveAsync(
                     request.Resume.OpenReadStream(), request.Resume.FileName, jobPosting.JobPostingId.ToString());
                 entity.ResumeUrl = filePath;
+                entity.ResumeExtractedText = await TryExtractResumeTextAsync(request.Resume);
             }
 
             await _jobApplicationRepository.AddAsync(entity);
@@ -177,7 +212,77 @@ namespace SylviaNG.Recruitment.Application.Services
             }
 
             entity.JobPosting = jobPosting;
-            return entity.ToResponse();
+
+            var response = entity.ToResponse();
+
+            if (requiresPayment)
+            {
+                // A gateway outage must not roll back the application that's already saved above -
+                // leave PaymentRedirectUrl null so the frontend shows a manual retry path instead.
+                try
+                {
+                    var initiateResult = await _paymentService.InitiateAsync(entity.JobApplicationId);
+                    if (initiateResult.Success)
+                        response.PaymentRedirectUrl = initiateResult.GatewayRedirectUrl;
+                }
+                catch (SslCommerzUnavailableException)
+                {
+                    // response.PaymentRedirectUrl stays null - frontend offers a retry button.
+                }
+            }
+
+            return response;
+        }
+
+        // US-007 AC4: "A minimum completeness threshold (configurable by Admin) must be met
+        // before an application can be submitted." Only fires when CandidateEmail resolves to an
+        // existing CandidateProfile (there's no FK - matched by email, same precedent as
+        // GetAttributeFilteredApplicationsAsync/GetMyApplicationsAsync) and the Admin has actually
+        // configured a threshold (0 = disabled). A guest applicant with no profile at all - the
+        // career-portal/internal-job-board flow never requires one - has nothing to measure, so is
+        // let through unchanged.
+        private async Task EnsureMinimumProfileCompletenessAsync(string? candidateEmail)
+        {
+            if (string.IsNullOrEmpty(candidateEmail))
+                return;
+
+            var threshold = await _applicationSettingService.GetMinimumProfileCompletenessPercentageAsync();
+            if (threshold <= 0)
+                return;
+
+            var profiles = await _candidateProfileRepository.GetByEmailsAsync(new[] { candidateEmail });
+            var profile = profiles?.FirstOrDefault(p => string.Equals(p.Email, candidateEmail, StringComparison.OrdinalIgnoreCase));
+            if (profile == null)
+                return;
+
+            var completeness = CandidateProfileMapper.CalculateCompleteness(profile);
+            if (completeness < threshold)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(JobApplicationSubmitRequest.CandidateEmail),
+                        $"Your profile is {completeness}% complete. A minimum of {threshold}% completeness is required before you can submit an application.")
+                });
+            }
+        }
+
+        // Best-effort: a failed extraction must not fail the application submission itself.
+        private async Task<string?> TryExtractResumeTextAsync(IFormFile resume)
+        {
+            var extension = Path.GetExtension(resume.FileName);
+            if (!ExtractableResumeExtensions.Contains(extension))
+                return null;
+
+            try
+            {
+                return await _resumeParsingService.ExtractRawTextAsync(resume);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to extract resume text for CV Bank search; application is still saved.");
+                return null;
+            }
         }
 
         // ── ATS Dashboard / Status Update (US-035 / US-036) ───────────────
@@ -313,6 +418,10 @@ namespace SylviaNG.Recruitment.Application.Services
             if (filter.MaxAge.HasValue && (!facts.Age.HasValue || facts.Age.Value > filter.MaxAge.Value))
                 return false;
 
+            if (filter.Tags != null && filter.Tags.Count > 0
+                && !filter.Tags.Any(tag => facts.TagNames.Contains(tag)))
+                return false;
+
             return true;
         }
 
@@ -403,6 +512,24 @@ namespace SylviaNG.Recruitment.Application.Services
                 FromStatus = fromStatus.ToString(),
                 ToStatus = request.ToStatus.ToString()
             });
+
+            if (request.ToStatus == ApplicationStatusEnum.Hired && !string.IsNullOrEmpty(entity.CandidateEmail))
+                await MarkCandidateInternalByEmailAsync(entity.CandidateEmail);
+        }
+
+        // Hiring confirmation implies the person is now internal - auto-flag their candidate
+        // profile the same way an HR/Admin manual override does (CandidateProfile.IsInternal).
+        // Matched by email since JobApplication has no FK to CandidateProfile (see
+        // ICandidateProfileRepository.GetByEmailsAsync).
+        private async Task MarkCandidateInternalByEmailAsync(string candidateEmail)
+        {
+            var profiles = await _candidateProfileRepository.GetByEmailsAsync(new[] { candidateEmail });
+            var profile = profiles.FirstOrDefault();
+            if (profile == null || profile.IsManuallyInternal)
+                return;
+
+            profile.IsManuallyInternal = true;
+            _candidateProfileRepository.Update(profile);
         }
 
         private static void EnsureLegalStatusTransition(ApplicationStatusEnum currentStatus, ApplicationStatusEnum requestedStatus)
@@ -474,6 +601,172 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             return LegalStatusTransitions.TryGetValue(currentStatus, out var allowedTransitions)
                 && allowedTransitions.Contains(ApplicationStatusEnum.Withdrawn);
+        }
+
+        public async Task<JobEligibilityResponse> CheckEligibilityAsync(long jobPostingId)
+        {
+            var jobPosting = await _jobPostingRepository.GetByIdAsync(jobPostingId)
+                ?? throw new NotFoundException("JobPosting", jobPostingId);
+
+            var profileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+            var profile = await _candidateProfileRepository.GetByIdWithIncludeAsync(
+                p => p.CandidateProfileId == profileId,
+                p => p.Educations, p => p.WorkExperiences, p => p.Skills);
+
+            var facts = CandidateFactService.BuildFacts(profile);
+            var unmetRequirements = JobEligibilityEvaluator.Evaluate(jobPosting, facts);
+
+            return new JobEligibilityResponse
+            {
+                IsEligible = unmetRequirements.Count == 0,
+                UnmetRequirements = unmetRequirements
+            };
+        }
+
+        // ── Duplicate Detection (US-038) ──────────────────────────────────
+
+        public async Task<List<JobApplicationDuplicateGroupResponse>> GetDuplicatesAsync(long jobPostingId)
+        {
+            var applications = await _jobApplicationRepository.GetAllByJobPostingIdAsync(jobPostingId);
+            return BuildDuplicateGroups(applications);
+        }
+
+        public async Task ResolveDuplicatesAsync(JobApplicationDuplicateResolveRequest request)
+        {
+            if (request.DuplicateJobApplicationIds.Count == 0)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.DuplicateJobApplicationIds),
+                        "At least one duplicate application id is required.")
+                });
+            }
+
+            if (request.DuplicateJobApplicationIds.Contains(request.PrimaryJobApplicationId))
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.PrimaryJobApplicationId),
+                        "PrimaryJobApplicationId must not also appear in DuplicateJobApplicationIds.")
+                });
+            }
+
+            // Re-derive the duplicate group server-side rather than trusting the client's grouping,
+            // so HR can't dismiss an application that isn't actually part of a detected duplicate set.
+            var groups = await GetDuplicatesAsync(request.JobPostingId);
+            var group = groups.FirstOrDefault(g => g.Applications.Any(a => a.JobApplicationId == request.PrimaryJobApplicationId));
+
+            if (group == null || request.DuplicateJobApplicationIds.Any(id => !group.Applications.Any(a => a.JobApplicationId == id)))
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.DuplicateJobApplicationIds),
+                        "The supplied applications are not a detected duplicate group for this vacancy.")
+                });
+            }
+
+            foreach (var duplicateId in request.DuplicateJobApplicationIds)
+            {
+                var entity = await _jobApplicationRepository.GetByIdAsync(duplicateId)
+                    ?? throw new NotFoundException("JobApplication", duplicateId);
+
+                await ApplyStatusChangeAsync(entity, new JobApplicationStatusUpdateRequest
+                {
+                    ToStatus = ApplicationStatusEnum.DuplicateDismissed,
+                    Note = $"Duplicate of application #{request.PrimaryJobApplicationId}, dismissed by HR."
+                });
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        private static List<JobApplicationDuplicateGroupResponse> BuildDuplicateGroups(List<JobApplication> applications)
+        {
+            var candidates = applications
+                .Where(a => a.ApplicationStatus != ApplicationStatusEnum.DuplicateDismissed)
+                .ToList();
+
+            var parent = Enumerable.Range(0, candidates.Count).ToArray();
+
+            int Find(int i) => parent[i] == i ? i : (parent[i] = Find(parent[i]));
+            void Union(int a, int b)
+            {
+                var rootA = Find(a);
+                var rootB = Find(b);
+                if (rootA != rootB) parent[rootA] = rootB;
+            }
+
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                for (var j = i + 1; j < candidates.Count; j++)
+                {
+                    if (AreDuplicates(candidates[i], candidates[j]))
+                        Union(i, j);
+                }
+            }
+
+            return candidates
+                .Select((app, index) => (app, root: Find(index)))
+                .GroupBy(x => x.root)
+                .Where(g => g.Count() > 1)
+                .Select(g =>
+                {
+                    var members = g.Select(x => x.app).ToList();
+                    return new JobApplicationDuplicateGroupResponse
+                    {
+                        Applications = members.OrderBy(m => m.AppliedDate).Select(m => m.ToDuplicateItemResponse()).ToList(),
+                        MatchedOn = DetermineMatchedOn(members)
+                    };
+                })
+                .ToList();
+        }
+
+        private static bool AreDuplicates(JobApplication a, JobApplication b)
+        {
+            if (!string.IsNullOrEmpty(a.CandidateEmail) && !string.IsNullOrEmpty(b.CandidateEmail)
+                && string.Equals(a.CandidateEmail, b.CandidateEmail, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var phoneA = PhoneNormalizer.Normalize(a.CandidatePhone);
+            var phoneB = PhoneNormalizer.Normalize(b.CandidatePhone);
+            if (phoneA != null && phoneB != null && phoneA == phoneB)
+                return true;
+
+            if (!string.IsNullOrEmpty(a.CandidateNationalId) && !string.IsNullOrEmpty(b.CandidateNationalId)
+                && string.Equals(a.CandidateNationalId, b.CandidateNationalId, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
+        }
+
+        private static List<string> DetermineMatchedOn(List<JobApplication> members)
+        {
+            var pairs = members
+                .SelectMany((a, i) => members.Skip(i + 1).Select(b => (a, b)))
+                .ToList();
+
+            var reasons = new List<string>();
+
+            if (pairs.Any(p => !string.IsNullOrEmpty(p.a.CandidateEmail) && !string.IsNullOrEmpty(p.b.CandidateEmail)
+                && string.Equals(p.a.CandidateEmail, p.b.CandidateEmail, StringComparison.OrdinalIgnoreCase)))
+                reasons.Add("Email");
+
+            if (pairs.Any(p =>
+            {
+                var phoneA = PhoneNormalizer.Normalize(p.a.CandidatePhone);
+                var phoneB = PhoneNormalizer.Normalize(p.b.CandidatePhone);
+                return phoneA != null && phoneB != null && phoneA == phoneB;
+            }))
+                reasons.Add("Phone");
+
+            if (pairs.Any(p => !string.IsNullOrEmpty(p.a.CandidateNationalId) && !string.IsNullOrEmpty(p.b.CandidateNationalId)
+                && string.Equals(p.a.CandidateNationalId, p.b.CandidateNationalId, StringComparison.OrdinalIgnoreCase)))
+                reasons.Add("NationalId");
+
+            return reasons;
         }
     }
 }

@@ -1,19 +1,17 @@
-using System.Text;
 using System.Text.RegularExpressions;
-using DocumentFormat.OpenXml.Packaging;
 using Microsoft.AspNetCore.Http;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
-using UglyToad.PdfPig;
 
 namespace SylviaNG.Recruitment.Infrastructure.Services
 {
     /// <summary>
     /// Free, local, regex/heuristic resume parser (no external AI API). Accuracy is best-effort:
     /// email/phone/full-name are usually reliable, education/experience/skills are rough guesses
-    /// the candidate is expected to correct before saving.
+    /// the candidate is expected to correct before saving. Also used as the in-process fallback
+    /// for AiResumeParsingService when Groq is unavailable (see that class).
     /// </summary>
-    public class ResumeParsingService : IResumeParsingService
+    public class HeuristicResumeParsingService : IResumeParsingService
     {
         private static readonly Regex EmailRegex = new(@"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", RegexOptions.Compiled);
         private static readonly Regex PhoneRegex = new(@"(\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}", RegexOptions.Compiled);
@@ -25,18 +23,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
         private static readonly string[] AllSectionHeaders = EducationHeaders.Concat(ExperienceHeaders).Concat(SkillsHeaders)
             .Concat(new[] { "summary", "objective", "certifications", "projects", "references", "languages" }).ToArray();
 
+        public string ProviderName => "Heuristic";
+
         public async Task<CandidateResumeParseResponse> ParseAsync(IFormFile file)
         {
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-
-            var text = extension switch
-            {
-                ".pdf" => await ExtractPdfTextAsync(file),
-                ".docx" => await ExtractDocxTextAsync(file),
-                // The FluentValidation validator already restricts uploads to .pdf/.docx before
-                // this runs, so this branch should be unreachable via the API.
-                _ => throw new ArgumentException($"Unsupported resume file type: {extension}. Use .pdf or .docx.")
-            };
+            var text = await ExtractRawTextAsync(file);
 
             var lines = text.Split('\n')
                 .Select(l => l.Trim())
@@ -52,26 +43,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 Phone = ExtractFirst(PhoneRegex, text),
                 Skills = ExtractSkills(sections),
                 Educations = ExtractEducations(sections),
-                WorkExperiences = ExtractWorkExperiences(sections)
+                WorkExperiences = ExtractWorkExperiences(sections),
+                ParsingProvider = ProviderName,
+                AiParsingDegraded = false
             };
         }
 
-        private static async Task<string> ExtractPdfTextAsync(IFormFile file)
-        {
-            await using var stream = file.OpenReadStream();
-            using var document = PdfDocument.Open(stream);
-            var sb = new StringBuilder();
-            foreach (var page in document.GetPages())
-                sb.AppendLine(page.Text);
-            return sb.ToString();
-        }
+        // Raw text only, no field parsing - shared with JobApplicationService so a submitted
+        // resume's text can be persisted for CV Bank search (US-045) without re-implementing
+        // PDF/DOCX extraction there.
+        public Task<string> ExtractRawTextAsync(IFormFile file) => ResumeTextExtractor.ExtractAsync(file);
 
-        private static async Task<string> ExtractDocxTextAsync(IFormFile file)
-        {
-            await using var stream = file.OpenReadStream();
-            using var wordDocument = WordprocessingDocument.Open(stream, false);
-            return wordDocument.MainDocumentPart?.Document?.Body?.InnerText ?? string.Empty;
-        }
 
         private static string? ExtractFirst(Regex regex, string text)
         {
