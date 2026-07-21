@@ -138,8 +138,10 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateProfileId = candidateProfileId,
                 DegreeTitle = request.DegreeTitle,
                 Institution = request.Institution,
+                UniversityLibraryItemId = request.UniversityLibraryItemId,
                 EducationLevel = request.EducationLevel,
                 PassingYear = request.PassingYear,
+                GradingSystem = request.GradingSystem,
                 Result = request.Result,
                 MajorSubject = request.MajorSubject
             };
@@ -149,8 +151,10 @@ namespace SylviaNG.Recruitment.Application.Mappings
         {
             entity.DegreeTitle = request.DegreeTitle;
             entity.Institution = request.Institution;
+            entity.UniversityLibraryItemId = request.UniversityLibraryItemId;
             entity.EducationLevel = request.EducationLevel;
             entity.PassingYear = request.PassingYear;
+            entity.GradingSystem = request.GradingSystem;
             entity.Result = request.Result;
             entity.MajorSubject = request.MajorSubject;
         }
@@ -162,8 +166,10 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateEducationId = entity.CandidateEducationId,
                 DegreeTitle = entity.DegreeTitle,
                 Institution = entity.Institution,
+                UniversityLibraryItemId = entity.UniversityLibraryItemId,
                 EducationLevel = entity.EducationLevel,
                 PassingYear = entity.PassingYear,
+                GradingSystem = entity.GradingSystem,
                 Result = entity.Result,
                 MajorSubject = entity.MajorSubject
             };
