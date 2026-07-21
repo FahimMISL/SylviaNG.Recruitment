@@ -3,7 +3,9 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
+using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Infrastructure.Services
@@ -54,12 +56,18 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
 
         private readonly IGroqClient _groqClient;
         private readonly HeuristicResumeParsingService _heuristicFallback;
+        private readonly IUniversityLibraryItemRepository _universityLibraryItemRepository;
         private readonly ILogger<AiResumeParsingService> _logger;
 
-        public AiResumeParsingService(IGroqClient groqClient, HeuristicResumeParsingService heuristicFallback, ILogger<AiResumeParsingService> logger)
+        public AiResumeParsingService(
+            IGroqClient groqClient,
+            HeuristicResumeParsingService heuristicFallback,
+            IUniversityLibraryItemRepository universityLibraryItemRepository,
+            ILogger<AiResumeParsingService> logger)
         {
             _groqClient = groqClient;
             _heuristicFallback = heuristicFallback;
+            _universityLibraryItemRepository = universityLibraryItemRepository;
             _logger = logger;
         }
 
@@ -75,7 +83,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 var userPrompt = BuildUserPrompt(text);
 
                 var content = await _groqClient.GetJsonCompletionAsync(SystemPrompt, userPrompt);
-                var response = ParseResponse(content);
+                var universities = await _universityLibraryItemRepository.GetAllOrderedAsync();
+                var response = ParseResponse(content, universities);
                 response.ParsingProvider = ProviderName;
                 response.AiParsingDegraded = false;
                 return response;
@@ -120,7 +129,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             return cleaned.Length > MaxResumeTextChars ? cleaned[..MaxResumeTextChars] : cleaned;
         }
 
-        private static CandidateResumeParseResponse ParseResponse(string content)
+        private static CandidateResumeParseResponse ParseResponse(string content, List<UniversityLibraryItem> universities)
         {
             using var json = JsonDocument.Parse(content);
             var root = json.RootElement;
@@ -136,7 +145,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 Religion = ParseEnum<ReligionEnum>(GetString(root, "religion")),
                 MaritalStatus = ParseEnum<MaritalStatusEnum>(GetString(root, "maritalStatus")),
                 Skills = ParseSkills(root),
-                Educations = ParseEducations(root),
+                Educations = ParseEducations(root, universities),
                 WorkExperiences = ParseWorkExperiences(root)
             };
         }
@@ -155,7 +164,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 .ToList();
         }
 
-        private static List<CandidateResumeParsedEducation> ParseEducations(JsonElement root)
+        private static List<CandidateResumeParsedEducation> ParseEducations(JsonElement root, List<UniversityLibraryItem> universities)
         {
             var results = new List<CandidateResumeParsedEducation>();
             if (!root.TryGetProperty("educations", out var array) || array.ValueKind != JsonValueKind.Array)
@@ -165,10 +174,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             {
                 if (item.ValueKind != JsonValueKind.Object) continue;
 
+                var institution = TruncateOrNull(GetString(item, "institution"), 200);
+                var matchedUniversity = institution != null ? HeuristicResumeParsingService.MatchUniversity(institution, universities) : null;
+
                 results.Add(new CandidateResumeParsedEducation
                 {
                     DegreeTitle = TruncateOrNull(GetString(item, "degreeTitle"), 200),
-                    Institution = TruncateOrNull(GetString(item, "institution"), 200),
+                    Institution = institution,
+                    UniversityLibraryItemId = matchedUniversity?.UniversityLibraryItemId,
                     EducationLevel = ParseEducationLevel(GetString(item, "educationLevel")),
                     PassingYear = ClampYear(GetInt(item, "passingYear")),
                     Result = TruncateOrNull(GetString(item, "result"), 50),

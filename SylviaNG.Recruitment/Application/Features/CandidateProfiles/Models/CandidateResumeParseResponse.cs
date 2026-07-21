@@ -43,6 +43,7 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
         public string? DegreeTitle { get; set; }
         public string? Institution { get; set; }
         public EducationLevelEnum? EducationLevel { get; set; }
+        public long? UniversityLibraryItemId { get; set; }
         public int? PassingYear { get; set; }
         public string? Result { get; set; }
         public string? MajorSubject { get; set; }

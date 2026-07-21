@@ -194,3 +194,10 @@ public enum MobileOperatorEnum
     Teletalk,
     Other
 }
+
+public enum GradingSystemEnum
+{
+    GPA,
+    CGPA,
+    Division
+}
