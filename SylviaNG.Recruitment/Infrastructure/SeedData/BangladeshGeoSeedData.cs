@@ -134,6 +134,20 @@ namespace SylviaNG.Recruitment.Infrastructure.SeedData
                 (62, new[] { "Moulvibazar Sadar", "Barlekha", "Juri", "Kamalganj", "Kulaura", "Rajnagar", "Sreemangal" }),
                 (63, new[] { "Sunamganj Sadar", "Bishwamvarpur", "Chhatak", "Derai", "Dharampasha", "Dowarabazar", "Jagannathpur", "Jamalganj", "Sullah", "Tahirpur", "South Sunamganj" }),
                 (64, new[] { "Sylhet Sadar", "Balaganj", "Beanibazar", "Bishwanath", "Companiganj", "Fenchuganj", "Golapganj", "Gowainghat", "Jaintiapur", "Kanaighat", "Osmani Nagar", "Zakiganj" }),
+
+                // Divisional-HQ districts (18 Dhaka, 10 Chattogram, 35 Khulna, 51 Rajshahi, 64 Sylhet,
+                // 1 Barisal, 59 Rangpur) each originally listed only their outlying upazilas, leaving
+                // out the city itself - split by its own Metropolitan Police thanas rather than an
+                // upazila, and the area most candidates actually pick. Appended as second entries per
+                // district (instead of folded into the first) so existing sequential Thana IDs above
+                // stay stable. Mymensingh (42) has no separate metropolitan layer, so it's untouched.
+                (18, new[] { "Adabor", "Badda", "Bangshal", "Bhashantek", "Bimanbandar", "Cantonment", "Chackbazar", "Dakshinkhan", "Darus Salam", "Demra", "Dhanmondi", "Gandaria", "Gulshan", "Hatirjheel", "Hazaribagh", "Jatrabari", "Kadamtali", "Kafrul", "Kalabagan", "Kamrangirchar", "Khilgaon", "Khilkhet", "Kotwali", "Lalbagh", "Mirpur", "Mohammadpur", "Motijheel", "Mugda", "New Market", "Pallabi", "Paltan", "Ramna", "Rampura", "Rupnagar", "Sabujbagh", "Shah Ali", "Shahbagh", "Shahjahanpur", "Sher-e-Bangla Nagar", "Shyampur", "Sutrapur", "Tejgaon", "Tejgaon Industrial Area", "Turag", "Uttara East", "Uttara West", "Uttarkhan", "Vatara", "Wari" }),
+                (10, new[] { "Akbar Shah", "Bakalia", "Bandar", "Bayazid Bostami", "Chandgaon", "Chawkbazar", "Double Mooring", "EPZ", "Halishahar", "Khulshi", "Kotwali", "Pahartali", "Panchlaish", "Patenga", "Sadarghat" }),
+                (35, new[] { "Khulna Airport", "Khalishpur", "Khan Jahan Ali", "Kotwali", "Sonadanga", "Daulatpur", "Harintana", "Lobonchora" }),
+                (51, new[] { "Boalia", "Rajpara", "Shah Makhdum", "Matihar", "Chandrima", "Kashiadanga", "Katakhali", "Rajshahi Airport" }),
+                (64, new[] { "Kotwali", "Jalalabad", "Sylhet Airport", "South Surma", "Shah Poran", "Moglabazar" }),
+                (1, new[] { "Kotwali", "Barisal Airport", "Bandar", "Kaunia" }),
+                (59, new[] { "Kotwali", "Mahiganj", "Tajhat", "Haragach" }),
             };
 
             var result = new List<ThanaSeed>();
