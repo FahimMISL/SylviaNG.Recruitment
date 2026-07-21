@@ -17,7 +17,9 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
         public string? Phone { get; set; }
         public string? PresentAddress { get; set; }
         public DateTime? DateOfBirth { get; set; }
-        public string? Gender { get; set; }
+        public GenderEnum? Gender { get; set; }
+        public ReligionEnum? Religion { get; set; }
+        public MaritalStatusEnum? MaritalStatus { get; set; }
         public List<string> Skills { get; set; } = new();
         public List<CandidateResumeParsedEducation> Educations { get; set; } = new();
         public List<CandidateResumeParsedWorkExperience> WorkExperiences { get; set; } = new();

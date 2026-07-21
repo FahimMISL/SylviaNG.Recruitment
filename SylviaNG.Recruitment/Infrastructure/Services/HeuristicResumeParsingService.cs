@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Infrastructure.Services
 {
@@ -16,6 +18,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
         private static readonly Regex EmailRegex = new(@"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", RegexOptions.Compiled);
         private static readonly Regex PhoneRegex = new(@"(\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}", RegexOptions.Compiled);
         private static readonly Regex YearRegex = new(@"(19|20)\d{2}", RegexOptions.Compiled);
+
+        // BD-style CVs/bio-data commonly list these as explicit "Label: value" lines - only
+        // extracted when literally present under one of these labels, never guessed from context.
+        private static readonly Regex DateOfBirthRegex = new(@"(?:date\s*of\s*birth|d\.?o\.?b\.?)\s*[:\-]\s*(.+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex GenderRegex = new(@"gender\s*[:\-]\s*(.+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ReligionRegex = new(@"religion\s*[:\-]\s*(.+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex MaritalStatusRegex = new(@"marital\s*status\s*[:\-]\s*(.+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private static readonly string[] EducationHeaders = { "education", "academic background", "academic qualification" };
         private static readonly string[] ExperienceHeaders = { "experience", "work experience", "employment history", "professional experience" };
@@ -41,6 +50,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 FullName = ExtractFullName(lines),
                 Email = ExtractFirst(EmailRegex, text),
                 Phone = ExtractFirst(PhoneRegex, text),
+                DateOfBirth = ExtractDateOfBirth(lines),
+                Gender = ExtractGender(lines),
+                Religion = ExtractReligion(lines),
+                MaritalStatus = ExtractMaritalStatus(lines),
                 Skills = ExtractSkills(sections),
                 Educations = ExtractEducations(sections),
                 WorkExperiences = ExtractWorkExperiences(sections),
@@ -54,6 +67,63 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
         // PDF/DOCX extraction there.
         public Task<string> ExtractRawTextAsync(IFormFile file) => ResumeTextExtractor.ExtractAsync(file);
 
+        private static DateTime? ExtractDateOfBirth(List<string> lines)
+        {
+            var value = MatchLabelValue(lines, DateOfBirthRegex);
+            if (value == null) return null;
+
+            return DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+                ? parsed
+                : null;
+        }
+
+        private static GenderEnum? ExtractGender(List<string> lines)
+        {
+            var value = MatchLabelValue(lines, GenderRegex);
+            if (value == null) return null;
+
+            if (value.StartsWith("male", StringComparison.OrdinalIgnoreCase)) return GenderEnum.Male;
+            if (value.StartsWith("female", StringComparison.OrdinalIgnoreCase)) return GenderEnum.Female;
+            return GenderEnum.Other;
+        }
+
+        private static ReligionEnum? ExtractReligion(List<string> lines)
+        {
+            var value = MatchLabelValue(lines, ReligionRegex);
+            if (value == null) return null;
+
+            if (value.Contains("islam", StringComparison.OrdinalIgnoreCase) || value.Contains("muslim", StringComparison.OrdinalIgnoreCase)) return ReligionEnum.Islam;
+            if (value.Contains("hindu", StringComparison.OrdinalIgnoreCase)) return ReligionEnum.Hinduism;
+            if (value.Contains("christian", StringComparison.OrdinalIgnoreCase)) return ReligionEnum.Christianity;
+            if (value.Contains("buddh", StringComparison.OrdinalIgnoreCase)) return ReligionEnum.Buddhism;
+            return ReligionEnum.Other;
+        }
+
+        private static MaritalStatusEnum? ExtractMaritalStatus(List<string> lines)
+        {
+            var value = MatchLabelValue(lines, MaritalStatusRegex);
+            if (value == null) return null;
+
+            if (value.Contains("single", StringComparison.OrdinalIgnoreCase) || value.Contains("unmarried", StringComparison.OrdinalIgnoreCase)) return MaritalStatusEnum.Single;
+            if (value.Contains("married", StringComparison.OrdinalIgnoreCase) && !value.Contains("unmarried", StringComparison.OrdinalIgnoreCase)) return MaritalStatusEnum.Married;
+            return MaritalStatusEnum.Other;
+        }
+
+        // Scans line-by-line (not the whole text) so the captured value stops at the end of the
+        // line the label appears on, rather than swallowing unrelated following lines.
+        private static string? MatchLabelValue(List<string> lines, Regex labelRegex)
+        {
+            foreach (var line in lines)
+            {
+                var match = labelRegex.Match(line);
+                if (match.Success)
+                {
+                    var value = match.Groups[1].Value.Trim();
+                    if (value.Length > 0) return value;
+                }
+            }
+            return null;
+        }
 
         private static string? ExtractFirst(Regex regex, string text)
         {

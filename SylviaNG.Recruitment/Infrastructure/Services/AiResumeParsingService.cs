@@ -27,6 +27,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             "of exactly this shape (use null for unknown scalars, [] for empty arrays, never omit a key):\n" +
             "{\"fullName\": string|null, \"email\": string|null, \"phone\": string|null, " +
             "\"presentAddress\": string|null, \"dateOfBirth\": string|null, \"gender\": string|null, " +
+            "\"religion\": string|null, \"maritalStatus\": string|null, " +
             "\"skills\": string[], " +
             "\"educations\": [{\"degreeTitle\": string|null, \"institution\": string|null, " +
             "\"educationLevel\": string|null, \"passingYear\": number|null, \"result\": string|null, " +
@@ -34,6 +35,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             "\"workExperiences\": [{\"companyName\": string|null, \"designation\": string|null, " +
             "\"startDate\": string|null, \"endDate\": string|null, \"isCurrent\": boolean, " +
             "\"responsibilities\": string|null, \"location\": string|null}]}\n" +
+            "gender must be one of: Male, Female, Other, or null if not stated. religion must be one of: " +
+            "Islam, Hinduism, Christianity, Buddhism, Other, or null if not stated (map Muslim to Islam, Hindu " +
+            "to Hinduism, Christian to Christianity, Buddhist to Buddhism). maritalStatus must be one of: " +
+            "Single, Married, Other, or null if not stated (map Unmarried to Single). " +
             "educationLevel must be one of: BelowSSC, SSC, HSC, Diploma, Bachelor, Master, Doctorate, or null " +
             "if ambiguous. Map SSC/Matriculation/O-Level to SSC; HSC/Intermediate/A-Level/Higher Secondary to " +
             "HSC; Diploma to Diploma; Bachelor/BSc/BA/BBA/BCom/BEng/Undergraduate to Bachelor; " +
@@ -127,7 +132,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 Phone = TruncateOrNull(GetString(root, "phone"), 50),
                 PresentAddress = TruncateOrNull(GetString(root, "presentAddress"), 500),
                 DateOfBirth = ParseDate(GetString(root, "dateOfBirth")),
-                Gender = TruncateOrNull(GetString(root, "gender"), 20),
+                Gender = ParseEnum<GenderEnum>(GetString(root, "gender")),
+                Religion = ParseEnum<ReligionEnum>(GetString(root, "religion")),
+                MaritalStatus = ParseEnum<MaritalStatusEnum>(GetString(root, "maritalStatus")),
                 Skills = ParseSkills(root),
                 Educations = ParseEducations(root),
                 WorkExperiences = ParseWorkExperiences(root)
@@ -234,10 +241,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             return year.Value is >= 1950 && year.Value <= currentYear + 1 ? year : null;
         }
 
-        private static EducationLevelEnum? ParseEducationLevel(string? value)
+        private static EducationLevelEnum? ParseEducationLevel(string? value) => ParseEnum<EducationLevelEnum>(value);
+
+        private static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct, Enum
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
-            return Enum.TryParse<EducationLevelEnum>(value.Trim(), ignoreCase: true, out var level) ? level : null;
+            return Enum.TryParse<TEnum>(value.Trim(), ignoreCase: true, out var parsed) ? parsed : null;
         }
     }
 }

@@ -23,6 +23,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             entity.MaritalStatus = request.MaritalStatus;
             entity.Religion = request.Religion;
             entity.Nationality = request.Nationality;
+            entity.BloodGroup = request.BloodGroup;
         }
 
         public static void ApplyContactUpdate(this CandidateProfile entity, CandidateProfileContactUpdateRequest request)
@@ -47,6 +48,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 MaritalStatus = entity.MaritalStatus,
                 Religion = entity.Religion,
                 Nationality = entity.Nationality,
+                BloodGroup = entity.BloodGroup,
                 Email = entity.Email,
                 Phone = entity.Phone,
                 PresentAddress = entity.PresentAddress,
@@ -90,6 +92,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 MaritalStatus = entity.MaritalStatus,
                 Religion = entity.Religion,
                 Nationality = entity.Nationality,
+                BloodGroup = entity.BloodGroup,
                 Email = entity.Email,
                 Phone = entity.Phone,
                 PresentAddress = entity.PresentAddress,
