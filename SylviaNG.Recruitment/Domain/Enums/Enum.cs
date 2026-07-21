@@ -184,3 +184,13 @@ public enum BloodGroupEnum
     OPositive,
     ONegative
 }
+
+public enum MobileOperatorEnum
+{
+    Grameenphone,
+    Banglalink,
+    Robi,
+    Airtel,
+    Teletalk,
+    Other
+}

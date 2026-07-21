@@ -61,6 +61,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<ITalentPoolService, TalentPoolService>();
             services.AddScoped<IExamVenueService, ExamVenueService>();
             services.AddScoped<IExamRoomService, ExamRoomService>();
+            services.AddScoped<IAddressLookupService, AddressLookupService>();
 
             // Provide access to HttpContext for request metadata enrichment
             services.AddHttpContextAccessor();
