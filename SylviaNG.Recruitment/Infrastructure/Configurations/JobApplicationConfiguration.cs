@@ -46,6 +46,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             // Indexes
             builder.HasIndex(a => a.JobPostingId);
             builder.HasIndex(a => new { a.CandidateEmail, a.JobPostingId }).IsUnique();
+            builder.HasIndex(a => a.CandidateProfileId);
 
             // Relationships
             builder.HasMany(a => a.Interviews)

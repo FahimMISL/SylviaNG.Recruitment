@@ -76,7 +76,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents, c => c.Tags)
                 ?? throw new NotFoundException("CandidateProfile", candidateProfileId);
 
-            var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(entity.Email);
+            var applications = await _jobApplicationRepository.GetByCandidateAsync(candidateProfileId, entity.Email);
             var poolMemberships = await _talentPoolCandidateRepository.GetAllByCandidateProfileIdAsync(candidateProfileId);
 
             var response = entity.ToDetailResponse(applications, poolMemberships);
@@ -227,10 +227,11 @@ namespace SylviaNG.Recruitment.Application.Services
         }
 
         // ── US-003: Identity-field lock (AC1/AC2/AC4) ──────────────────────
-        // JobApplication has no FK to CandidateProfile - self-service lookups (GetMyApplicationsAsync,
-        // WithdrawMyApplicationAsync) match by Email, so once a candidate has a submitted application,
-        // Email/Phone/NationalId must not change or the candidate's own application history orphans
-        // itself (it silently stops matching on the next lookup).
+        // Even though JobApplication.CandidateProfileId now links most applications directly, some
+        // rows (pre-migration history, or a guest application not yet claimed at registration) can
+        // still only be found by CandidateEmail. Email/Phone/NationalId stay locked post-apply so
+        // that fallback path never orphans - the FK makes this technically unnecessary for linked
+        // rows, but relaxing the lock is a separate decision, not bundled into this change.
 
         private async Task EnsureFieldNotLockedIfChangedAsync(
             Domain.Entities.CandidateProfile entity,
@@ -256,7 +257,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         private async Task<bool> HasSubmittedApplicationAsync(Domain.Entities.CandidateProfile entity)
         {
-            var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(entity.Email);
+            var applications = await _jobApplicationRepository.GetByCandidateAsync(entity.CandidateProfileId, entity.Email);
             return applications.Count > 0;
         }
 

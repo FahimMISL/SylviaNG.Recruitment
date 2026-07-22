@@ -124,7 +124,7 @@ public class CandidateProfileServiceTests
                 JobPosting = new JobPosting { JobPostingId = 5, Title = "Backend Engineer" },
             },
         };
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(applications);
 
         // Act
@@ -209,7 +209,7 @@ public class CandidateProfileServiceTests
     {
         // Arrange
         var entity = SetUpCurrentProfile();
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(new List<JobApplication>());
 
         var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfileContactUpdateRequest
@@ -231,7 +231,7 @@ public class CandidateProfileServiceTests
     {
         // Arrange
         var entity = SetUpCurrentProfile();
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
 
         var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfileContactUpdateRequest
@@ -254,21 +254,21 @@ public class CandidateProfileServiceTests
     {
         // Arrange
         var entity = SetUpCurrentProfile();
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
 
         var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfileContactUpdateRequest
         {
             Email = "alice@example.com",
             Phone = "01711111111",
-            PresentAddress = "New address, Dhaka",
+            PresentAddressDetail = "New address, Dhaka",
         };
 
         // Act
         await _service.UpdateContactAsync(request);
 
         // Assert
-        entity.PresentAddress.Should().Be("New address, Dhaka");
+        entity.PresentAddressDetail.Should().Be("New address, Dhaka");
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
     }
 
@@ -277,7 +277,7 @@ public class CandidateProfileServiceTests
     {
         // Arrange
         var entity = SetUpCurrentProfile(phone: "01711111111");
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
 
         var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfileContactUpdateRequest
@@ -299,7 +299,7 @@ public class CandidateProfileServiceTests
     {
         // Arrange
         var entity = SetUpCurrentProfile();
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
 
         var request = new SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models.CandidateProfilePersonalInfoUpdateRequest
@@ -337,7 +337,7 @@ public class CandidateProfileServiceTests
             It.IsAny<Expression<Func<CandidateProfile, bool>>>(),
             It.IsAny<Expression<Func<CandidateProfile, object>>[]>()))
             .ReturnsAsync(entity);
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 10 } });
 
         // Act
@@ -373,7 +373,7 @@ public class CandidateProfileServiceTests
             It.IsAny<Expression<Func<CandidateProfile, bool>>>(),
             It.IsAny<Expression<Func<CandidateProfile, object>>[]>()))
             .ReturnsAsync(entity);
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync(It.IsAny<string>()))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(It.IsAny<long?>(), It.IsAny<string>()))
             .ReturnsAsync(new List<JobApplication>());
     }
 

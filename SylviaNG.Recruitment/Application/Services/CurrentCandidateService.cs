@@ -12,17 +12,20 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IEmployeeRepository _employeeRepository;
+        private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IUnitOfWork _unitOfWork;
 
         public CurrentCandidateService(
             IHttpContextAccessor httpContextAccessor,
             ICandidateProfileRepository candidateProfileRepository,
             IEmployeeRepository employeeRepository,
+            IJobApplicationRepository jobApplicationRepository,
             IUnitOfWork unitOfWork)
         {
             _httpContextAccessor = httpContextAccessor;
             _candidateProfileRepository = candidateProfileRepository;
             _employeeRepository = employeeRepository;
+            _jobApplicationRepository = jobApplicationRepository;
             _unitOfWork = unitOfWork;
         }
 
@@ -53,6 +56,27 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var profile = await GetOrCreateCurrentProfileAsync();
             return profile.Email;
+        }
+
+        public async Task<long?> TryGetCurrentCandidateProfileIdAsync()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user?.Identity?.IsAuthenticated != true)
+                return null;
+
+            // Must actually be the Candidate role, not just "any authenticated user" - an HR/Admin
+            // caller submitting on someone else's behalf (apply-on-behalf, or the plain
+            // POST /job-application create) is authenticated too, but linking the application to
+            // *their own* auto-provisioned profile would silently attribute a candidate's
+            // application to the HR staffer who typed it in.
+            if (!user.IsInRole("Candidate"))
+                return null;
+
+            var subjectId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value;
+            if (string.IsNullOrEmpty(subjectId))
+                return null;
+
+            return await GetOrCreateCurrentProfileIdAsync();
         }
 
         private async Task<CandidateProfile> GetOrCreateCurrentProfileAsync()
@@ -100,6 +124,14 @@ namespace SylviaNG.Recruitment.Application.Services
 
             await _candidateProfileRepository.AddAsync(profile);
             await _unitOfWork.SaveChangesAsync();
+
+            // Claim step: this candidate may have applied as a guest (career portal, no account)
+            // before registering. Their past applications were saved with CandidateProfileId
+            // null - link them to the profile that was just created, at this one deterministic
+            // moment, so "My Applications" and everything downstream sees full history from here
+            // on without ever going back to email-string matching.
+            if (!string.IsNullOrEmpty(profile.Email))
+                await _jobApplicationRepository.LinkUnclaimedApplicationsByEmailAsync(profile.Email, profile.CandidateProfileId);
 
             return profile;
         }

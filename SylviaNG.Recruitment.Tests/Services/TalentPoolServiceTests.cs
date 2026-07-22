@@ -321,10 +321,10 @@ public class TalentPoolServiceTests
         {
             new() { JobApplicationId = 20, CandidateEmail = "alice@example.com", ResumeUrl = "/uploads/alice-cv.pdf" }
         };
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(priorApplications);
 
-        _jobApplicationServiceMock.Setup(s => s.CreateAsync(It.IsAny<JobApplicationCreateRequest>())).ReturnsAsync(99);
+        _jobApplicationServiceMock.Setup(s => s.CreateAsync(It.IsAny<JobApplicationCreateRequest>(), It.IsAny<long?>())).ReturnsAsync(99);
 
         // Act
         var result = await _service.FastTrackAsync(new TalentPoolFastTrackRequest
@@ -340,7 +340,7 @@ public class TalentPoolServiceTests
         result.SkippedCount.Should().Be(0);
 
         _jobApplicationServiceMock.Verify(s => s.CreateAsync(It.Is<JobApplicationCreateRequest>(r =>
-            r.JobPostingId == 5 && r.CandidateEmail == "alice@example.com" && r.ResumeUrl == "/uploads/alice-cv.pdf")), Times.Once);
+            r.JobPostingId == 5 && r.CandidateEmail == "alice@example.com" && r.ResumeUrl == "/uploads/alice-cv.pdf"), 1), Times.Once);
         _jobApplicationServiceMock.Verify(s => s.UpdateStatusAsync(99, It.Is<JobApplicationStatusUpdateRequest>(r =>
             r.ToStatus == ApplicationStatusEnum.Shortlisted)), Times.Once);
     }
@@ -381,7 +381,7 @@ public class TalentPoolServiceTests
 
         _jobApplicationRepositoryMock.Setup(r => r.GetByEmailAndJobPostingIdAsync("alice@example.com", 5))
             .ReturnsAsync((JobApplication?)null);
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("alice@example.com"))
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(new List<JobApplication>());
 
         // Act

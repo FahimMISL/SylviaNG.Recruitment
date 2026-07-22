@@ -95,7 +95,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _logger = logger;
         }
 
-        public async Task<long> CreateAsync(JobApplicationCreateRequest request)
+        public async Task<long> CreateAsync(JobApplicationCreateRequest request, long? candidateProfileId = null)
         {
             var jobPosting = await _jobPostingRepository.GetByIdAsync(request.JobPostingId)
                 ?? throw new NotFoundException("JobPosting", request.JobPostingId);
@@ -110,11 +110,29 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = request.ToEntity();
             entity.ApplicationStatus = ApplicationStatusEnum.Applied;
             entity.AppliedDate = DateTime.UtcNow;
+            entity.CandidateProfileId = candidateProfileId ?? await ResolveCandidateProfileIdAsync(request.CandidateEmail);
 
             await _jobApplicationRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 
             return entity.JobApplicationId;
+        }
+
+        // Resolves the applicant's CandidateProfile at submission time instead of leaving every
+        // downstream reader to match on CandidateEmail. Prefers the actually-authenticated
+        // submitter's own profile (covers internal-board apply, and any logged-in candidate using
+        // the guest endpoint); falls back to an existing profile matching the typed email; stays
+        // null for a guest with no profile yet - it gets linked later at registration (see
+        // CurrentCandidateService.GetOrCreateCurrentProfileAsync's claim step).
+        private async Task<long?> ResolveCandidateProfileIdAsync(string? candidateEmail)
+        {
+            var currentProfileId = await _currentCandidateService.TryGetCurrentCandidateProfileIdAsync();
+            if (currentProfileId != null)
+                return currentProfileId;
+
+            return string.IsNullOrEmpty(candidateEmail)
+                ? null
+                : await _candidateProfileRepository.GetIdByEmailAsync(candidateEmail);
         }
 
         public async Task UpdateAsync(long jobApplicationId, JobApplicationUpdateRequest request)
@@ -190,6 +208,7 @@ namespace SylviaNG.Recruitment.Application.Services
             entity.Source = source;
             entity.ApplicationStatus = requiresPayment ? ApplicationStatusEnum.AwaitingPayment : ApplicationStatusEnum.Applied;
             entity.AppliedDate = DateTime.UtcNow;
+            entity.CandidateProfileId = await ResolveCandidateProfileIdAsync(request.CandidateEmail);
 
             if (request.Resume != null)
             {
@@ -513,18 +532,27 @@ namespace SylviaNG.Recruitment.Application.Services
                 ToStatus = request.ToStatus.ToString()
             });
 
-            if (request.ToStatus == ApplicationStatusEnum.Hired && !string.IsNullOrEmpty(entity.CandidateEmail))
-                await MarkCandidateInternalByEmailAsync(entity.CandidateEmail);
+            if (request.ToStatus == ApplicationStatusEnum.Hired)
+                await MarkCandidateInternalAsync(entity);
         }
 
         // Hiring confirmation implies the person is now internal - auto-flag their candidate
         // profile the same way an HR/Admin manual override does (CandidateProfile.IsInternal).
-        // Matched by email since JobApplication has no FK to CandidateProfile (see
-        // ICandidateProfileRepository.GetByEmailsAsync).
-        private async Task MarkCandidateInternalByEmailAsync(string candidateEmail)
+        // Prefers the linked CandidateProfileId; falls back to email match only for rows that
+        // predate the FK or that a guest submitted before registering.
+        private async Task MarkCandidateInternalAsync(JobApplication entity)
         {
-            var profiles = await _candidateProfileRepository.GetByEmailsAsync(new[] { candidateEmail });
-            var profile = profiles.FirstOrDefault();
+            CandidateProfile? profile = null;
+
+            if (entity.CandidateProfileId.HasValue)
+                profile = await _candidateProfileRepository.GetByIdAsync(entity.CandidateProfileId.Value);
+
+            if (profile == null && !string.IsNullOrEmpty(entity.CandidateEmail))
+            {
+                var profiles = await _candidateProfileRepository.GetByEmailsAsync(new[] { entity.CandidateEmail });
+                profile = profiles.FirstOrDefault();
+            }
+
             if (profile == null || profile.IsManuallyInternal)
                 return;
 
@@ -545,8 +573,9 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<List<MyApplicationResponse>> GetMyApplicationsAsync()
         {
+            var profileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
             var email = await _currentCandidateService.GetCurrentEmailAsync();
-            var applications = await _jobApplicationRepository.GetByCandidateEmailAsync(email);
+            var applications = await _jobApplicationRepository.GetByCandidateAsync(profileId, email);
 
             return applications
                 .Select(a => a.ToMyApplicationResponse(CanWithdraw(a.ApplicationStatus)))
@@ -555,15 +584,21 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task WithdrawMyApplicationAsync(long jobApplicationId)
         {
+            var profileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
             var email = await _currentCandidateService.GetCurrentEmailAsync();
 
             var entity = await _jobApplicationRepository.GetByIdAsync(jobApplicationId)
                 ?? throw new NotFoundException("JobApplication", jobApplicationId);
 
-            // Don't reveal that a mismatched-owner application exists - report it as not found,
-            // same as any other candidate-scoped lookup.
-            if (string.IsNullOrEmpty(entity.CandidateEmail)
-                || !string.Equals(entity.CandidateEmail, email, StringComparison.OrdinalIgnoreCase))
+            // Ownership check: linked profile match is authoritative; email match is the fallback
+            // only for a row that predates the FK or that this candidate submitted as a guest
+            // before registering (CandidateProfileId still null). Don't reveal that a
+            // mismatched-owner application exists - report it as not found either way.
+            var isOwner = entity.CandidateProfileId.HasValue
+                ? entity.CandidateProfileId.Value == profileId
+                : !string.IsNullOrEmpty(entity.CandidateEmail) && string.Equals(entity.CandidateEmail, email, StringComparison.OrdinalIgnoreCase);
+
+            if (!isOwner)
             {
                 throw new NotFoundException("JobApplication", jobApplicationId);
             }

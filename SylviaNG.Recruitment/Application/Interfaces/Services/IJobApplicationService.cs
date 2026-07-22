@@ -6,7 +6,13 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
 {
     public interface IJobApplicationService
     {
-        Task<long> CreateAsync(JobApplicationCreateRequest request);
+        /// <summary>
+        /// candidateProfileId is an internal-only override for callers that already have the
+        /// candidate's real profile in hand (e.g. TalentPoolService.FastTrackAsync) - when
+        /// omitted, resolves the same way SubmitAsync does (current authenticated candidate, else
+        /// an existing profile matching CandidateEmail, else null for a not-yet-linked guest).
+        /// </summary>
+        Task<long> CreateAsync(JobApplicationCreateRequest request, long? candidateProfileId = null);
         Task UpdateAsync(long jobApplicationId, JobApplicationUpdateRequest request);
         Task DeleteAsync(long jobApplicationId);
         Task<JobApplicationResponse> GetByIdAsync(long jobApplicationId);

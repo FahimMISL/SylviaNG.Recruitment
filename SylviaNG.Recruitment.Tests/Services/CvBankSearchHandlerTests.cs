@@ -76,9 +76,9 @@ public class CvBankSearchHandlerTests
     public async Task Handle_LocationFilter_ExcludesNonMatchingAddress()
     {
         var dhaka = MakeProfile(1, "Alice", "alice@example.com");
-        dhaka.PresentAddress = "Gulshan, Dhaka";
+        dhaka.PresentAddressDetail = "Gulshan, Dhaka";
         var ctg = MakeProfile(2, "Bilal", "bilal@example.com");
-        ctg.PresentAddress = "Agrabad, Chattogram";
+        ctg.PresentAddressDetail = "Agrabad, Chattogram";
 
         _candidateProfileRepositoryMock.Setup(r => r.GetAllActiveWithDetailsAsync()).ReturnsAsync(new List<CandidateProfile> { dhaka, ctg });
 

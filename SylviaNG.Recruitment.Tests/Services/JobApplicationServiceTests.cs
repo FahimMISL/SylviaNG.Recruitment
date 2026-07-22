@@ -534,7 +534,7 @@ public class JobApplicationServiceTests
                 Interviews = new List<Interview>()
             }
         };
-        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateEmailAsync("jane@example.com")).ReturnsAsync(applications);
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(It.IsAny<long?>(), "jane@example.com")).ReturnsAsync(applications);
 
         // Act
         var result = await _service.GetMyApplicationsAsync();
@@ -1011,9 +1011,9 @@ public class JobApplicationServiceTests
                     FullName = "Jane Doe",
                     Email = "jane@example.com",
                     DateOfBirth = new DateTime(1995, 1, 1),
-                    Gender = "Female",
+                    Gender = GenderEnum.Female,
                     Phone = "+880123456789",
-                    PresentAddress = "Dhaka",
+                    PresentAddressDetail = "Dhaka",
                     Educations = new List<CandidateEducation> { new() },
                     WorkExperiences = new List<CandidateWorkExperience> { new() }
                 } // FullName/Email/Educations/WorkExperiences = 4/7 sections ≈ 57%
@@ -1087,7 +1087,7 @@ public class JobApplicationServiceTests
         {
             CandidateProfileId = 5,
             DateOfBirth = DateTime.UtcNow.AddYears(-25),
-            PresentAddress = "House 1, Dhanmondi, Dhaka"
+            PresentAddressDetail = "House 1, Dhanmondi, Dhaka"
         };
         _candidateProfileRepositoryMock
             .Setup(r => r.GetByIdWithIncludeAsync(
@@ -1113,7 +1113,7 @@ public class JobApplicationServiceTests
         {
             CandidateProfileId = 5,
             DateOfBirth = DateTime.UtcNow.AddYears(-22),
-            PresentAddress = "House 1, Agrabad, Chattogram"
+            PresentAddressDetail = "House 1, Agrabad, Chattogram"
         };
         _candidateProfileRepositoryMock
             .Setup(r => r.GetByIdWithIncludeAsync(

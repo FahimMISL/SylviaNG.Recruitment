@@ -16,6 +16,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.FirstOrDefaultAsync(c => c.KeycloakSubjectId == keycloakSubjectId);
         }
 
+        public async Task<long?> GetIdByEmailAsync(string email)
+        {
+            return await _dbSet
+                .Where(c => c.Email.ToLower() == email.ToLower())
+                .Select(c => (long?)c.CandidateProfileId)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null, List<string>? tags = null)
         {
             // CalculateCompleteness (CandidateProfileMapper.ToSummaryResponse) reads these

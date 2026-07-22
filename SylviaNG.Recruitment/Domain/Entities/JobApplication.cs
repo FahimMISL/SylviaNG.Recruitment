@@ -10,6 +10,14 @@ public class JobApplication : Audit
 {
     public long JobApplicationId { get; set; }
     public long JobPostingId { get; set; }
+
+    // Resolved at submission time when a matching CandidateProfile exists (authenticated
+    // submitter, or an existing profile matching CandidateEmail); null for a guest applicant
+    // with no profile yet. Backfilled once they later register (see
+    // CurrentCandidateService.GetOrCreateCurrentProfileAsync's claim step). CandidateName/
+    // Email/Phone/NationalId stay as the point-in-time snapshot the applicant typed.
+    public long? CandidateProfileId { get; set; }
+
     public string CandidateName { get; set; } = string.Empty;
     public string? CandidateEmail { get; set; }
     public string? CandidatePhone { get; set; }
@@ -27,6 +35,7 @@ public class JobApplication : Audit
 
     // Navigation properties
     public JobPosting JobPosting { get; set; } = null!;
+    public CandidateProfile? CandidateProfile { get; set; }
     public ICollection<Interview> Interviews { get; set; } = new List<Interview>();
     public ICollection<ApplicationStatusHistory> StatusHistory { get; set; } = new List<ApplicationStatusHistory>();
     public ICollection<JobApplicationStageProgress> StageProgress { get; set; } = new List<JobApplicationStageProgress>();

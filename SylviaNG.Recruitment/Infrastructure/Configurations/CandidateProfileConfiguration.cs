@@ -33,6 +33,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.HasIndex(c => c.KeycloakSubjectId).IsUnique();
 
+            builder.HasMany(c => c.JobApplications)
+                .WithOne(a => a.CandidateProfile)
+                .HasForeignKey(a => a.CandidateProfileId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Present/Home address hierarchy - reference data only, no navigation back from
             // Division/District/Thana (a candidate profile isn't part of their aggregate).
             builder.HasOne<Division>().WithMany().HasForeignKey(c => c.PresentDivisionId).OnDelete(DeleteBehavior.SetNull);

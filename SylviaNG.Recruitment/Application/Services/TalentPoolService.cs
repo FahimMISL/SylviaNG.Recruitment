@@ -181,10 +181,10 @@ namespace SylviaNG.Recruitment.Application.Services
                     continue;
                 }
 
-                // JobApplication has no FK to CandidateProfile - reuse the resume from the
-                // candidate's most recent prior application (GetByCandidateEmailAsync orders
-                // desc by AppliedDate) instead of requiring HR to re-upload a CV.
-                var priorApplications = await _jobApplicationRepository.GetByCandidateEmailAsync(candidate.Email);
+                // Reuse the resume from the candidate's most recent prior application
+                // (GetByCandidateAsync orders desc by AppliedDate) instead of requiring HR to
+                // re-upload a CV.
+                var priorApplications = await _jobApplicationRepository.GetByCandidateAsync(candidateProfileId, candidate.Email);
                 var latestApplication = priorApplications.FirstOrDefault();
 
                 if (latestApplication == null)
@@ -201,7 +201,7 @@ namespace SylviaNG.Recruitment.Application.Services
                     CandidatePhone = candidate.Phone,
                     ResumeUrl = latestApplication.ResumeUrl,
                     Source = ApplicationSourceEnum.Admin
-                });
+                }, candidateProfileId);
 
                 await _jobApplicationService.UpdateStatusAsync(jobApplicationId, new JobApplicationStatusUpdateRequest
                 {

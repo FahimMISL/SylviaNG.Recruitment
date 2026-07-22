@@ -9,6 +9,13 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         Task<CandidateProfile?> GetByKeycloakSubjectIdAsync(string keycloakSubjectId);
 
         /// <summary>
+        /// Id of an existing profile matching this email (case-insensitive), or null if none
+        /// exists yet - used to opportunistically link a guest job application to an
+        /// already-registered candidate at submission time. Never creates a profile.
+        /// </summary>
+        Task<long?> GetIdByEmailAsync(string email);
+
+        /// <summary>
         /// Paged, searchable candidate list for the HR/Admin view (US-009), optionally narrowed to
         /// members of the given talent pools (US-039 AC4) and/or candidates having any of the
         /// given tags (US-041 AC3, ANY-match semantics, same as Skills filtering elsewhere).

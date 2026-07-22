@@ -52,7 +52,7 @@ public class ShortlistFilterEvaluationServiceTests
         {
             Email = email,
             DateOfBirth = dob,
-            PresentAddress = presentAddress,
+            PresentAddressDetail = presentAddress,
             Educations = educations ?? new List<CandidateEducation>(),
             WorkExperiences = workExperiences ?? new List<CandidateWorkExperience>(),
             Skills = skills ?? new List<CandidateSkill>()
