@@ -17,11 +17,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.HasIndex(r => r.RoomName);
             builder.HasIndex(r => r.ExamVenueId);
-
-            builder.HasMany(r => r.Invigilators)
-                .WithOne(i => i.ExamRoom)
-                .HasForeignKey(i => i.ExamRoomId)
-                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

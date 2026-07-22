@@ -136,7 +136,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch
 
         private static string BuildHaystack(CandidateProfile profile, string resumeText)
         {
-            var parts = new List<string> { profile.FullName, profile.Email };
+            var parts = new List<string> { profile.FullName, profile.Email, profile.Phone ?? string.Empty };
 
             parts.AddRange(profile.Skills.Select(s => s.SkillName));
             parts.AddRange(profile.Educations.SelectMany(e => new[] { e.DegreeTitle, e.Institution, e.MajorSubject }).Where(s => s != null)!);

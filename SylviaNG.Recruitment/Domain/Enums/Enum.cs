@@ -119,15 +119,6 @@ public enum PaymentStatusEnum
     Cancelled
 }
 
-public enum StageTypeEnum
-{
-    WrittenTest,
-    AptitudeTest,
-    PsychometricTest,
-    GroupDiscussion,
-    PracticalAssessment
-}
-
 public enum RecommendationStatusEnum
 {
     Pending,

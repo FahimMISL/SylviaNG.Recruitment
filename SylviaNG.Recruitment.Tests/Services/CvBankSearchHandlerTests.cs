@@ -125,6 +125,20 @@ public class CvBankSearchHandlerTests
     }
 
     [Fact]
+    public async Task Handle_PhoneNumber_IsSearchableViaBooleanQuery()
+    {
+        var alice = MakeProfile(1, "Alice", "alice@example.com");
+        alice.Phone = "01712345678";
+        var bilal = MakeProfile(2, "Bilal", "bilal@example.com");
+        bilal.Phone = "01898765432";
+        _candidateProfileRepositoryMock.Setup(r => r.GetAllActiveWithDetailsAsync()).ReturnsAsync(new List<CandidateProfile> { alice, bilal });
+
+        var result = await _handler.Handle(new CvBankSearchQuery(new CvBankSearchRequest { BooleanQuery = "01712345678" }), CancellationToken.None);
+
+        result.Data.Should().ContainSingle(r => r.CandidateProfileId == 1);
+    }
+
+    [Fact]
     public async Task Handle_MalformedBooleanQuery_ThrowsValidationExceptionNotUnhandledFormatException()
     {
         _candidateProfileRepositoryMock.Setup(r => r.GetAllActiveWithDetailsAsync()).ReturnsAsync(new List<CandidateProfile>());

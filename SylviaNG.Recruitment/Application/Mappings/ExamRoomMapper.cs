@@ -15,12 +15,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ExamVenueId = examVenueId,
                 RoomName = request.RoomName,
                 Capacity = request.Capacity,
-                NotifyInvigilatorsOnAssign = request.NotifyInvigilatorsOnAssign,
+                RequiredInvigilatorCount = request.RequiredInvigilatorCount,
                 IsActive = true,
-                Invigilators = request.InvigilatorEmployeeIds
-                    .Distinct()
-                    .Select(employeeId => new ExamRoomInvigilator { EmployeeId = employeeId })
-                    .ToList()
             };
         }
 
@@ -32,9 +28,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ExamVenueId = entity.ExamVenueId,
                 RoomName = entity.RoomName,
                 Capacity = entity.Capacity,
-                NotifyInvigilatorsOnAssign = entity.NotifyInvigilatorsOnAssign,
+                RequiredInvigilatorCount = entity.RequiredInvigilatorCount,
                 IsActive = entity.IsActive,
-                InvigilatorEmployeeIds = entity.Invigilators?.Select(i => i.EmployeeId).ToList() ?? new List<long>()
             };
         }
     }

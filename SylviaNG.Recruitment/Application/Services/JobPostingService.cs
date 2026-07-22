@@ -105,7 +105,7 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await _jobPostingRepository.GetByIdWithIncludeAsync(
                 j => j.JobPostingId == jobPostingId,
-                j => j.Applications, j => j.HiringPipeline!, j => j.AssessmentWorkflow!)
+                j => j.Applications, j => j.HiringPipeline!)
                 ?? throw new NotFoundException("JobPosting", jobPostingId);
 
             return entity.ToResponse();
@@ -113,7 +113,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<List<JobPostingResponse>> GetAllAsync()
         {
-            var entities = await _jobPostingRepository.GetAllWithIncludeAsync(j => j.Applications, j => j.HiringPipeline!, j => j.AssessmentWorkflow!);
+            var entities = await _jobPostingRepository.GetAllWithIncludeAsync(j => j.Applications, j => j.HiringPipeline!);
             return entities.Select(e => e.ToResponse()).ToList();
         }
 

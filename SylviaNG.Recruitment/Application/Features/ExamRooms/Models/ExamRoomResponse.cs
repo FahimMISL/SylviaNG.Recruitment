@@ -6,8 +6,7 @@ namespace SylviaNG.Recruitment.Application.Features.ExamRooms.Models
         public long ExamVenueId { get; set; }
         public string RoomName { get; set; } = string.Empty;
         public int Capacity { get; set; }
-        public bool NotifyInvigilatorsOnAssign { get; set; }
+        public int RequiredInvigilatorCount { get; set; }
         public bool IsActive { get; set; }
-        public List<long> InvigilatorEmployeeIds { get; set; } = new();
     }
 }

@@ -30,8 +30,6 @@ public class ExamRoomServiceTests
     {
         RoomName = name,
         Capacity = capacity,
-        NotifyInvigilatorsOnAssign = true,
-        InvigilatorEmployeeIds = new List<long>(),
     };
 
     [Fact]
@@ -77,23 +75,7 @@ public class ExamRoomServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_WithUnknownInvigilatorId_ShouldThrowValidationException()
-    {
-        _examVenueRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new ExamVenue { ExamVenueId = 1 });
-        _examRoomRepositoryMock.Setup(r => r.ExistsByNameAsync(1, "Room 101", null)).ReturnsAsync(false);
-        _examRoomRepositoryMock.Setup(r => r.GetExistingEmployeeIdsAsync(It.IsAny<IEnumerable<long>>())).ReturnsAsync(new HashSet<long>());
-
-        var request = CreateRequest();
-        request.InvigilatorEmployeeIds = new List<long> { 42 };
-
-        var act = () => _service.CreateAsync(1, request);
-
-        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
-        _examRoomRepositoryMock.Verify(r => r.AddAsync(It.IsAny<ExamRoom>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task UpdateAsync_ShouldReplaceInvigilatorCollectionWholesale()
+    public async Task UpdateAsync_ShouldUpdateRoomNameCapacityAndRequiredInvigilatorCount()
     {
         var entity = new ExamRoom
         {
@@ -101,25 +83,23 @@ public class ExamRoomServiceTests
             ExamVenueId = 1,
             RoomName = "Room 101",
             Capacity = 20,
-            Invigilators = new List<ExamRoomInvigilator> { new() { EmployeeId = 1 } },
+            RequiredInvigilatorCount = 1,
         };
-        _examRoomRepositoryMock.Setup(r => r.GetByIdWithInvigilatorsAsync(1)).ReturnsAsync(entity);
+        _examRoomRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
         _examRoomRepositoryMock.Setup(r => r.ExistsByNameAsync(1, "Room 102", 1)).ReturnsAsync(false);
-        _examRoomRepositoryMock.Setup(r => r.GetExistingEmployeeIdsAsync(It.IsAny<IEnumerable<long>>())).ReturnsAsync(new HashSet<long> { 2, 3 });
 
         var request = new ExamRoomUpdateRequest
         {
             RoomName = "Room 102",
             Capacity = 25,
-            NotifyInvigilatorsOnAssign = false,
-            InvigilatorEmployeeIds = new List<long> { 2, 3 },
+            RequiredInvigilatorCount = 3,
         };
 
         await _service.UpdateAsync(1, request);
 
         entity.RoomName.Should().Be("Room 102");
         entity.Capacity.Should().Be(25);
-        entity.Invigilators.Select(i => i.EmployeeId).Should().BeEquivalentTo(new long[] { 2, 3 });
+        entity.RequiredInvigilatorCount.Should().Be(3);
     }
 
     [Fact]

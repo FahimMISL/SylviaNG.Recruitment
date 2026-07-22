@@ -578,7 +578,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var applications = await _jobApplicationRepository.GetByCandidateAsync(profileId, email);
 
             return applications
-                .Select(a => a.ToMyApplicationResponse(CanWithdraw(a.ApplicationStatus)))
+                .Select(a => a.ToMyApplicationResponse(CanWithdraw(a.ApplicationStatus, a.JobPosting?.Status)))
                 .ToList();
         }
 
@@ -608,6 +608,13 @@ namespace SylviaNG.Recruitment.Application.Services
 
             EnsureLegalStatusTransition(entity.ApplicationStatus, ApplicationStatusEnum.Withdrawn);
 
+            var jobPosting = await _jobPostingRepository.GetByIdAsync(entity.JobPostingId);
+            if (jobPosting?.Status != JobStatusEnum.Open)
+            {
+                throw new InvalidStatusTransitionException(
+                    "Application cannot be withdrawn because the job posting is no longer open.");
+            }
+
             var fromStatus = entity.ApplicationStatus;
             entity.ApplicationStatus = ApplicationStatusEnum.Withdrawn;
             _jobApplicationRepository.Update(entity);
@@ -632,9 +639,10 @@ namespace SylviaNG.Recruitment.Application.Services
             await _unitOfWork.SaveChangesAsync();
         }
 
-        private static bool CanWithdraw(ApplicationStatusEnum currentStatus)
+        private static bool CanWithdraw(ApplicationStatusEnum currentStatus, JobStatusEnum? jobStatus)
         {
-            return LegalStatusTransitions.TryGetValue(currentStatus, out var allowedTransitions)
+            return jobStatus == JobStatusEnum.Open
+                && LegalStatusTransitions.TryGetValue(currentStatus, out var allowedTransitions)
                 && allowedTransitions.Contains(ApplicationStatusEnum.Withdrawn);
         }
 

@@ -41,13 +41,8 @@ public class JobPosting : Audit
     // job postings per the "every job opening must reference a pipeline" requirement.
     public long? HiringPipelineId { get; set; }
 
-    // Assessment workflow binding (US-051). Optional - unlike HiringPipelineId this is not
-    // mandatory for new job postings, just an available link.
-    public long? AssessmentWorkflowId { get; set; }
-
     // Navigation properties
     public ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
     public ICollection<JobPostingAttachment> Attachments { get; set; } = new List<JobPostingAttachment>();
     public HiringPipeline? HiringPipeline { get; set; }
-    public AssessmentWorkflow? AssessmentWorkflow { get; set; }
 }

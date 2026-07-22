@@ -1,5 +1,7 @@
 # EP-07 — Assessment Workflow & Stage Configuration (US-051, US-052)
 
+> **Superseded.** Assessment Workflow was merged into Hiring Pipeline (assessment is now just a `PipelineStage` with `MaxMarks`/`PassMarks` set) — see `Doc/features/merge-assessment-workflow-into-hiring-pipeline.md`. This doc is kept as a historical record of the original design; the entities/endpoints/UI it describes no longer exist.
+
 ## What
 
 HR can create a named, reusable **Assessment Workflow** made up of one or more ordered **stages** (Written Test, Aptitude Test, Psychometric Test, Group Discussion, Practical Assessment). Each stage carries a type, max marks, pass marks, duration, and a mandatory/optional flag, and stages are reordered via drag-and-drop. Workflows can be activated/deactivated independently of their stages, and optionally linked to a job posting/vacancy so HR can indicate which assessment process a given opening will use.

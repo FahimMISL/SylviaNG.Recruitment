@@ -512,7 +512,7 @@ public class JobApplicationServiceTests
     public async Task GetMyApplicationsAsync_ShouldReturnApplicationsForCurrentCandidateEmailWithCanWithdrawFlag()
     {
         // Arrange
-        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer" };
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open };
         var applications = new List<JobApplication>
         {
             new()
@@ -549,8 +549,9 @@ public class JobApplicationServiceTests
     public async Task WithdrawMyApplicationAsync_WithOwnActiveApplication_ShouldSetWithdrawnAndRecordHistory()
     {
         // Arrange
-        var entity = new JobApplication { JobApplicationId = 1, CandidateEmail = "jane@example.com", ApplicationStatus = ApplicationStatusEnum.Screening };
+        var entity = new JobApplication { JobApplicationId = 1, JobPostingId = 10, CandidateEmail = "jane@example.com", ApplicationStatus = ApplicationStatusEnum.Screening };
         _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+        _jobPostingRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new JobPosting { JobPostingId = 10, Status = JobStatusEnum.Open });
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
         // Act
@@ -585,6 +586,22 @@ public class JobApplicationServiceTests
         // Arrange: Hired is terminal, cannot transition to Withdrawn.
         var entity = new JobApplication { JobApplicationId = 1, CandidateEmail = "jane@example.com", ApplicationStatus = ApplicationStatusEnum.Hired };
         _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+
+        // Act
+        var act = () => _service.WithdrawMyApplicationAsync(1);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task WithdrawMyApplicationAsync_WithClosedJobPosting_ShouldThrowInvalidStatusTransitionException()
+    {
+        // Arrange: application status itself is withdrawable, but the job posting has closed.
+        var entity = new JobApplication { JobApplicationId = 1, JobPostingId = 10, CandidateEmail = "jane@example.com", ApplicationStatus = ApplicationStatusEnum.Screening };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
+        _jobPostingRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new JobPosting { JobPostingId = 10, Status = JobStatusEnum.Closed });
 
         // Act
         var act = () => _service.WithdrawMyApplicationAsync(1);

@@ -11,13 +11,14 @@ using SylviaNG.Recruitment.SharedKernel.Pagination;
 namespace SylviaNG.Recruitment.Controllers
 {
     /// <summary>
-    /// Public career portal: anonymous browsing of externally-visible job postings and anonymous apply.
-    /// EP-03. Every action is explicitly [AllowAnonymous] to opt out of the global
-    /// RequireAuthenticatedUser() MVC filter registered in Program.cs.
+    /// Public career portal: anonymous browsing of externally-visible job postings, but applying
+    /// requires a logged-in Candidate account - no guest apply. Browse actions are individually
+    /// [AllowAnonymous] to opt out of the global RequireAuthenticatedUser() MVC filter registered
+    /// in Program.cs; Apply is deliberately left off that list so it falls back to that filter,
+    /// narrowed further to the Candidate role.
     /// </summary>
     [ApiController]
     [Route("recruitment/career-portal")]
-    [AllowAnonymous]
     public class CareerPortalController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -31,6 +32,7 @@ namespace SylviaNG.Recruitment.Controllers
         /// Browse paginated, published (Open, CircularType ExternalOnly/Both) job postings.
         /// </summary>
         [HttpGet("job-postings")]
+        [AllowAnonymous]
         public async Task<ActionResult<PagedResult<JobPostingResponse>>> GetAll(
             [FromQuery] PagedRequest request,
             [FromQuery] string? location,
@@ -46,6 +48,7 @@ namespace SylviaNG.Recruitment.Controllers
         /// Get a single published job posting's detail view.
         /// </summary>
         [HttpGet("job-postings/{jobPostingId}")]
+        [AllowAnonymous]
         public async Task<ActionResult<JobPostingResponse>> GetById(long jobPostingId)
         {
             var result = await _mediator.Send(new JobPostingGetPublicByIdQuery(jobPostingId));
@@ -53,9 +56,11 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// Submit an anonymous application (with optional CV upload) to a published job posting.
+        /// Submit an application (with optional CV upload) to a published job posting. Requires a
+        /// logged-in Candidate account - no guest apply.
         /// </summary>
         [HttpPost("job-postings/{jobPostingId}/apply")]
+        [Authorize(Roles = "Candidate")]
         public async Task<ActionResult<JobApplicationResponse>> Apply(long jobPostingId, [FromForm] JobApplicationSubmitRequest request)
         {
             request.JobPostingId = jobPostingId;

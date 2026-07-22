@@ -12,8 +12,6 @@ public class ExamRoomCreateValidatorTests
     {
         RoomName = "Room 101",
         Capacity = 30,
-        NotifyInvigilatorsOnAssign = true,
-        InvigilatorEmployeeIds = new List<long>(),
     };
 
     [Fact]
