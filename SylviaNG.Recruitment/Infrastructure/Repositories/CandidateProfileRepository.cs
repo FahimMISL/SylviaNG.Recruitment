@@ -77,5 +77,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(c => c.IsActive)
                 .ToListAsync();
         }
+
+        public async Task<List<CandidateProfile>> GetByIdsWithDetailsAsync(IEnumerable<long> candidateProfileIds)
+        {
+            var idSet = candidateProfileIds.ToList();
+            return await _dbSet
+                .Include(c => c.Educations)
+                .Include(c => c.WorkExperiences)
+                .Include(c => c.Skills)
+                .Include(c => c.Certifications)
+                .Where(c => idSet.Contains(c.CandidateProfileId))
+                .ToListAsync();
+        }
     }
 }

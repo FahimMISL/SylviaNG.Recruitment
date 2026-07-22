@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.CvBank.Commands.CvBankTalentPoolAdd;
 using SylviaNG.Recruitment.Application.Features.CvBank.Commands.CvBankTalentPoolRemove;
 using SylviaNG.Recruitment.Application.Features.CvBank.Models;
+using SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankCvBulkDownload;
+using SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankCvBulkExportExcel;
+using SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankCvDownload;
 using SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch;
 using SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankTalentPoolGetAll;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
@@ -55,6 +58,30 @@ namespace SylviaNG.Recruitment.Controllers
         {
             await _mediator.Send(new CvBankTalentPoolRemoveCommand(candidateProfileId));
             return Ok();
+        }
+
+        /// <summary>Standardized CV generated from the candidate's profile data (not their uploaded resume).</summary>
+        [HttpGet("{candidateProfileId:long}/cv/download")]
+        public async Task<IActionResult> DownloadCv(long candidateProfileId)
+        {
+            var file = await _mediator.Send(new CvBankCvDownloadQuery(candidateProfileId));
+            return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>One PDF per selected candidate, zipped.</summary>
+        [HttpPost("cv/bulk-download")]
+        public async Task<IActionResult> BulkDownloadCv([FromBody] CvBankCvBulkRequest request)
+        {
+            var file = await _mediator.Send(new CvBankCvBulkDownloadQuery(request));
+            return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>One row per selected candidate, same fixed columns for every row.</summary>
+        [HttpPost("cv/bulk-export-excel")]
+        public async Task<IActionResult> BulkExportExcel([FromBody] CvBankCvBulkRequest request)
+        {
+            var file = await _mediator.Send(new CvBankCvBulkExportExcelQuery(request));
+            return File(file.Content, file.ContentType, file.FileName);
         }
     }
 }

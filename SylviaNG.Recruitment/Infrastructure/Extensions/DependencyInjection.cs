@@ -7,6 +7,7 @@ using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Infrastructure.Data;
+using SylviaNG.Recruitment.Infrastructure.Documents;
 using SylviaNG.Recruitment.Infrastructure.Interceptors;
 using SylviaNG.Recruitment.Infrastructure.Kafka;
 using SylviaNG.Recruitment.Infrastructure.Repositories;
@@ -121,6 +122,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // (both reuse the IFileStorageService/FileStorageSettings root above - see plan decision).
             services.Configure<CandidatePhotoSignatureSettings>(configuration.GetSection(CandidatePhotoSignatureSettings.SectionName));
             services.Configure<CandidateDocumentSettings>(configuration.GetSection(CandidateDocumentSettings.SectionName));
+
+            // Standardized CV PDF generation for CV Bank download/bulk-download
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            services.AddScoped<ICvPdfGeneratorService, QuestPdfCvGenerator>();
 
             // Size/extension policy for the US-054 exam question bulk-import upload
             services.Configure<ExamQuestionImportSettings>(configuration.GetSection(ExamQuestionImportSettings.SectionName));

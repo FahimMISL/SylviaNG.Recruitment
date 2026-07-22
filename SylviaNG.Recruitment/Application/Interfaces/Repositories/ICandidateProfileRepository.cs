@@ -35,5 +35,12 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// - same full-scan precedent as GetByEmailsAsync/ShortlistFilterEvaluationService.
         /// </summary>
         Task<List<CandidateProfile>> GetAllActiveWithDetailsAsync();
+
+        /// <summary>
+        /// Profiles matching the given ids with all sections included (education/work-experience/
+        /// skills/certifications), for CV Bank's standardized-CV generation (single, bulk-PDF and
+        /// bulk-Excel download).
+        /// </summary>
+        Task<List<CandidateProfile>> GetByIdsWithDetailsAsync(IEnumerable<long> candidateProfileIds);
     }
 }
