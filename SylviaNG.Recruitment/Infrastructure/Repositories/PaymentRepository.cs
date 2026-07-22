@@ -13,9 +13,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         public async Task<Payment?> GetLatestByJobApplicationIdAsync(long jobApplicationId)
         {
+            // PaymentId (identity, monotonic per insert), not CreatedAt - the audit-stamping
+            // interceptor isn't wired up yet so CreatedAt is null on every row app-wide, and
+            // ORDER BY a null column is non-deterministic in Postgres.
             return await _dbSet
                 .Where(p => p.JobApplicationId == jobApplicationId)
-                .OrderByDescending(p => p.CreatedAt)
+                .OrderByDescending(p => p.PaymentId)
                 .FirstOrDefaultAsync();
         }
 

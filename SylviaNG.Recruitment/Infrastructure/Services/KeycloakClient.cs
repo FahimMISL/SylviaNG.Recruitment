@@ -61,7 +61,41 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             using var json = JsonDocument.Parse(body);
             var accessToken = json.RootElement.GetProperty("access_token").GetString()!;
             var expiresIn = json.RootElement.GetProperty("expires_in").GetInt32();
-            return new KeycloakTokenResult(accessToken, expiresIn);
+            var refreshToken = json.RootElement.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null;
+            return new KeycloakTokenResult(accessToken, expiresIn, refreshToken);
+        }
+
+        public async Task<KeycloakTokenResult> RefreshTokenAsync(string refreshToken)
+        {
+            var form = new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = _settings.ClientId,
+                ["client_secret"] = _settings.ClientSecret ?? string.Empty,
+                ["refresh_token"] = refreshToken
+            };
+
+            var response = await PostFormAsync(TokenEndpoint, form);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // invalid_grant here means the refresh token expired, was revoked, or was
+                // already rotated away by an earlier refresh - all end with a real re-login.
+                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest)
+                {
+                    _logger.LogWarning("Keycloak refresh-token request rejected: {Body}", body);
+                    throw new InvalidCredentialsException();
+                }
+
+                throw new KeycloakUnavailableException($"Keycloak token endpoint returned {(int)response.StatusCode}.");
+            }
+
+            using var json = JsonDocument.Parse(body);
+            var accessToken = json.RootElement.GetProperty("access_token").GetString()!;
+            var expiresIn = json.RootElement.GetProperty("expires_in").GetInt32();
+            var newRefreshToken = json.RootElement.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null;
+            return new KeycloakTokenResult(accessToken, expiresIn, newRefreshToken);
         }
 
         public async Task CreateUserAsync(string username, string email, string firstName, string lastName, string password, string realmRole, bool requireEmailVerification)
