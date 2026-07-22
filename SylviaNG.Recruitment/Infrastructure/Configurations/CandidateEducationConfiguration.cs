@@ -20,12 +20,21 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            builder.Property(e => e.GradingSystem)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
             builder.HasIndex(e => e.CandidateProfileId);
 
             builder.HasOne(e => e.CandidateProfile)
                 .WithMany(c => c.Educations)
                 .HasForeignKey(e => e.CandidateProfileId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(e => e.UniversityLibraryItem)
+                .WithMany()
+                .HasForeignKey(e => e.UniversityLibraryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

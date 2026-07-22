@@ -66,6 +66,12 @@ namespace SylviaNG.Recruitment.Application.Services
             }
         }
 
+        public async Task<LoginResponse> RefreshAsync(string refreshToken)
+        {
+            var tokenResult = await _keycloakClient.RefreshTokenAsync(refreshToken);
+            return BuildResponseFromKeycloakToken(tokenResult);
+        }
+
         public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
         {
             var (firstName, lastName) = SplitFullName(request.FullName);
@@ -101,6 +107,7 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 Token = tokenResult.AccessToken,
                 ExpiresAtUtc = DateTime.UtcNow.AddSeconds(tokenResult.ExpiresInSeconds),
+                RefreshToken = tokenResult.RefreshToken,
                 Username = username,
                 DisplayName = displayName,
                 Role = role

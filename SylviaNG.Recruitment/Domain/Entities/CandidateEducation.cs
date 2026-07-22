@@ -10,10 +10,13 @@ public class CandidateEducation : Audit
 
     public string DegreeTitle { get; set; } = string.Empty;
     public string Institution { get; set; } = string.Empty;
+    public long? UniversityLibraryItemId { get; set; }
     public EducationLevelEnum? EducationLevel { get; set; }
     public int PassingYear { get; set; }
+    public GradingSystemEnum? GradingSystem { get; set; }
     public string Result { get; set; } = string.Empty;
     public string? MajorSubject { get; set; }
 
     public CandidateProfile CandidateProfile { get; set; } = null!;
+    public UniversityLibraryItem? UniversityLibraryItem { get; set; }
 }
