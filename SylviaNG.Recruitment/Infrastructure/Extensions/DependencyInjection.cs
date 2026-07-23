@@ -2,9 +2,12 @@ using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using Finbuckle.MultiTenant.Extensions;
 using Microsoft.EntityFrameworkCore;
 using SylviaNG.Recruitment.Application.Common.Settings;
+using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Infrastructure.Data;
+using SylviaNG.Recruitment.Infrastructure.Documents;
 using SylviaNG.Recruitment.Infrastructure.Interceptors;
 using SylviaNG.Recruitment.Infrastructure.Kafka;
 using SylviaNG.Recruitment.Infrastructure.Repositories;
@@ -77,15 +80,39 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IHiringPipelineRepository, HiringPipelineRepository>();
             services.AddScoped<IJobApplicationStageProgressRepository, JobApplicationStageProgressRepository>();
             services.AddScoped<IShortlistFilterRepository, ShortlistFilterRepository>();
+            services.AddScoped<IAutoShortlistRunRepository, AutoShortlistRunRepository>();
+            services.AddScoped<ICandidateRecommendationRepository, CandidateRecommendationRepository>();
+            services.AddScoped<ISavedSearchRepository, SavedSearchRepository>();
             services.AddScoped<ICandidateProfileRepository, CandidateProfileRepository>();
+            services.AddScoped<IEmployeeRepository, EmployeeRepository>();
             services.AddScoped<ICandidateEducationRepository, CandidateEducationRepository>();
             services.AddScoped<ICandidateWorkExperienceRepository, CandidateWorkExperienceRepository>();
             services.AddScoped<ICandidateSkillRepository, CandidateSkillRepository>();
+            services.AddScoped<ICandidateTagRepository, CandidateTagRepository>();
             services.AddScoped<ISkillLibraryItemRepository, SkillLibraryItemRepository>();
+            services.AddScoped<IUniversityLibraryItemRepository, UniversityLibraryItemRepository>();
             services.AddScoped<ICandidateCertificationRepository, CandidateCertificationRepository>();
             services.AddScoped<ICandidateDocumentRepository, CandidateDocumentRepository>();
             services.AddScoped<IStaffProfileRepository, StaffProfileRepository>();
             services.AddScoped<IApplicationStatusReasonRepository, ApplicationStatusReasonRepository>();
+            services.AddScoped<IPaymentRepository, PaymentRepository>();
+            services.AddScoped<IApplicationSettingRepository, ApplicationSettingRepository>();
+            services.AddScoped<IQuestionGroupRepository, QuestionGroupRepository>();
+            services.AddScoped<IExamQuestionRepository, ExamQuestionRepository>();
+            services.AddScoped<ITalentPoolRepository, TalentPoolRepository>();
+            services.AddScoped<ITalentPoolCandidateRepository, TalentPoolCandidateRepository>();
+            services.AddScoped<IExamVenueRepository, ExamVenueRepository>();
+            services.AddScoped<IExamRoomRepository, ExamRoomRepository>();
+            services.AddScoped<IDivisionRepository, DivisionRepository>();
+            services.AddScoped<IDistrictRepository, DistrictRepository>();
+            services.AddScoped<IThanaRepository, ThanaRepository>();
+            services.AddScoped<ICountryRepository, CountryRepository>();
+            services.AddScoped<IEducationBoardRepository, EducationBoardRepository>();
+            services.AddScoped<IDegreeRepository, DegreeRepository>();
+            services.AddScoped<IGenderRepository, GenderRepository>();
+            services.AddScoped<IMaritalStatusRepository, MaritalStatusRepository>();
+            services.AddScoped<IReligionRepository, ReligionRepository>();
+            services.AddScoped<IBloodGroupRepository, BloodGroupRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -103,12 +130,74 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.Configure<CandidatePhotoSignatureSettings>(configuration.GetSection(CandidatePhotoSignatureSettings.SectionName));
             services.Configure<CandidateDocumentSettings>(configuration.GetSection(CandidateDocumentSettings.SectionName));
 
-            // Free, local, regex/heuristic resume parsing (no external AI API) - see plan decision.
-            services.AddScoped<IResumeParsingService, ResumeParsingService>();
+            // Standardized CV PDF generation for CV Bank download/bulk-download
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            services.AddScoped<ICvPdfGeneratorService, QuestPdfCvGenerator>();
+
+            // Size/extension policy for the US-054 exam question bulk-import upload
+            services.Configure<ExamQuestionImportSettings>(configuration.GetSection(ExamQuestionImportSettings.SectionName));
+
+            // Heuristic vs AI resume parsing switch - same pattern as ShortlistScoring:Provider
+            // below: flip ResumeParsing:Provider, no code change, to swap implementations.
+            // AiResumeParsingService falls back to HeuristicResumeParsingService in-process on
+            // any Groq failure, so this factory only ever needs to resolve the configured
+            // provider - the fallback isn't a DI concern.
+            services.AddScoped<HeuristicResumeParsingService>();
+            services.AddScoped<AiResumeParsingService>();
+
+            var resumeParsingProvider = configuration["ResumeParsing:Provider"];
+            services.AddScoped<IResumeParsingService>(sp =>
+            {
+                var provider = NormalizeResumeParsingProvider(resumeParsingProvider);
+
+                return provider switch
+                {
+                    "heuristic" => sp.GetRequiredService<HeuristicResumeParsingService>(),
+                    "ai" => sp.GetRequiredService<AiResumeParsingService>(),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported resume parsing provider: {resumeParsingProvider}. Supported providers: Heuristic, Ai.")
+                };
+            });
+
+            services.AddScoped<ICandidateTalentPoolRepository, CandidateTalentPoolRepository>();
 
             // Keycloak REST client (login token proxy + Admin REST user registration)
             services.Configure<KeycloakSettings>(configuration.GetSection(KeycloakSettings.SectionName));
             services.AddHttpClient<IKeycloakClient, KeycloakClient>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
+
+            // Groq REST client (AI-Powered Auto-Shortlisting, US-046 "Ai" scoring provider)
+            services.Configure<GroqSettings>(configuration.GetSection(GroqSettings.SectionName));
+            services.AddHttpClient<IGroqClient, GroqClient>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+
+            // Manual vs AI shortlist scoring switch (US-046) - same pattern as Database:Provider
+            // above: flip ShortlistScoring:Provider, no code change, to swap implementations.
+            services.AddScoped<ManualShortlistScoringService>();
+            services.AddScoped<AiShortlistScoringService>();
+
+            var shortlistScoringProvider = configuration["ShortlistScoring:Provider"];
+            services.AddScoped<IShortlistScoringService>(sp =>
+            {
+                var provider = NormalizeShortlistScoringProvider(shortlistScoringProvider);
+
+                return provider switch
+                {
+                    "manual" => sp.GetRequiredService<ManualShortlistScoringService>(),
+                    "ai" => sp.GetRequiredService<AiShortlistScoringService>(),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported shortlist scoring provider: {shortlistScoringProvider}. Supported providers: Manual, Ai.")
+                };
+            });
+
+            // SSLCommerz payment gateway client (EP-17) - bounded timeout since InitiateAsync now
+            // runs inline inside the apply-form submit request, alongside multipart CV parsing.
+            services.Configure<SslCommerzSettings>(configuration.GetSection(SslCommerzSettings.SectionName));
+            services.AddHttpClient<ISslCommerzPaymentGateway, SslCommerzPaymentGateway>(client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
             });
@@ -124,6 +213,22 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
         {
             if (string.IsNullOrWhiteSpace(provider))
                 throw new ArgumentNullException(nameof(provider), "Database provider is not specified.");
+
+            return provider.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizeShortlistScoringProvider(string? provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new ArgumentNullException(nameof(provider), "ShortlistScoring provider is not specified.");
+
+            return provider.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizeResumeParsingProvider(string? provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new ArgumentNullException(nameof(provider), "ResumeParsing provider is not specified.");
 
             return provider.Trim().ToLowerInvariant();
         }

@@ -16,6 +16,22 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// <summary>Every application by this candidate's email, across all postings (HR profile view, US-009 AC4).</summary>
         Task<List<JobApplication>> GetByCandidateEmailAsync(string email);
 
+        /// <summary>
+        /// Every application belonging to this candidate, across all postings - matches by
+        /// CandidateProfileId where it's set, falling back to email only for rows that predate
+        /// the FK or that a guest submitted before registering (CandidateProfileId still null).
+        /// The correct replacement for GetByCandidateEmailAsync everywhere the caller has a real
+        /// CandidateProfileId in hand.
+        /// </summary>
+        Task<List<JobApplication>> GetByCandidateAsync(long? candidateProfileId, string email);
+
+        /// <summary>
+        /// Bulk-links every unclaimed (CandidateProfileId still null) application matching this
+        /// email to the given profile - called once, at the moment a guest applicant registers
+        /// and a real CandidateProfile is provisioned for them (see CurrentCandidateService).
+        /// </summary>
+        Task LinkUnclaimedApplicationsByEmailAsync(string email, long candidateProfileId);
+
         /// <summary>Cross-job-posting ATS dashboard query with optional filters (US-035 AC1/AC2).</summary>
         Task<PagedResult<JobApplication>> GetPaginatedAllAsync(
             PagedRequest request,
