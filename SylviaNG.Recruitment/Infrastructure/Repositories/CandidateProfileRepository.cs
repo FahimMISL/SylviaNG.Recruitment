@@ -31,11 +31,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             // every candidate's completeness in the list regardless of their real data.
             var query = _dbSet
                 .Where(c => c.IsActive)
-                .Include(c => c.Educations)
+                .Include(c => c.Educations).ThenInclude(e => e.Degree)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
                 .Include(c => c.Certifications)
                 .Include(c => c.Documents)
+                .Include(c => c.Gender)
                 .AsSplitQuery()
                 .AsQueryable();
 
@@ -69,11 +70,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         public async Task<List<CandidateProfile>> GetAllActiveWithDetailsAsync()
         {
             return await _dbSet
-                .Include(c => c.Educations)
+                .Include(c => c.Educations).ThenInclude(e => e.Degree)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
                 .Include(c => c.Certifications)
                 .Include(c => c.Documents)
+                .Include(c => c.Gender)
                 .Where(c => c.IsActive)
                 .ToListAsync();
         }
@@ -82,10 +84,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             var idSet = candidateProfileIds.ToList();
             return await _dbSet
-                .Include(c => c.Educations)
+                .Include(c => c.Educations).ThenInclude(e => e.Degree)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
                 .Include(c => c.Certifications)
+                .Include(c => c.Gender)
                 .Where(c => idSet.Contains(c.CandidateProfileId))
                 .ToListAsync();
         }

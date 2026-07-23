@@ -134,7 +134,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
 
                         foreach (var education in educations)
                         {
-                            table.Cell().Element(BodyCell).Text(education.DegreeTitle);
+                            table.Cell().Element(BodyCell).Text(education.Degree.Name);
                             table.Cell().Element(BodyCell).Text(education.Institution);
                             table.Cell().Element(BodyCell).Text(education.MajorSubject ?? "-");
                             table.Cell().Element(BodyCell).Text(education.PassingYear.ToString());

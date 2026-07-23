@@ -141,9 +141,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 Phone = TruncateOrNull(GetString(root, "phone"), 50),
                 PresentAddress = TruncateOrNull(GetString(root, "presentAddress"), 500),
                 DateOfBirth = ParseDate(GetString(root, "dateOfBirth")),
-                Gender = ParseEnum<GenderEnum>(GetString(root, "gender")),
-                Religion = ParseEnum<ReligionEnum>(GetString(root, "religion")),
-                MaritalStatus = ParseEnum<MaritalStatusEnum>(GetString(root, "maritalStatus")),
+                // Gender/Religion/MaritalStatus are now dynamic admin-managed tables, not enums -
+                // Groq is prompted to return one of the seeded lookup Name values as plain text,
+                // which the frontend/candidate matches against the loaded dropdown.
+                Gender = TruncateOrNull(GetString(root, "gender"), 50),
+                Religion = TruncateOrNull(GetString(root, "religion"), 50),
+                MaritalStatus = TruncateOrNull(GetString(root, "maritalStatus"), 50),
                 Skills = ParseSkills(root),
                 Educations = ParseEducations(root, universities),
                 WorkExperiences = ParseWorkExperiences(root)

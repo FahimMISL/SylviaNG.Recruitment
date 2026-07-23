@@ -1,12 +1,10 @@
-using SylviaNG.Recruitment.Domain.Enums;
-
 namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 {
     public class CandidateProfileContactUpdateRequest
     {
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }
-        public MobileOperatorEnum? MobileOperator { get; set; }
+        public long? CountryId { get; set; }
 
         public long? PresentDivisionId { get; set; }
         public long? PresentDistrictId { get; set; }

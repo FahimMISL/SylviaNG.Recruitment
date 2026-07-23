@@ -93,6 +93,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<Division> Divisions { get; set; }
         public DbSet<District> Districts { get; set; }
         public DbSet<Thana> Thanas { get; set; }
+        public DbSet<Country> Countries { get; set; }
+        public DbSet<EducationBoard> EducationBoards { get; set; }
+        public DbSet<Degree> Degrees { get; set; }
+        public DbSet<Gender> Genders { get; set; }
+        public DbSet<MaritalStatus> MaritalStatuses { get; set; }
+        public DbSet<Religion> Religions { get; set; }
+        public DbSet<BloodGroup> BloodGroups { get; set; }
 
         #endregion
 

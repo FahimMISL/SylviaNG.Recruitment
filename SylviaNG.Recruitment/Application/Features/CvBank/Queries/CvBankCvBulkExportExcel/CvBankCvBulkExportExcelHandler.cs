@@ -76,7 +76,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankCvBulkE
             var facts = CandidateFactService.BuildFacts(profile);
 
             var topEducation = profile.Educations.OrderByDescending(e => e.EducationLevel).FirstOrDefault();
-            var allEducation = string.Join("; ", profile.Educations.Select(e => $"{e.DegreeTitle} - {e.Institution} ({e.PassingYear})"));
+            var allEducation = string.Join("; ", profile.Educations.Select(e => $"{e.Degree.Name} - {e.Institution} ({e.PassingYear})"));
             var workExperience = string.Join("; ", profile.WorkExperiences.Select(w =>
                 $"{w.Designation} @ {w.CompanyName} ({w.StartDate:MMM yyyy} - {(w.IsCurrent ? "Present" : w.EndDate?.ToString("MMM yyyy") ?? "-")})"));
             var skills = string.Join(", ", profile.Skills.Select(s => s.SkillName));
@@ -85,11 +85,11 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankCvBulkE
             sheet.Cell(rowIndex, 1).Value = profile.FullName;
             sheet.Cell(rowIndex, 2).Value = profile.Email;
             sheet.Cell(rowIndex, 3).Value = profile.Phone ?? string.Empty;
-            sheet.Cell(rowIndex, 4).Value = profile.Gender?.ToString() ?? string.Empty;
+            sheet.Cell(rowIndex, 4).Value = profile.Gender?.Name ?? string.Empty;
             sheet.Cell(rowIndex, 5).Value = profile.DateOfBirth.HasValue ? profile.DateOfBirth.Value.ToString("yyyy-MM-dd") : string.Empty;
             sheet.Cell(rowIndex, 6).Value = profile.Nationality ?? string.Empty;
             sheet.Cell(rowIndex, 7).Value = profile.PresentAddressDetail ?? string.Empty;
-            sheet.Cell(rowIndex, 8).Value = topEducation != null ? $"{topEducation.DegreeTitle} - {topEducation.Institution}" : string.Empty;
+            sheet.Cell(rowIndex, 8).Value = topEducation != null ? $"{topEducation.Degree.Name} - {topEducation.Institution}" : string.Empty;
             sheet.Cell(rowIndex, 9).Value = allEducation;
             sheet.Cell(rowIndex, 10).Value = Math.Round(facts.TotalExperienceYears, 1);
             sheet.Cell(rowIndex, 11).Value = workExperience;

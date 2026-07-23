@@ -14,16 +14,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(c => c.KeycloakSubjectId).IsRequired().HasMaxLength(100);
             builder.Property(c => c.FullName).IsRequired().HasMaxLength(200);
             builder.Property(c => c.Email).IsRequired().HasMaxLength(200);
-            builder.Property(c => c.Gender).HasConversion<string>().HasMaxLength(20);
             builder.Property(c => c.NationalId).HasMaxLength(50);
             builder.Property(c => c.FatherName).HasMaxLength(200);
             builder.Property(c => c.MotherName).HasMaxLength(200);
-            builder.Property(c => c.MaritalStatus).HasConversion<string>().HasMaxLength(20);
-            builder.Property(c => c.Religion).HasConversion<string>().HasMaxLength(50);
             builder.Property(c => c.Nationality).HasMaxLength(100);
-            builder.Property(c => c.BloodGroup).HasConversion<string>().HasMaxLength(20);
             builder.Property(c => c.Phone).HasMaxLength(50);
-            builder.Property(c => c.MobileOperator).HasConversion<string>().HasMaxLength(20);
             builder.Property(c => c.PresentAddressDetail).HasMaxLength(500);
             builder.Property(c => c.PermanentAddressDetail).HasMaxLength(500);
             builder.Property(c => c.ProfilePhotoPath).HasMaxLength(500);
@@ -46,6 +41,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.HasOne<Division>().WithMany().HasForeignKey(c => c.HomeDivisionId).OnDelete(DeleteBehavior.SetNull);
             builder.HasOne<District>().WithMany().HasForeignKey(c => c.HomeDistrictId).OnDelete(DeleteBehavior.SetNull);
             builder.HasOne<Thana>().WithMany().HasForeignKey(c => c.HomeThanaId).OnDelete(DeleteBehavior.SetNull);
+
+            // Dynamic admin-managed lookups (replace the old Gender/MaritalStatus/Religion/
+            // BloodGroup enums and MobileOperator enum - see Country for the latter).
+            builder.HasOne(c => c.Gender).WithMany().HasForeignKey(c => c.GenderId).OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(c => c.MaritalStatus).WithMany().HasForeignKey(c => c.MaritalStatusId).OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(c => c.Religion).WithMany().HasForeignKey(c => c.ReligionId).OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(c => c.BloodGroup).WithMany().HasForeignKey(c => c.BloodGroupId).OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(c => c.Country).WithMany().HasForeignKey(c => c.CountryId).OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

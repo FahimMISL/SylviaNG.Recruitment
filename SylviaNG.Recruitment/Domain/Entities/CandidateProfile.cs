@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Audit;
 
 namespace SylviaNG.Recruitment.Domain.Entities;
@@ -13,22 +12,25 @@ public class CandidateProfile : Audit
     public long CandidateProfileId { get; set; }
     public string KeycloakSubjectId { get; set; } = string.Empty;
 
-    // Personal info
+    // Personal info - Gender/MaritalStatus/Religion/BloodGroup are dynamic admin-managed
+    // dropdowns (Domain.Entities.Gender etc), not hardcoded enums, so HR/Admin can add/rename/
+    // delete values without a code deploy.
     public string FullName { get; set; } = string.Empty;
     public DateTime? DateOfBirth { get; set; }
-    public GenderEnum? Gender { get; set; }
+    public long? GenderId { get; set; }
     public string? NationalId { get; set; }
     public string? FatherName { get; set; }
     public string? MotherName { get; set; }
-    public MaritalStatusEnum? MaritalStatus { get; set; }
-    public ReligionEnum? Religion { get; set; }
+    public long? MaritalStatusId { get; set; }
+    public long? ReligionId { get; set; }
     public string? Nationality { get; set; }
-    public BloodGroupEnum? BloodGroup { get; set; }
+    public long? BloodGroupId { get; set; }
 
-    // Contact
+    // Contact - CountryId (dynamic Country lookup, e.g. "BD +880") sits in front of the local
+    // Phone number, replacing the old hardcoded MobileOperatorEnum (network provider).
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
-    public MobileOperatorEnum? MobileOperator { get; set; }
+    public long? CountryId { get; set; }
 
     // Present address: Division -> District -> Thana (all seeded lookups) + free-text detail line
     public long? PresentDivisionId { get; set; }
@@ -75,6 +77,11 @@ public class CandidateProfile : Audit
     public string? PrepopulatedPhone { get; set; }
 
     // Navigation properties
+    public Gender? Gender { get; set; }
+    public MaritalStatus? MaritalStatus { get; set; }
+    public Religion? Religion { get; set; }
+    public BloodGroup? BloodGroup { get; set; }
+    public Country? Country { get; set; }
     public ICollection<CandidateEducation> Educations { get; set; } = new List<CandidateEducation>();
     public ICollection<CandidateWorkExperience> WorkExperiences { get; set; } = new List<CandidateWorkExperience>();
     public ICollection<CandidateSkill> Skills { get; set; } = new List<CandidateSkill>();

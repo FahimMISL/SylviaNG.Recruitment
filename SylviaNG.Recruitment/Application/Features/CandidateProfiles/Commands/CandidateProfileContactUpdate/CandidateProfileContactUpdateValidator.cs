@@ -11,15 +11,11 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.C
                 .EmailAddress().WithMessage("Email must be a valid email address.")
                 .MaximumLength(200).WithMessage("Email must not exceed 200 characters.");
 
-            // Standard 11-digit "01" + operator-prefix format, or a plain 8-digit number when the
-            // candidate picked the "Other" operator (no fixed 3-digit prefix to compose with).
+            // Local number typed after the candidate picks a Country (dial code) - length varies
+            // by country, so this only guards against obviously-wrong input, not a fixed format.
             RuleFor(x => x.Request.Phone)
-                .Matches(@"^(01[0-9]{9}|[0-9]{8})$").WithMessage("Phone must be a valid mobile number.")
+                .Matches(@"^[0-9]{6,15}$").WithMessage("Phone must be a valid mobile number.")
                 .When(x => !string.IsNullOrEmpty(x.Request.Phone));
-
-            RuleFor(x => x.Request.MobileOperator)
-                .IsInEnum().WithMessage("MobileOperator must be a valid value.")
-                .When(x => x.Request.MobileOperator.HasValue);
 
             RuleFor(x => x.Request.PresentAddressDetail)
                 .MaximumLength(500).WithMessage("PresentAddressDetail must not exceed 500 characters.");

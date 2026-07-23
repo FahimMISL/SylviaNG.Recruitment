@@ -17,9 +17,13 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
         public string? Phone { get; set; }
         public string? PresentAddress { get; set; }
         public DateTime? DateOfBirth { get; set; }
-        public GenderEnum? Gender { get; set; }
-        public ReligionEnum? Religion { get; set; }
-        public MaritalStatusEnum? MaritalStatus { get; set; }
+
+        // Best-effort guessed text (e.g. "Male", "Islam", "Single") matching the seeded
+        // Gender/Religion/MaritalStatus lookup Name values - these are now dynamic admin-managed
+        // tables, so the parser can't resolve a specific row Id; frontend matches by name.
+        public string? Gender { get; set; }
+        public string? Religion { get; set; }
+        public string? MaritalStatus { get; set; }
         public List<string> Skills { get; set; } = new();
         public List<CandidateResumeParsedEducation> Educations { get; set; } = new();
         public List<CandidateResumeParsedWorkExperience> WorkExperiences { get; set; } = new();

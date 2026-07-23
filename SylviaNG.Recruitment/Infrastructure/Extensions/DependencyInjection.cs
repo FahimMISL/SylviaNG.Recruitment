@@ -106,6 +106,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IDivisionRepository, DivisionRepository>();
             services.AddScoped<IDistrictRepository, DistrictRepository>();
             services.AddScoped<IThanaRepository, ThanaRepository>();
+            services.AddScoped<ICountryRepository, CountryRepository>();
+            services.AddScoped<IEducationBoardRepository, EducationBoardRepository>();
+            services.AddScoped<IDegreeRepository, DegreeRepository>();
+            services.AddScoped<IGenderRepository, GenderRepository>();
+            services.AddScoped<IMaritalStatusRepository, MaritalStatusRepository>();
+            services.AddScoped<IReligionRepository, ReligionRepository>();
+            services.AddScoped<IBloodGroupRepository, BloodGroupRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();

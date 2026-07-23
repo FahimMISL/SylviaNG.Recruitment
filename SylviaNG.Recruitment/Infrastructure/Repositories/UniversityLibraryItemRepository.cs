@@ -14,5 +14,15 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet.OrderBy(u => u.Name).ToListAsync();
         }
+
+        public async Task<bool> ExistsByNameAsync(string name, long? excludeId = null)
+        {
+            return await _dbSet.AnyAsync(u => u.Name == name && (!excludeId.HasValue || u.UniversityLibraryItemId != excludeId.Value));
+        }
+
+        public async Task<int> CountUsageAsync(long universityLibraryItemId)
+        {
+            return await _dbContext.CandidateEducations.CountAsync(e => e.UniversityLibraryItemId == universityLibraryItemId);
+        }
     }
 }

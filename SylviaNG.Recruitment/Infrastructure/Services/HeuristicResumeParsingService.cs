@@ -5,7 +5,6 @@ using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
-using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Infrastructure.Services
 {
@@ -91,36 +90,40 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 : null;
         }
 
-        private static GenderEnum? ExtractGender(List<string> lines)
+        // Returns the guessed value as plain text (matching the seeded Gender/Religion/
+        // MaritalStatus lookup Name values) rather than an enum - those are now dynamic
+        // admin-managed tables, so the parser can't resolve a specific row Id itself. The
+        // frontend/candidate matches this text against the loaded dropdown as a suggestion.
+        private static string? ExtractGender(List<string> lines)
         {
             var value = MatchLabelValue(lines, GenderRegex);
             if (value == null) return null;
 
-            if (value.StartsWith("male", StringComparison.OrdinalIgnoreCase)) return GenderEnum.Male;
-            if (value.StartsWith("female", StringComparison.OrdinalIgnoreCase)) return GenderEnum.Female;
-            return GenderEnum.Other;
+            if (value.StartsWith("male", StringComparison.OrdinalIgnoreCase)) return "Male";
+            if (value.StartsWith("female", StringComparison.OrdinalIgnoreCase)) return "Female";
+            return "Other";
         }
 
-        private static ReligionEnum? ExtractReligion(List<string> lines)
+        private static string? ExtractReligion(List<string> lines)
         {
             var value = MatchLabelValue(lines, ReligionRegex);
             if (value == null) return null;
 
-            if (value.Contains("islam", StringComparison.OrdinalIgnoreCase) || value.Contains("muslim", StringComparison.OrdinalIgnoreCase)) return ReligionEnum.Islam;
-            if (value.Contains("hindu", StringComparison.OrdinalIgnoreCase)) return ReligionEnum.Hinduism;
-            if (value.Contains("christian", StringComparison.OrdinalIgnoreCase)) return ReligionEnum.Christianity;
-            if (value.Contains("buddh", StringComparison.OrdinalIgnoreCase)) return ReligionEnum.Buddhism;
-            return ReligionEnum.Other;
+            if (value.Contains("islam", StringComparison.OrdinalIgnoreCase) || value.Contains("muslim", StringComparison.OrdinalIgnoreCase)) return "Islam";
+            if (value.Contains("hindu", StringComparison.OrdinalIgnoreCase)) return "Hinduism";
+            if (value.Contains("christian", StringComparison.OrdinalIgnoreCase)) return "Christianity";
+            if (value.Contains("buddh", StringComparison.OrdinalIgnoreCase)) return "Buddhism";
+            return "Other";
         }
 
-        private static MaritalStatusEnum? ExtractMaritalStatus(List<string> lines)
+        private static string? ExtractMaritalStatus(List<string> lines)
         {
             var value = MatchLabelValue(lines, MaritalStatusRegex);
             if (value == null) return null;
 
-            if (value.Contains("single", StringComparison.OrdinalIgnoreCase) || value.Contains("unmarried", StringComparison.OrdinalIgnoreCase)) return MaritalStatusEnum.Single;
-            if (value.Contains("married", StringComparison.OrdinalIgnoreCase) && !value.Contains("unmarried", StringComparison.OrdinalIgnoreCase)) return MaritalStatusEnum.Married;
-            return MaritalStatusEnum.Other;
+            if (value.Contains("single", StringComparison.OrdinalIgnoreCase) || value.Contains("unmarried", StringComparison.OrdinalIgnoreCase)) return "Single";
+            if (value.Contains("married", StringComparison.OrdinalIgnoreCase) && !value.Contains("unmarried", StringComparison.OrdinalIgnoreCase)) return "Married";
+            return "Other";
         }
 
         // Scans line-by-line (not the whole text) so the captured value stops at the end of the

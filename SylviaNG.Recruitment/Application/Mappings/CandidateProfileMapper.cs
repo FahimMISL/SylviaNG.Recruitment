@@ -16,21 +16,21 @@ namespace SylviaNG.Recruitment.Application.Mappings
         {
             entity.FullName = request.FullName;
             entity.DateOfBirth = request.DateOfBirth;
-            entity.Gender = request.Gender;
+            entity.GenderId = request.GenderId;
             entity.NationalId = request.NationalId;
             entity.FatherName = request.FatherName;
             entity.MotherName = request.MotherName;
-            entity.MaritalStatus = request.MaritalStatus;
-            entity.Religion = request.Religion;
+            entity.MaritalStatusId = request.MaritalStatusId;
+            entity.ReligionId = request.ReligionId;
             entity.Nationality = request.Nationality;
-            entity.BloodGroup = request.BloodGroup;
+            entity.BloodGroupId = request.BloodGroupId;
         }
 
         public static void ApplyContactUpdate(this CandidateProfile entity, CandidateProfileContactUpdateRequest request)
         {
             entity.Email = request.Email;
             entity.Phone = request.Phone;
-            entity.MobileOperator = request.MobileOperator;
+            entity.CountryId = request.CountryId;
             entity.PresentDivisionId = request.PresentDivisionId;
             entity.PresentDistrictId = request.PresentDistrictId;
             entity.PresentThanaId = request.PresentThanaId;
@@ -48,17 +48,17 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateProfileId = entity.CandidateProfileId,
                 FullName = entity.FullName,
                 DateOfBirth = entity.DateOfBirth,
-                Gender = entity.Gender,
+                GenderId = entity.GenderId,
                 NationalId = entity.NationalId,
                 FatherName = entity.FatherName,
                 MotherName = entity.MotherName,
-                MaritalStatus = entity.MaritalStatus,
-                Religion = entity.Religion,
+                MaritalStatusId = entity.MaritalStatusId,
+                ReligionId = entity.ReligionId,
                 Nationality = entity.Nationality,
-                BloodGroup = entity.BloodGroup,
+                BloodGroupId = entity.BloodGroupId,
                 Email = entity.Email,
                 Phone = entity.Phone,
-                MobileOperator = entity.MobileOperator,
+                CountryId = entity.CountryId,
                 PresentDivisionId = entity.PresentDivisionId,
                 PresentDistrictId = entity.PresentDistrictId,
                 PresentThanaId = entity.PresentThanaId,
@@ -99,17 +99,17 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateProfileId = entity.CandidateProfileId,
                 FullName = entity.FullName,
                 DateOfBirth = entity.DateOfBirth,
-                Gender = entity.Gender,
+                GenderId = entity.GenderId,
                 NationalId = entity.NationalId,
                 FatherName = entity.FatherName,
                 MotherName = entity.MotherName,
-                MaritalStatus = entity.MaritalStatus,
-                Religion = entity.Religion,
+                MaritalStatusId = entity.MaritalStatusId,
+                ReligionId = entity.ReligionId,
                 Nationality = entity.Nationality,
-                BloodGroup = entity.BloodGroup,
+                BloodGroupId = entity.BloodGroupId,
                 Email = entity.Email,
                 Phone = entity.Phone,
-                MobileOperator = entity.MobileOperator,
+                CountryId = entity.CountryId,
                 PresentDivisionId = entity.PresentDivisionId,
                 PresentDistrictId = entity.PresentDistrictId,
                 PresentThanaId = entity.PresentThanaId,
@@ -187,7 +187,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
             return new CandidateEducation
             {
                 CandidateProfileId = candidateProfileId,
-                DegreeTitle = request.DegreeTitle,
+                DegreeId = request.DegreeId,
+                EducationBoardId = request.EducationBoardId,
                 Institution = request.Institution,
                 UniversityLibraryItemId = request.UniversityLibraryItemId,
                 EducationLevel = request.EducationLevel,
@@ -200,7 +201,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
 
         public static void ApplyUpdate(this CandidateEducation entity, CandidateEducationUpdateRequest request)
         {
-            entity.DegreeTitle = request.DegreeTitle;
+            entity.DegreeId = request.DegreeId;
+            entity.EducationBoardId = request.EducationBoardId;
             entity.Institution = request.Institution;
             entity.UniversityLibraryItemId = request.UniversityLibraryItemId;
             entity.EducationLevel = request.EducationLevel;
@@ -215,7 +217,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
             return new CandidateEducationResponse
             {
                 CandidateEducationId = entity.CandidateEducationId,
-                DegreeTitle = entity.DegreeTitle,
+                DegreeId = entity.DegreeId,
+                EducationBoardId = entity.EducationBoardId,
                 Institution = entity.Institution,
                 UniversityLibraryItemId = entity.UniversityLibraryItemId,
                 EducationLevel = entity.EducationLevel,

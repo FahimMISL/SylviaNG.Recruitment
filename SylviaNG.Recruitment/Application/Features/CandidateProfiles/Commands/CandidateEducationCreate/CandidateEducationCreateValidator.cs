@@ -6,9 +6,8 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.C
     {
         public CandidateEducationCreateValidator()
         {
-            RuleFor(x => x.Request.DegreeTitle)
-                .NotEmpty().WithMessage("DegreeTitle is required.")
-                .MaximumLength(200).WithMessage("DegreeTitle must not exceed 200 characters.");
+            RuleFor(x => x.Request.DegreeId)
+                .GreaterThan(0).WithMessage("Degree is required.");
 
             RuleFor(x => x.Request.Institution)
                 .NotEmpty().WithMessage("Institution is required.")
