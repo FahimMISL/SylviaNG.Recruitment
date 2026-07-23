@@ -103,6 +103,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ITalentPoolCandidateRepository, TalentPoolCandidateRepository>();
             services.AddScoped<IExamVenueRepository, ExamVenueRepository>();
             services.AddScoped<IExamRoomRepository, ExamRoomRepository>();
+            services.AddScoped<IExamRepository, ExamRepository>();
+            services.AddScoped<IExamEnrollmentRepository, ExamEnrollmentRepository>();
             services.AddScoped<IDivisionRepository, DivisionRepository>();
             services.AddScoped<IDistrictRepository, DistrictRepository>();
             services.AddScoped<IThanaRepository, ThanaRepository>();
@@ -136,6 +138,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
 
             // Size/extension policy for the US-054 exam question bulk-import upload
             services.Configure<ExamQuestionImportSettings>(configuration.GetSection(ExamQuestionImportSettings.SectionName));
+
+            // Exam seat-plan/admit-card PDFs (US-055/US-056), same QuestPDF pattern as the CV generator above
+            services.AddScoped<ISeatPlanPdfGeneratorService, QuestPdfSeatPlanGenerator>();
+            services.AddScoped<IAdmitCardPdfGeneratorService, QuestPdfAdmitCardGenerator>();
+
+            // Exam enrollment notifications (US-055/US-056): real SMTP email via MailKit, SMS is a
+            // logging stub until a real gateway is integrated - disabled/off by default, see
+            // appsettings.json "Smtp" section (IsEnabled: false).
+            services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
+            services.AddScoped<ISmtpEmailService, SmtpEmailService>();
+            services.AddScoped<ISmsNotificationService, LoggingSmsNotificationService>();
 
             // Heuristic vs AI resume parsing switch - same pattern as ShortlistScoring:Provider
             // below: flip ResumeParsing:Provider, no code change, to swap implementations.

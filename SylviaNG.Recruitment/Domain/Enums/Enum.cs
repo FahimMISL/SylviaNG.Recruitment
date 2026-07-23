@@ -147,3 +147,19 @@ public enum GradingSystemEnum
     CGPA,
     Division
 }
+
+public enum ExamTypeEnum
+{
+    InPerson,
+    Online
+}
+
+/// <summary>Delivery status for a single ExamEnrollment's email/SMS notification.
+/// Skipped = channel not configured (e.g. SMTP disabled) - a valid outcome, not a failure.</summary>
+public enum NotificationStatusEnum
+{
+    Pending,
+    Sent,
+    Failed,
+    Skipped
+}

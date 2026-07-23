@@ -1028,7 +1028,6 @@ public class JobApplicationServiceTests
                     FullName = "Jane Doe",
                     Email = "jane@example.com",
                     DateOfBirth = new DateTime(1995, 1, 1),
-                    Gender = GenderEnum.Female,
                     Phone = "+880123456789",
                     PresentAddressDetail = "Dhaka",
                     Educations = new List<CandidateEducation> { new() },

@@ -90,6 +90,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<TalentPoolCandidate> TalentPoolCandidates { get; set; }
         public DbSet<ExamVenue> ExamVenues { get; set; }
         public DbSet<ExamRoom> ExamRooms { get; set; }
+        public DbSet<Exam> Exams { get; set; }
+        public DbSet<ExamEnrollment> ExamEnrollments { get; set; }
         public DbSet<Division> Divisions { get; set; }
         public DbSet<District> Districts { get; set; }
         public DbSet<Thana> Thanas { get; set; }
