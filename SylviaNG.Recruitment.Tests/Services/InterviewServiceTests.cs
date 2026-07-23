@@ -18,6 +18,7 @@ public class InterviewServiceTests
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<IInterviewVenueRepository> _interviewVenueRepositoryMock;
     private readonly Mock<IInterviewRoomRepository> _interviewRoomRepositoryMock;
+    private readonly Mock<IInterviewRoundConfigRepository> _interviewRoundConfigRepositoryMock;
     private readonly Mock<IEmployeeRepository> _employeeRepositoryMock;
     private readonly Mock<IInterviewNotificationService> _interviewNotificationServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
@@ -29,6 +30,7 @@ public class InterviewServiceTests
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _interviewVenueRepositoryMock = new Mock<IInterviewVenueRepository>();
         _interviewRoomRepositoryMock = new Mock<IInterviewRoomRepository>();
+        _interviewRoundConfigRepositoryMock = new Mock<IInterviewRoundConfigRepository>();
         _employeeRepositoryMock = new Mock<IEmployeeRepository>();
         _interviewNotificationServiceMock = new Mock<IInterviewNotificationService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
@@ -39,6 +41,7 @@ public class InterviewServiceTests
             _jobApplicationRepositoryMock.Object,
             _interviewVenueRepositoryMock.Object,
             _interviewRoomRepositoryMock.Object,
+            _interviewRoundConfigRepositoryMock.Object,
             _employeeRepositoryMock.Object,
             _interviewNotificationServiceMock.Object,
             _unitOfWorkMock.Object,
@@ -250,6 +253,127 @@ public class InterviewServiceTests
         interviews[0].CancellationReason.Should().Be("Posting closed");
         interviews[1].CancellationReason.Should().Be("Old reason");
         _interviewNotificationServiceMock.Verify(n => n.NotifyCancelledAsync(It.IsAny<Interview>()), Times.Exactly(2));
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    // ── US-070: round config gating ─────────────────────────────────
+
+    private void SetupHappyPathForRoundConfigTests()
+    {
+        _interviewRoomRepositoryMock.Setup(r => r.GetByIdAsync(20)).ReturnsAsync(new InterviewRoom { InterviewRoomId = 20, InterviewVenueId = 2, Capacity = 5 });
+        _interviewVenueRepositoryMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new InterviewVenue { InterviewVenueId = 2, VenueName = "Main Campus" });
+        _employeeRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new Employee { EmployeeId = 1 });
+        _interviewRepositoryMock.Setup(r => r.GetOverlappingCountByRoomIdAsync(20, It.IsAny<DateTime>(), It.IsAny<DateTime>(), null)).ReturnsAsync(0);
+        _interviewRepositoryMock.Setup(r => r.GetConflictingPanelistEmployeeIdsAsync(It.IsAny<List<long>>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), null)).ReturnsAsync(new List<long>());
+        _interviewRepositoryMock.Setup(r => r.AddAsync(It.IsAny<Interview>()))
+            .Callback<Interview>(i => i.InterviewId = 42)
+            .Returns(Task.CompletedTask);
+    }
+
+    [Fact]
+    public async Task ScheduleAsync_RoundConfigWrongJobPosting_ShouldThrowInvalidStatusTransitionException()
+    {
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(ApplicationFor(5));
+        _interviewRoundConfigRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1))
+            .ReturnsAsync(new InterviewRoundConfig { InterviewRoundConfigId = 1, JobPostingId = 999, Sequence = 1, Name = "Technical Round 1" });
+
+        var request = InPersonRequest();
+        request.InterviewRoundConfigId = 1;
+
+        var act = () => _service.ScheduleAsync(request);
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        _interviewRepositoryMock.Verify(r => r.AddAsync(It.IsAny<Interview>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ScheduleAsync_RoundConfigSequenceOne_ShouldSetRoundAndConfigIdWithNoGateCheck()
+    {
+        SetupHappyPathForRoundConfigTests();
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(ApplicationFor(5));
+        _interviewRoundConfigRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1))
+            .ReturnsAsync(new InterviewRoundConfig { InterviewRoundConfigId = 1, JobPostingId = 100, Sequence = 1, Name = "Technical Round 1" });
+
+        Interview? saved = null;
+        _interviewRepositoryMock.Setup(r => r.AddAsync(It.IsAny<Interview>()))
+            .Callback<Interview>(i => { i.InterviewId = 42; saved = i; })
+            .Returns(Task.CompletedTask);
+
+        var request = InPersonRequest();
+        request.InterviewRoundConfigId = 1;
+
+        await _service.ScheduleAsync(request);
+
+        saved!.Round.Should().Be(1);
+        saved.InterviewRoundConfigId.Should().Be(1);
+        _interviewRepositoryMock.Verify(r => r.ExistsPassedForRoundConfigAsync(It.IsAny<long>(), It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ScheduleAsync_RoundConfigSequenceTwo_PriorRoundNotPassed_ShouldThrowInvalidStatusTransitionException()
+    {
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(ApplicationFor(5));
+        _interviewRoundConfigRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(2))
+            .ReturnsAsync(new InterviewRoundConfig { InterviewRoundConfigId = 2, JobPostingId = 100, Sequence = 2, Name = "HR Round" });
+        _interviewRoundConfigRepositoryMock.Setup(r => r.GetByJobPostingAndSequenceAsync(100, 1))
+            .ReturnsAsync(new InterviewRoundConfig { InterviewRoundConfigId = 1, JobPostingId = 100, Sequence = 1, Name = "Technical Round 1" });
+        _interviewRepositoryMock.Setup(r => r.ExistsPassedForRoundConfigAsync(5, 1)).ReturnsAsync(false);
+
+        var request = InPersonRequest();
+        request.InterviewRoundConfigId = 2;
+
+        var act = () => _service.ScheduleAsync(request);
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        _interviewRepositoryMock.Verify(r => r.AddAsync(It.IsAny<Interview>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ScheduleAsync_RoundConfigSequenceTwo_PriorRoundPassed_ShouldSucceed()
+    {
+        SetupHappyPathForRoundConfigTests();
+        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(ApplicationFor(5));
+        _interviewRoundConfigRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(2))
+            .ReturnsAsync(new InterviewRoundConfig { InterviewRoundConfigId = 2, JobPostingId = 100, Sequence = 2, Name = "HR Round" });
+        _interviewRoundConfigRepositoryMock.Setup(r => r.GetByJobPostingAndSequenceAsync(100, 1))
+            .ReturnsAsync(new InterviewRoundConfig { InterviewRoundConfigId = 1, JobPostingId = 100, Sequence = 1, Name = "Technical Round 1" });
+        _interviewRepositoryMock.Setup(r => r.ExistsPassedForRoundConfigAsync(5, 1)).ReturnsAsync(true);
+
+        Interview? saved = null;
+        _interviewRepositoryMock.Setup(r => r.AddAsync(It.IsAny<Interview>()))
+            .Callback<Interview>(i => { i.InterviewId = 42; saved = i; })
+            .Returns(Task.CompletedTask);
+
+        var request = InPersonRequest();
+        request.InterviewRoundConfigId = 2;
+
+        await _service.ScheduleAsync(request);
+
+        saved!.Round.Should().Be(2);
+        saved.InterviewRoundConfigId.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task MarkResultAsync_CancelledInterview_ShouldThrowInvalidStatusTransitionException()
+    {
+        var interview = new Interview { InterviewId = 1, Status = InterviewStatusEnum.Cancelled };
+        _interviewRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(interview);
+
+        var act = () => _service.MarkResultAsync(1, new InterviewMarkResultRequest { Result = InterviewResultEnum.Passed });
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public async Task MarkResultAsync_ValidRequest_ShouldSetResultAndStatusCompleted()
+    {
+        var interview = new Interview { InterviewId = 1, Status = InterviewStatusEnum.Scheduled };
+        _interviewRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(interview);
+
+        await _service.MarkResultAsync(1, new InterviewMarkResultRequest { Result = InterviewResultEnum.Passed });
+
+        interview.Result.Should().Be(InterviewResultEnum.Passed);
+        interview.Status.Should().Be(InterviewStatusEnum.Completed);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
     }
 }

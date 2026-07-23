@@ -20,6 +20,9 @@ namespace SylviaNG.Recruitment.Application.Features.Interviews.Models
         public DateTime ScheduledStartAt { get; set; }
         public DateTime ScheduledEndAt { get; set; }
         public int Round { get; set; }
+        public long? InterviewRoundConfigId { get; set; }
+        public string? RoundConfigName { get; set; }
+        public InterviewResultEnum Result { get; set; }
 
         public InterviewStatusEnum Status { get; set; }
         public string? CancellationReason { get; set; }

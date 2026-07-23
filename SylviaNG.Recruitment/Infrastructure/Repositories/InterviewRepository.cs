@@ -63,6 +63,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(i => i.JobApplication)
                 .Include(i => i.InterviewVenue)
                 .Include(i => i.InterviewRoom)
+                .Include(i => i.InterviewRoundConfig)
                 .Include(i => i.PanelMembers)
                     .ThenInclude(p => p.Employee)
                 .FirstOrDefaultAsync(i => i.InterviewId == interviewId);
@@ -85,6 +86,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet
                 .Include(i => i.InterviewVenue)
                 .Include(i => i.InterviewRoom)
+                .Include(i => i.InterviewRoundConfig)
                 .Include(i => i.PanelMembers)
                     .ThenInclude(p => p.Employee)
                 .Where(i => i.JobApplicationId == jobApplicationId)
@@ -115,6 +117,19 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Select(p => p.EmployeeId)
                 .Distinct()
                 .ToListAsync();
+        }
+
+        public async Task<bool> ExistsPassedForRoundConfigAsync(long jobApplicationId, long roundConfigId)
+        {
+            return await _dbSet.AnyAsync(i =>
+                i.JobApplicationId == jobApplicationId &&
+                i.InterviewRoundConfigId == roundConfigId &&
+                i.Result == InterviewResultEnum.Passed);
+        }
+
+        public async Task<bool> ExistsForRoundConfigAsync(long roundConfigId)
+        {
+            return await _dbSet.AnyAsync(i => i.InterviewRoundConfigId == roundConfigId);
         }
     }
 }

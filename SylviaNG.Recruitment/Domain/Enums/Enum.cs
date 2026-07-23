@@ -188,3 +188,13 @@ public enum InterviewStatusEnum
     Completed,
     NoShow
 }
+
+/// <summary>Outcome of a Completed Interview (EP-08 US-070). Set via HR's "Mark Result" action,
+/// which also transitions Status to Completed. Passed on the round with the highest Sequence for a
+/// job application gates whether the next InterviewRoundConfig can be scheduled.</summary>
+public enum InterviewResultEnum
+{
+    Pending,
+    Passed,
+    Failed
+}

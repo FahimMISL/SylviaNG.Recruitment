@@ -12,6 +12,7 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task BulkRescheduleAsync(InterviewBulkRescheduleRequest request);
         Task CancelAsync(long interviewId, InterviewCancelRequest request);
         Task BulkCancelAsync(InterviewBulkCancelRequest request);
+        Task MarkResultAsync(long interviewId, InterviewMarkResultRequest request);
 
         Task<PagedResult<InterviewResponse>> GetPagedAsync(
             PagedRequest request,

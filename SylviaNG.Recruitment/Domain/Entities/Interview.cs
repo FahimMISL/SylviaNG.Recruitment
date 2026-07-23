@@ -26,9 +26,11 @@ public class Interview : Audit
     public DateTime ScheduledStartAt { get; set; }
     public DateTime ScheduledEndAt { get; set; }
 
-    // Feature 3 (US-070) will build real round-sequencing/gating on top of this; for now it's a
-    // simple ordinal so multiple interview rounds for the same candidate can be told apart.
+    // Round is still a plain ordinal for postings with no configured rounds. When
+    // InterviewRoundConfigId is set (US-070), Round is auto-derived from that config's Sequence.
     public int Round { get; set; } = 1;
+    public long? InterviewRoundConfigId { get; set; }
+    public InterviewResultEnum Result { get; set; } = InterviewResultEnum.Pending;
 
     public new InterviewStatusEnum Status { get; set; } = InterviewStatusEnum.Scheduled;
     public string? CancellationReason { get; set; }
@@ -46,5 +48,6 @@ public class Interview : Audit
     public JobApplication JobApplication { get; set; } = null!;
     public InterviewVenue? InterviewVenue { get; set; }
     public InterviewRoom? InterviewRoom { get; set; }
+    public InterviewRoundConfig? InterviewRoundConfig { get; set; }
     public ICollection<InterviewPanelMember> PanelMembers { get; set; } = new List<InterviewPanelMember>();
 }

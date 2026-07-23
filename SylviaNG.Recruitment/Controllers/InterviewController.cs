@@ -5,6 +5,7 @@ using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewBul
 using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewBulkReschedule;
 using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewBulkSchedule;
 using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewCancel;
+using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewMarkResult;
 using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewReschedule;
 using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewSchedule;
 using SylviaNG.Recruitment.Application.Features.Interviews.Models;
@@ -103,6 +104,15 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult> BulkCancel([FromBody] InterviewBulkCancelRequest request)
         {
             await _mediator.Send(new InterviewBulkCancelCommand(request));
+            return Ok();
+        }
+
+        /// <summary>Mark a completed interview's outcome (Passed/Failed) - also transitions Status
+        /// to Completed. Passed gates whether the next configured round can be scheduled (US-070).</summary>
+        [HttpPatch("{interviewId}/result")]
+        public async Task<ActionResult> MarkResult(long interviewId, [FromBody] InterviewMarkResultRequest request)
+        {
+            await _mediator.Send(new InterviewMarkResultCommand(interviewId, request));
             return Ok();
         }
     }

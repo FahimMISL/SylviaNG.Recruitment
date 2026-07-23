@@ -30,5 +30,13 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// <summary>Of the given employee IDs, which already have a non-cancelled interview whose
         /// time range overlaps [start, end) - the panelist double-booking conflict check.</summary>
         Task<List<long>> GetConflictingPanelistEmployeeIdsAsync(List<long> employeeIds, DateTime start, DateTime end, long? excludeInterviewId = null);
+
+        /// <summary>Whether this job application already has a Result=Passed interview at the given
+        /// round config - the US-070 AC3 gate checked before scheduling the next round.</summary>
+        Task<bool> ExistsPassedForRoundConfigAsync(long jobApplicationId, long roundConfigId);
+
+        /// <summary>Whether any interview (any job application) references this round config -
+        /// blocks deleting/replacing a round config already in use (US-070 AC4).</summary>
+        Task<bool> ExistsForRoundConfigAsync(long roundConfigId);
     }
 }

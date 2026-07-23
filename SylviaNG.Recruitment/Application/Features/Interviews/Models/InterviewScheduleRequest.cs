@@ -16,6 +16,11 @@ namespace SylviaNG.Recruitment.Application.Features.Interviews.Models
         public DateTime ScheduledEndAt { get; set; }
         public int Round { get; set; } = 1;
 
+        /// <summary>Optional configured round (US-070) - when set, Round is auto-derived from its
+        /// Sequence and the prior round must already be Passed. Omit for postings with no
+        /// configured rounds - behaves exactly as before.</summary>
+        public long? InterviewRoundConfigId { get; set; }
+
         /// <summary>Free-typed panel member Employee IDs - no employee-lookup picker exists in
         /// this codebase yet, same precedent as PipelineStage.interviewerEmployeeIds.</summary>
         public List<long> PanelistEmployeeIds { get; set; } = new();

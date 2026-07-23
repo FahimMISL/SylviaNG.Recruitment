@@ -33,9 +33,15 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasForeignKey(i => i.InterviewRoomId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            builder.HasOne(i => i.InterviewRoundConfig)
+                .WithMany()
+                .HasForeignKey(i => i.InterviewRoundConfigId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Indexes
             builder.HasIndex(i => i.JobApplicationId);
             builder.HasIndex(i => i.InterviewRoomId);
+            builder.HasIndex(i => i.InterviewRoundConfigId);
         }
     }
 }

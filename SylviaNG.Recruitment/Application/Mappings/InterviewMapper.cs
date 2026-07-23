@@ -19,6 +19,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ScheduledStartAt = request.ScheduledStartAt,
                 ScheduledEndAt = request.ScheduledEndAt,
                 Round = request.Round,
+                InterviewRoundConfigId = request.InterviewRoundConfigId,
                 Notes = request.Notes,
             };
         }
@@ -41,6 +42,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ScheduledStartAt = entity.ScheduledStartAt,
                 ScheduledEndAt = entity.ScheduledEndAt,
                 Round = entity.Round,
+                InterviewRoundConfigId = entity.InterviewRoundConfigId,
+                RoundConfigName = entity.InterviewRoundConfig?.Name,
+                Result = entity.Result,
                 Status = entity.Status,
                 CancellationReason = entity.CancellationReason,
                 PanelistEmployeeIds = entity.PanelMembers.Select(p => p.EmployeeId).ToList(),

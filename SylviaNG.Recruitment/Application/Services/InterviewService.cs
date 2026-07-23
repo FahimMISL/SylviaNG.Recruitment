@@ -17,6 +17,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IInterviewVenueRepository _interviewVenueRepository;
         private readonly IInterviewRoomRepository _interviewRoomRepository;
+        private readonly IInterviewRoundConfigRepository _interviewRoundConfigRepository;
         private readonly IEmployeeRepository _employeeRepository;
         private readonly IInterviewNotificationService _interviewNotificationService;
         private readonly IUnitOfWork _unitOfWork;
@@ -27,6 +28,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IJobApplicationRepository jobApplicationRepository,
             IInterviewVenueRepository interviewVenueRepository,
             IInterviewRoomRepository interviewRoomRepository,
+            IInterviewRoundConfigRepository interviewRoundConfigRepository,
             IEmployeeRepository employeeRepository,
             IInterviewNotificationService interviewNotificationService,
             IUnitOfWork unitOfWork,
@@ -36,6 +38,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _jobApplicationRepository = jobApplicationRepository;
             _interviewVenueRepository = interviewVenueRepository;
             _interviewRoomRepository = interviewRoomRepository;
+            _interviewRoundConfigRepository = interviewRoundConfigRepository;
             _employeeRepository = employeeRepository;
             _interviewNotificationService = interviewNotificationService;
             _unitOfWork = unitOfWork;
@@ -49,6 +52,9 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var entity = request.ToEntity();
             var panelistIds = request.PanelistEmployeeIds.Distinct().ToList();
+
+            if (request.InterviewRoundConfigId.HasValue)
+                await ApplyRoundConfigAsync(entity, jobApplication.JobPostingId, request.InterviewRoundConfigId.Value, request.JobApplicationId);
 
             await ResolveLocationAsync(entity, request.InterviewType, request.InterviewRoomId, request.MeetingLink);
             await ValidatePanelistsAsync(panelistIds);
@@ -95,6 +101,9 @@ namespace SylviaNG.Recruitment.Application.Services
                     Round = request.Round,
                     Notes = request.Notes,
                 };
+
+                if (request.InterviewRoundConfigId.HasValue)
+                    await ApplyRoundConfigAsync(entity, jobApplication.JobPostingId, request.InterviewRoundConfigId.Value, jobApplicationId);
 
                 await ResolveLocationAsync(entity, request.InterviewType, request.InterviewRoomId, request.MeetingLink);
                 await CheckConflictsAsync(entity, panelistIds, excludeInterviewId: null);
@@ -234,6 +243,21 @@ namespace SylviaNG.Recruitment.Application.Services
                 await NotifySafelyAsync(interview, () => _interviewNotificationService.NotifyCancelledAsync(interview));
         }
 
+        public async Task MarkResultAsync(long interviewId, InterviewMarkResultRequest request)
+        {
+            var interview = await _interviewRepository.GetByIdWithDetailsAsync(interviewId)
+                ?? throw new NotFoundException("Interview", interviewId);
+
+            if (interview.Status == InterviewStatusEnum.Cancelled)
+                throw new InvalidStatusTransitionException("Interview", interview.Status, InterviewStatusEnum.Completed);
+
+            interview.Result = request.Result;
+            interview.Status = InterviewStatusEnum.Completed;
+
+            _interviewRepository.Update(interview);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
         public async Task<PagedResult<InterviewResponse>> GetPagedAsync(
             PagedRequest request,
             long? jobPostingId,
@@ -292,6 +316,28 @@ namespace SylviaNG.Recruitment.Application.Services
                 entity.InterviewVenueId = null;
                 entity.MeetingLink = meetingLink;
             }
+        }
+
+        private async Task ApplyRoundConfigAsync(Interview entity, long jobPostingId, long roundConfigId, long jobApplicationId)
+        {
+            var config = await _interviewRoundConfigRepository.GetByIdWithDetailsAsync(roundConfigId)
+                ?? throw new NotFoundException("InterviewRoundConfig", roundConfigId);
+
+            if (config.JobPostingId != jobPostingId)
+                throw new InvalidStatusTransitionException($"InterviewRoundConfig {roundConfigId} does not belong to this job posting.");
+
+            if (config.Sequence > 1)
+            {
+                var priorConfig = await _interviewRoundConfigRepository.GetByJobPostingAndSequenceAsync(jobPostingId, config.Sequence - 1)
+                    ?? throw new InvalidStatusTransitionException($"Round '{config.Name}' has no prior round configured to gate on.");
+
+                var priorPassed = await _interviewRepository.ExistsPassedForRoundConfigAsync(jobApplicationId, priorConfig.InterviewRoundConfigId);
+                if (!priorPassed)
+                    throw new InvalidStatusTransitionException($"Candidate must pass round '{priorConfig.Name}' before scheduling '{config.Name}'.");
+            }
+
+            entity.Round = config.Sequence;
+            entity.InterviewRoundConfigId = config.InterviewRoundConfigId;
         }
 
         private async Task ValidatePanelistsAsync(List<long> employeeIds)

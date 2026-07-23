@@ -19,6 +19,7 @@ namespace SylviaNG.Recruitment.Application.Features.Interviews.Models
         public int DurationMinutes { get; set; }
         public int GapMinutes { get; set; } = 0;
         public int Round { get; set; } = 1;
+        public long? InterviewRoundConfigId { get; set; }
 
         public List<long> PanelistEmployeeIds { get; set; } = new();
 
