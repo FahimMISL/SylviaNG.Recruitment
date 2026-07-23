@@ -43,6 +43,25 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<JobApplication>> GetByCandidateAsync(long? candidateProfileId, string email)
+        {
+            return await _dbSet
+                .Include(a => a.JobPosting)
+                .Include(a => a.Interviews)
+                .Where(a =>
+                    (candidateProfileId != null && a.CandidateProfileId == candidateProfileId) ||
+                    (a.CandidateProfileId == null && a.CandidateEmail == email))
+                .OrderByDescending(a => a.AppliedDate)
+                .ToListAsync();
+        }
+
+        public async Task LinkUnclaimedApplicationsByEmailAsync(string email, long candidateProfileId)
+        {
+            await _dbSet
+                .Where(a => a.CandidateProfileId == null && a.CandidateEmail == email)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.CandidateProfileId, candidateProfileId));
+        }
+
         public async Task<PagedResult<JobApplication>> GetPaginatedAllAsync(
             PagedRequest request,
             long? jobPostingId,
