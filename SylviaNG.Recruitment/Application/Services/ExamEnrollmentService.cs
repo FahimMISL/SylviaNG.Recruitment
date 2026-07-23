@@ -17,6 +17,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IExamRoomRepository _examRoomRepository;
         private readonly IExamNotificationService _examNotificationService;
+        private readonly IJobApplicationStageProgressService _jobApplicationStageProgressService;
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<ExamEnrollmentService> _logger;
@@ -27,6 +28,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IJobApplicationRepository jobApplicationRepository,
             IExamRoomRepository examRoomRepository,
             IExamNotificationService examNotificationService,
+            IJobApplicationStageProgressService jobApplicationStageProgressService,
             ICurrentUserService currentUserService,
             IUnitOfWork unitOfWork,
             ILogger<ExamEnrollmentService> logger)
@@ -36,6 +38,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _jobApplicationRepository = jobApplicationRepository;
             _examRoomRepository = examRoomRepository;
             _examNotificationService = examNotificationService;
+            _jobApplicationStageProgressService = jobApplicationStageProgressService;
             _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -50,7 +53,9 @@ namespace SylviaNG.Recruitment.Application.Services
 
             foreach (var jobApplicationId in jobApplicationIds.Distinct())
             {
-                var jobApplication = await _jobApplicationRepository.GetByIdAsync(jobApplicationId)
+                var jobApplication = await _jobApplicationRepository.GetByIdWithIncludeAsync(
+                    ja => ja.JobApplicationId == jobApplicationId,
+                    ja => ja.CandidateProfile)
                     ?? throw new NotFoundException("JobApplication", jobApplicationId);
 
                 if (jobApplication.JobPostingId != exam.JobPostingId)
@@ -152,6 +157,28 @@ namespace SylviaNG.Recruitment.Application.Services
 
             _examEnrollmentRepository.Update(enrollment);
             await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task BulkMoveToStageAsync(long examId, List<long> examEnrollmentIds, long pipelineStageId)
+        {
+            var enrollments = await _examEnrollmentRepository.GetByExamIdAsync(examId);
+            var enrollmentsById = enrollments.ToDictionary(e => e.ExamEnrollmentId);
+
+            var jobApplicationIds = new List<long>();
+
+            foreach (var examEnrollmentId in examEnrollmentIds.Distinct())
+            {
+                if (!enrollmentsById.TryGetValue(examEnrollmentId, out var enrollment))
+                    throw new NotFoundException("ExamEnrollment", examEnrollmentId);
+
+                if (enrollment.IsPassed != true)
+                    throw new InvalidStatusTransitionException(
+                        $"ExamEnrollment {examEnrollmentId} has not passed this exam and cannot be bulk-moved.");
+
+                jobApplicationIds.Add(enrollment.JobApplicationId);
+            }
+
+            await _jobApplicationStageProgressService.BulkAdvanceToStageAsync(jobApplicationIds, pipelineStageId);
         }
     }
 }

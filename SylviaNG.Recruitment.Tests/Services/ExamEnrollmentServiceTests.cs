@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.Extensions.Logging;
 using FluentAssertions;
 using Moq;
@@ -18,6 +19,7 @@ public class ExamEnrollmentServiceTests
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<IExamRoomRepository> _examRoomRepositoryMock;
     private readonly Mock<IExamNotificationService> _examNotificationServiceMock;
+    private readonly Mock<IJobApplicationStageProgressService> _jobApplicationStageProgressServiceMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExamEnrollmentService _service;
@@ -29,6 +31,7 @@ public class ExamEnrollmentServiceTests
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _examRoomRepositoryMock = new Mock<IExamRoomRepository>();
         _examNotificationServiceMock = new Mock<IExamNotificationService>();
+        _jobApplicationStageProgressServiceMock = new Mock<IJobApplicationStageProgressService>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
@@ -39,6 +42,7 @@ public class ExamEnrollmentServiceTests
             _jobApplicationRepositoryMock.Object,
             _examRoomRepositoryMock.Object,
             _examNotificationServiceMock.Object,
+            _jobApplicationStageProgressServiceMock.Object,
             _currentUserServiceMock.Object,
             _unitOfWorkMock.Object,
             new Mock<ILogger<ExamEnrollmentService>>().Object);
@@ -64,12 +68,19 @@ public class ExamEnrollmentServiceTests
         ApplicationStatus = status,
     };
 
+    private void SetupJobApplications(params JobApplication[] applications)
+    {
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByIdWithIncludeAsync(It.IsAny<Expression<Func<JobApplication, bool>>>(), It.IsAny<Expression<Func<JobApplication, object>>[]>()))
+            .ReturnsAsync((Expression<Func<JobApplication, bool>> predicate, Expression<Func<JobApplication, object>>[] _) =>
+                applications.FirstOrDefault(predicate.Compile()));
+    }
+
     [Fact]
     public async Task EnrollAsync_JobApplicationNotShortlisted_ShouldThrowInvalidStatusTransitionException()
     {
         _examRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(ExamFor(1, 100));
-        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5))
-            .ReturnsAsync(ApplicationFor(5, 100, ApplicationStatusEnum.Applied));
+        SetupJobApplications(ApplicationFor(5, 100, ApplicationStatusEnum.Applied));
 
         var act = () => _service.EnrollAsync(1, new List<long> { 5 });
 
@@ -81,8 +92,7 @@ public class ExamEnrollmentServiceTests
     public async Task EnrollAsync_JobApplicationForDifferentJobPosting_ShouldThrowInvalidStatusTransitionException()
     {
         _examRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(ExamFor(1, 100));
-        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5))
-            .ReturnsAsync(ApplicationFor(5, 999, ApplicationStatusEnum.Shortlisted));
+        SetupJobApplications(ApplicationFor(5, 999, ApplicationStatusEnum.Shortlisted));
 
         var act = () => _service.EnrollAsync(1, new List<long> { 5 });
 
@@ -94,8 +104,7 @@ public class ExamEnrollmentServiceTests
     public async Task EnrollAsync_AlreadyEnrolledJobApplication_ShouldThrowDuplicateException()
     {
         _examRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(ExamFor(1, 100));
-        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5))
-            .ReturnsAsync(ApplicationFor(5, 100, ApplicationStatusEnum.Shortlisted));
+        SetupJobApplications(ApplicationFor(5, 100, ApplicationStatusEnum.Shortlisted));
         _examEnrollmentRepositoryMock.Setup(r => r.ExistsByExamAndJobApplicationAsync(1, 5)).ReturnsAsync(true);
 
         var act = () => _service.EnrollAsync(1, new List<long> { 5 });
@@ -108,10 +117,9 @@ public class ExamEnrollmentServiceTests
     public async Task EnrollAsync_HappyPath_ShouldCreateEnrollmentsAndNotifyOncePerEnrollment()
     {
         _examRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(ExamFor(1, 100));
-        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5))
-            .ReturnsAsync(ApplicationFor(5, 100, ApplicationStatusEnum.Shortlisted));
-        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(6))
-            .ReturnsAsync(ApplicationFor(6, 100, ApplicationStatusEnum.Shortlisted));
+        SetupJobApplications(
+            ApplicationFor(5, 100, ApplicationStatusEnum.Shortlisted),
+            ApplicationFor(6, 100, ApplicationStatusEnum.Shortlisted));
         _examEnrollmentRepositoryMock.Setup(r => r.ExistsByExamAndJobApplicationAsync(1, It.IsAny<long>())).ReturnsAsync(false);
 
         var nextId = 900L;
@@ -134,8 +142,7 @@ public class ExamEnrollmentServiceTests
     public async Task EnrollAsync_WhenNotificationServiceThrows_ShouldStillCompleteAndReturnEnrollmentIds()
     {
         _examRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(ExamFor(1, 100));
-        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(5))
-            .ReturnsAsync(ApplicationFor(5, 100, ApplicationStatusEnum.Shortlisted));
+        SetupJobApplications(ApplicationFor(5, 100, ApplicationStatusEnum.Shortlisted));
         _examEnrollmentRepositoryMock.Setup(r => r.ExistsByExamAndJobApplicationAsync(1, 5)).ReturnsAsync(false);
         _examEnrollmentRepositoryMock.Setup(r => r.AddAsync(It.IsAny<ExamEnrollment>()))
             .Callback<ExamEnrollment>(e => e.ExamEnrollmentId = 950)
@@ -270,5 +277,54 @@ public class ExamEnrollmentServiceTests
         await _service.UploadScoreAsync(1, 30);
 
         enrollment.IsPassed.Should().BeFalse();
+    }
+
+    // US-060 AC5: bulk-move all passing candidates on the exam Results page to a chosen pipeline
+    // stage - re-validated server-side even though the frontend only lets HR select passing rows.
+
+    [Fact]
+    public async Task BulkMoveToStageAsync_AllPassing_ShouldDelegateToStageProgressServiceWithTheirJobApplicationIds()
+    {
+        var enrollments = new List<ExamEnrollment>
+        {
+            new() { ExamEnrollmentId = 1, ExamId = 1, JobApplicationId = 101, IsPassed = true },
+            new() { ExamEnrollmentId = 2, ExamId = 1, JobApplicationId = 102, IsPassed = true },
+        };
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdAsync(1)).ReturnsAsync(enrollments);
+
+        await _service.BulkMoveToStageAsync(1, new List<long> { 1, 2 }, 500);
+
+        _jobApplicationStageProgressServiceMock.Verify(
+            s => s.BulkAdvanceToStageAsync(
+                It.Is<List<long>>(ids => ids.Count == 2 && ids.Contains(101) && ids.Contains(102)),
+                500),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkMoveToStageAsync_IncludesNonPassingEnrollment_ShouldThrowInvalidStatusTransitionException()
+    {
+        var enrollments = new List<ExamEnrollment>
+        {
+            new() { ExamEnrollmentId = 1, ExamId = 1, JobApplicationId = 101, IsPassed = true },
+            new() { ExamEnrollmentId = 2, ExamId = 1, JobApplicationId = 102, IsPassed = false },
+        };
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdAsync(1)).ReturnsAsync(enrollments);
+
+        var act = () => _service.BulkMoveToStageAsync(1, new List<long> { 1, 2 }, 500);
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        _jobApplicationStageProgressServiceMock.Verify(
+            s => s.BulkAdvanceToStageAsync(It.IsAny<List<long>>(), It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkMoveToStageAsync_UnknownEnrollmentIdForThisExam_ShouldThrowNotFoundException()
+    {
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdAsync(1)).ReturnsAsync(new List<ExamEnrollment>());
+
+        var act = () => _service.BulkMoveToStageAsync(1, new List<long> { 999 }, 500);
+
+        await act.Should().ThrowAsync<NotFoundException>();
     }
 }

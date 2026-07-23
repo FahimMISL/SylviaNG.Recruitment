@@ -26,5 +26,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// against JobApplication.CandidateProfileId by the caller. Questions themselves come
         /// from a separate IExamQuestionRepository.GetActiveByQuestionGroupIdAsync call.</summary>
         Task<ExamEnrollment?> GetByIdWithExamAndQuestionsAsync(long examEnrollmentId);
+
+        /// <summary>Every enrollment for one exam with Exam/ExamVenue/JobApplication/
+        /// CandidateProfile/ExamRoom all included - for bulk admit-card distribution and
+        /// bulk admit-card ZIP download (US-057), where every row needs its own PDF generated
+        /// without a per-enrollment round trip.</summary>
+        Task<List<ExamEnrollment>> GetByExamIdWithDetailsAsync(long examId);
     }
 }

@@ -27,6 +27,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(e => e.JobApplication)
+                    .ThenInclude(ja => ja.CandidateProfile)
                 .Include(e => e.ExamRoom)
                 .Where(e => e.ExamId == examId)
                 .OrderBy(e => e.ExamRoomId)
@@ -40,6 +41,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(e => e.Exam)
                     .ThenInclude(e => e.ExamVenue)
                 .Include(e => e.JobApplication)
+                    .ThenInclude(ja => ja.CandidateProfile)
                 .Include(e => e.ExamRoom)
                 .FirstOrDefaultAsync(e => e.ExamEnrollmentId == examEnrollmentId);
         }
@@ -67,6 +69,20 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(e => e.JobApplication)
                 .Include(e => e.Answers)
                 .FirstOrDefaultAsync(e => e.ExamEnrollmentId == examEnrollmentId);
+        }
+
+        public async Task<List<ExamEnrollment>> GetByExamIdWithDetailsAsync(long examId)
+        {
+            return await _dbSet
+                .Include(e => e.Exam)
+                    .ThenInclude(e => e.ExamVenue)
+                .Include(e => e.JobApplication)
+                    .ThenInclude(ja => ja.CandidateProfile)
+                .Include(e => e.ExamRoom)
+                .Where(e => e.ExamId == examId)
+                .OrderBy(e => e.ExamRoomId)
+                .ThenBy(e => e.SeatNumber)
+                .ToListAsync();
         }
     }
 }

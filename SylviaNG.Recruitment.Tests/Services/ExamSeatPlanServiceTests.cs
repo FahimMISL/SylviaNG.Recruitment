@@ -1,3 +1,6 @@
+using System.IO.Compression;
+using System.Text;
+using ClosedXML.Excel;
 using FluentAssertions;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
@@ -163,5 +166,64 @@ public class ExamSeatPlanServiceTests
         enrollments[1].SeatNumber.Should().Be("Room A-002");
         enrollments[2].ExamRoomId.Should().Be(2);
         enrollments[2].SeatNumber.Should().Be("Room B-001");
+    }
+
+    [Fact]
+    public async Task GenerateAdmitCardZipAsync_ShouldReturnOnePdfEntryPerEnrollment()
+    {
+        var exam = InPersonExam();
+        var enrollments = new List<ExamEnrollment>
+        {
+            EnrollmentFor(1, 1), EnrollmentFor(2, 1),
+        };
+        foreach (var e in enrollments) e.Exam = exam;
+
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdWithDetailsAsync(1)).ReturnsAsync(enrollments);
+        _admitCardPdfGeneratorServiceMock
+            .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
+            .Returns(Encoding.UTF8.GetBytes("pdf-bytes"));
+
+        var (content, fileName) = await _service.GenerateAdmitCardZipAsync(1);
+
+        fileName.Should().EndWith(".zip");
+        using var zipStream = new MemoryStream(content);
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+        archive.Entries.Should().HaveCount(2);
+        archive.Entries.Select(e => e.Name).Should().OnlyHaveUniqueItems();
+        _admitCardPdfGeneratorServiceMock.Verify(
+            g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task GenerateResultsExcelAsync_ShouldSortByScoreDescendingAndMarkPassFail()
+    {
+        var exam = InPersonExam();
+        exam.TotalMarks = 100;
+        exam.PassMarks = 40;
+        _examRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(exam);
+
+        var low = EnrollmentFor(1, 1);
+        low.Score = 30;
+        low.IsPassed = false;
+        var high = EnrollmentFor(2, 1);
+        high.Score = 90;
+        high.IsPassed = true;
+        var unscored = EnrollmentFor(3, 1);
+
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdAsync(1)).ReturnsAsync(new List<ExamEnrollment> { low, high, unscored });
+
+        var (content, fileName) = await _service.GenerateResultsExcelAsync(1);
+
+        fileName.Should().EndWith(".xlsx");
+        using var stream = new MemoryStream(content);
+        using var workbook = new XLWorkbook(stream);
+        var sheet = workbook.Worksheet("Results");
+
+        sheet.Cell(2, 1).GetString().Should().Be(high.JobApplication.CandidateName);
+        sheet.Cell(2, 5).GetString().Should().Be("Pass");
+        sheet.Cell(3, 1).GetString().Should().Be(low.JobApplication.CandidateName);
+        sheet.Cell(3, 5).GetString().Should().Be("Fail");
+        sheet.Cell(4, 5).GetString().Should().Be("Not Scored");
     }
 }

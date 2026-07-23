@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.ExamTaking.Commands.ExamTakingStart;
 using SylviaNG.Recruitment.Application.Features.ExamTaking.Commands.ExamTakingSubmit;
 using SylviaNG.Recruitment.Application.Features.ExamTaking.Models;
+using SylviaNG.Recruitment.Application.Features.ExamTaking.Queries.ExamTakingAdmitCardDownload;
 using SylviaNG.Recruitment.Application.Features.ExamTaking.Queries.ExamTakingGetMyEnrollments;
 
 namespace SylviaNG.Recruitment.Controllers
@@ -44,6 +45,14 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var result = await _mediator.Send(new ExamTakingSubmitCommand(examEnrollmentId, request));
             return Ok(result);
+        }
+
+        /// <summary>Downloadable admit card PDF for one of the candidate's own enrollments (US-057 AC4).</summary>
+        [HttpGet("enrollments/{examEnrollmentId}/admit-card/download")]
+        public async Task<IActionResult> DownloadAdmitCard(long examEnrollmentId)
+        {
+            var file = await _mediator.Send(new ExamTakingAdmitCardDownloadQuery(examEnrollmentId));
+            return File(file.Content, file.ContentType, file.FileName);
         }
     }
 }
