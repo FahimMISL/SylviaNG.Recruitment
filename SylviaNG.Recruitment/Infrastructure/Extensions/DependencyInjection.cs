@@ -109,6 +109,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IInterviewVenueRepository, InterviewVenueRepository>();
             services.AddScoped<IInterviewRoomRepository, InterviewRoomRepository>();
             services.AddScoped<IInterviewRepository, InterviewRepository>();
+            services.AddScoped<IScorecardRepository, ScorecardRepository>();
+            services.AddScoped<IInterviewEvaluationRepository, InterviewEvaluationRepository>();
             services.AddScoped<IDivisionRepository, DivisionRepository>();
             services.AddScoped<IDistrictRepository, DistrictRepository>();
             services.AddScoped<IThanaRepository, ThanaRepository>();

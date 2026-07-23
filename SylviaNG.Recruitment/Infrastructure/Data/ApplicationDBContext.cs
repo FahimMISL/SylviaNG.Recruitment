@@ -96,6 +96,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<InterviewVenue> InterviewVenues { get; set; }
         public DbSet<InterviewRoom> InterviewRooms { get; set; }
         public DbSet<InterviewPanelMember> InterviewPanelMembers { get; set; }
+        public DbSet<Scorecard> Scorecards { get; set; }
+        public DbSet<ScorecardCriterion> ScorecardCriteria { get; set; }
+        public DbSet<InterviewEvaluation> InterviewEvaluations { get; set; }
+        public DbSet<InterviewEvaluationScore> InterviewEvaluationScores { get; set; }
         public DbSet<Division> Divisions { get; set; }
         public DbSet<District> Districts { get; set; }
         public DbSet<Thana> Thanas { get; set; }
