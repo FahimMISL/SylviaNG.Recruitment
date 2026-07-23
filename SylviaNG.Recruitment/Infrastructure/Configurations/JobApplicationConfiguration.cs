@@ -22,10 +22,16 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(a => a.CandidatePhone)
                 .HasMaxLength(50);
 
+            builder.Property(a => a.CandidateNationalId)
+                .HasMaxLength(50);
+
             builder.Property(a => a.ResumeUrl)
                 .HasMaxLength(500);
 
             builder.Property(a => a.CoverLetter)
+                .HasColumnType("text");
+
+            builder.Property(a => a.ResumeExtractedText)
                 .HasColumnType("text");
 
             builder.Property(a => a.ApplicationStatus)
@@ -40,6 +46,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             // Indexes
             builder.HasIndex(a => a.JobPostingId);
             builder.HasIndex(a => new { a.CandidateEmail, a.JobPostingId }).IsUnique();
+            builder.HasIndex(a => a.CandidateProfileId);
 
             // Relationships
             builder.HasMany(a => a.Interviews)

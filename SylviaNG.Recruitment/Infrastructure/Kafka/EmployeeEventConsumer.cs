@@ -115,6 +115,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Kafka
                     var firstName = root.TryGetProperty("firstName", out var fn) ? fn.GetString() : null;
                     var lastName = root.TryGetProperty("lastName", out var ln) ? ln.GetString() : null;
                     var employeeName = $"{firstName} {lastName}".Trim();
+                    // US-005 AC1: "contact details" pre-population needs Email/Phone on Employee.
+                    // Defensive TryGetProperty like every other field here - if the upstream event
+                    // doesn't actually carry these, they just stay null and nothing breaks.
+                    var email = root.TryGetProperty("email", out var em) ? em.GetString() : null;
+                    var phone = root.TryGetProperty("phone", out var ph) ? ph.GetString() : null;
 
                     var existing = await dbContext.Employees
                         .FirstOrDefaultAsync(e => e.EmployeeId == employeeId, ct);
@@ -122,13 +127,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Kafka
                     if (existing != null)
                     {
                         existing.EmployeeName = employeeName;
+                        existing.Email = email;
+                        existing.Phone = phone;
                     }
                     else
                     {
                         dbContext.Employees.Add(new Employee
                         {
                             EmployeeId = employeeId,
-                            EmployeeName = employeeName
+                            EmployeeName = employeeName,
+                            Email = email,
+                            Phone = phone
                         });
                     }
 

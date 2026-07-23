@@ -18,5 +18,10 @@ namespace SylviaNG.Recruitment.Application.Services
             var user = _httpContextAccessor.HttpContext?.User;
             return user?.FindFirst("preferred_username")?.Value ?? user?.FindFirst(ClaimTypes.Name)?.Value;
         }
+
+        public bool IsInRole(string role)
+        {
+            return _httpContextAccessor.HttpContext?.User?.IsInRole(role) ?? false;
+        }
     }
 }
