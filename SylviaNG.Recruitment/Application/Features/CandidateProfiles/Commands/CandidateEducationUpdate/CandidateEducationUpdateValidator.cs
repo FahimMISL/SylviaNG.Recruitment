@@ -27,8 +27,8 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.C
                 .NotEmpty().WithMessage("Result is required.")
                 .MaximumLength(50).WithMessage("Result must not exceed 50 characters.");
 
-            RuleFor(x => x.Request.MajorSubject)
-                .MaximumLength(200).WithMessage("MajorSubject must not exceed 200 characters.");
+            RuleFor(x => x.Request.MajorSubjectOtherText)
+                .MaximumLength(200).WithMessage("MajorSubjectOtherText must not exceed 200 characters.");
         }
     }
 }

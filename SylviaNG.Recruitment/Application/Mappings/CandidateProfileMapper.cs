@@ -195,7 +195,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PassingYear = request.PassingYear,
                 GradingSystem = request.GradingSystem,
                 Result = request.Result,
-                MajorSubject = request.MajorSubject
+                MajorSubjectSscHscId = request.MajorSubjectSscHscId,
+                MajorSubjectUniversityId = request.MajorSubjectUniversityId,
+                MajorSubjectOtherText = request.MajorSubjectOtherText
             };
         }
 
@@ -209,7 +211,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
             entity.PassingYear = request.PassingYear;
             entity.GradingSystem = request.GradingSystem;
             entity.Result = request.Result;
-            entity.MajorSubject = request.MajorSubject;
+            entity.MajorSubjectSscHscId = request.MajorSubjectSscHscId;
+            entity.MajorSubjectUniversityId = request.MajorSubjectUniversityId;
+            entity.MajorSubjectOtherText = request.MajorSubjectOtherText;
         }
 
         public static CandidateEducationResponse ToResponse(this CandidateEducation entity)
@@ -225,7 +229,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PassingYear = entity.PassingYear,
                 GradingSystem = entity.GradingSystem,
                 Result = entity.Result,
-                MajorSubject = entity.MajorSubject
+                MajorSubjectSscHscId = entity.MajorSubjectSscHscId,
+                MajorSubjectUniversityId = entity.MajorSubjectUniversityId,
+                MajorSubjectOtherText = entity.MajorSubjectOtherText
             };
         }
 
