@@ -20,9 +20,17 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
 
         /// <summary>
         /// Returns the current user's CandidateProfile.Email, auto-provisioning a profile row
-        /// if none exists yet. JobApplication rows are matched to a candidate by this email
-        /// (there is no CandidateProfile FK on JobApplication) - see US-040.
+        /// if none exists yet. Used as the fallback match key for JobApplication rows that
+        /// predate the CandidateProfileId FK, or that a guest submitted before registering.
         /// </summary>
         Task<string> GetCurrentEmailAsync();
+
+        /// <summary>
+        /// Same as GetOrCreateCurrentProfileIdAsync, but returns null instead of throwing when
+        /// there's no authenticated user on the request - safe to call from [AllowAnonymous]
+        /// endpoints (e.g. the guest job-application submit flow) to opportunistically link an
+        /// authenticated submitter's own profile without requiring auth.
+        /// </summary>
+        Task<long?> TryGetCurrentCandidateProfileIdAsync();
     }
 }

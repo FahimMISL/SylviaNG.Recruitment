@@ -11,7 +11,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.ToTable("CandidateEducations");
             builder.HasKey(e => e.CandidateEducationId);
 
-            builder.Property(e => e.DegreeTitle).IsRequired().HasMaxLength(200);
             builder.Property(e => e.Institution).IsRequired().HasMaxLength(200);
             builder.Property(e => e.Result).IsRequired().HasMaxLength(50);
             builder.Property(e => e.MajorSubject).HasMaxLength(200);
@@ -20,12 +19,31 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            builder.Property(e => e.GradingSystem)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
             builder.HasIndex(e => e.CandidateProfileId);
 
             builder.HasOne(e => e.CandidateProfile)
                 .WithMany(c => c.Educations)
                 .HasForeignKey(e => e.CandidateProfileId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(e => e.UniversityLibraryItem)
+                .WithMany()
+                .HasForeignKey(e => e.UniversityLibraryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(e => e.Degree)
+                .WithMany()
+                .HasForeignKey(e => e.DegreeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(e => e.EducationBoard)
+                .WithMany()
+                .HasForeignKey(e => e.EducationBoardId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }
