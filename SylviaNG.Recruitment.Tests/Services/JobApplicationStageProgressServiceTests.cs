@@ -215,4 +215,129 @@ public class JobApplicationStageProgressServiceTests
         await act.Should().ThrowAsync<NotFoundException>();
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
     }
+
+    // US-060 AC5: bulk-move all passing candidates on an exam's Results page to a HR-chosen
+    // pipeline stage.
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_NoExistingProgress_ShouldProvisionAllActiveStagesThenSetTargetInProgress()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithStages());
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress>());
+
+        List<JobApplicationStageProgress>? addedRange = null;
+        _stageProgressRepositoryMock
+            .Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<JobApplicationStageProgress>>()))
+            .Callback<IEnumerable<JobApplicationStageProgress>>(rows => addedRange = rows.ToList())
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 102);
+
+        // Assert
+        addedRange.Should().HaveCount(2);
+        var target = addedRange!.Single(p => p.PipelineStageId == 102);
+        target.Status.Should().Be(StageProgressStatusEnum.InProgress);
+        target.LastUpdatedByUserName.Should().Be("abir");
+        // The target row is part of this same call's fresh AddRangeAsync batch (its
+        // JobApplicationStageProgressId is still the unset identity default) - calling
+        // Update() on it would throw, so the property change instead rides along in the
+        // pending INSERT and Update() must not be called for it.
+        _stageProgressRepositoryMock.Verify(r => r.Update(It.IsAny<JobApplicationStageProgress>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_ExistingProgressMissingTargetStage_ShouldAddJustThatRow()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithStages());
+        var existing = new List<JobApplicationStageProgress>
+        {
+            new() { JobApplicationStageProgressId = 1, JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.Completed }
+        };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(existing);
+
+        JobApplicationStageProgress? added = null;
+        _stageProgressRepositoryMock
+            .Setup(r => r.AddAsync(It.IsAny<JobApplicationStageProgress>()))
+            .Callback<JobApplicationStageProgress>(p => added = p)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 102);
+
+        // Assert
+        added.Should().NotBeNull();
+        added!.PipelineStageId.Should().Be(102);
+        added.Status.Should().Be(StageProgressStatusEnum.InProgress);
+        _stageProgressRepositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<JobApplicationStageProgress>>()), Times.Never);
+        // Same reasoning as above: this single freshly AddAsync'd row must not also go
+        // through Update().
+        _stageProgressRepositoryMock.Verify(r => r.Update(It.IsAny<JobApplicationStageProgress>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_TargetStageAlreadyHasAProgressRow_ShouldUpdateTheExistingRowNotAddANewOne()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithStages());
+        var existingTargetRow = new JobApplicationStageProgress
+        {
+            JobApplicationStageProgressId = 2,
+            JobApplicationId = 1,
+            PipelineStageId = 102,
+            Status = StageProgressStatusEnum.Pending,
+        };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress>
+        {
+            new() { JobApplicationStageProgressId = 1, JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.Completed },
+            existingTargetRow,
+        });
+
+        // Act
+        await _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 102);
+
+        // Assert: a row that already existed before this call (a real, non-zero id) must go
+        // through Update() to be marked Modified - unlike a row freshly added in this same call.
+        existingTargetRow.Status.Should().Be(StageProgressStatusEnum.InProgress);
+        _stageProgressRepositoryMock.Verify(r => r.Update(existingTargetRow), Times.Once);
+        _stageProgressRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplicationStageProgress>()), Times.Never);
+        _stageProgressRepositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<JobApplicationStageProgress>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_NoHiringPipelineAssigned_ShouldThrowInvalidStatusTransitionException()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: null));
+
+        // Act
+        var act = () => _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 102);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_UnknownTargetStage_ShouldThrowNotFoundException()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithStages());
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress>
+        {
+            new() { JobApplicationStageProgressId = 1, JobApplicationId = 1, PipelineStageId = 101 }
+        });
+
+        // Act
+        var act = () => _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 9999);
+
+        // Assert
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
 }

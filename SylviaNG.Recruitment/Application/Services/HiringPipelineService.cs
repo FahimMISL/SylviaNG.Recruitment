@@ -98,6 +98,8 @@ namespace SylviaNG.Recruitment.Application.Services
                     DepartmentId = s.DepartmentId,
                     EstimatedDurationMinutes = s.EstimatedDurationMinutes,
                     SlaDays = s.SlaDays,
+                    MaxMarks = s.MaxMarks,
+                    PassMarks = s.PassMarks,
                     ColorBadge = s.ColorBadge,
                     EmailTemplate = s.EmailTemplate,
                     NotifyCandidateOnEnter = s.NotifyCandidateOnEnter,

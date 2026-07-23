@@ -67,6 +67,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<CandidateWorkExperience> CandidateWorkExperiences { get; set; }
         public DbSet<CandidateSkill> CandidateSkills { get; set; }
         public DbSet<SkillLibraryItem> SkillLibraryItems { get; set; }
+        public DbSet<UniversityLibraryItem> UniversityLibraryItems { get; set; }
         public DbSet<CandidateCertification> CandidateCertifications { get; set; }
         public DbSet<CandidateDocument> CandidateDocuments { get; set; }
         public DbSet<StaffProfile> StaffProfiles { get; set; }
@@ -75,6 +76,42 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<JobApplicationStageProgress> JobApplicationStageProgresses { get; set; }
         public DbSet<ShortlistFilter> ShortlistFilters { get; set; }
         public DbSet<ShortlistFilterCriterion> ShortlistFilterCriteria { get; set; }
+        public DbSet<AutoShortlistRun> AutoShortlistRuns { get; set; }
+        public DbSet<AutoShortlistResult> AutoShortlistResults { get; set; }
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<ApplicationSetting> ApplicationSettings { get; set; }
+        public DbSet<CandidateRecommendation> CandidateRecommendations { get; set; }
+        public DbSet<CandidateTalentPool> CandidateTalentPools { get; set; }
+        public DbSet<QuestionGroup> QuestionGroups { get; set; }
+        public DbSet<ExamQuestion> ExamQuestions { get; set; }
+        public DbSet<ExamQuestionOption> ExamQuestionOptions { get; set; }
+        public DbSet<SavedSearch> SavedSearches { get; set; }
+        public DbSet<TalentPool> TalentPools { get; set; }
+        public DbSet<TalentPoolCandidate> TalentPoolCandidates { get; set; }
+        public DbSet<ExamVenue> ExamVenues { get; set; }
+        public DbSet<ExamRoom> ExamRooms { get; set; }
+        public DbSet<Exam> Exams { get; set; }
+        public DbSet<ExamEnrollment> ExamEnrollments { get; set; }
+        public DbSet<ExamAnswer> ExamAnswers { get; set; }
+        public DbSet<InterviewVenue> InterviewVenues { get; set; }
+        public DbSet<InterviewRoom> InterviewRooms { get; set; }
+        public DbSet<InterviewPanelMember> InterviewPanelMembers { get; set; }
+        public DbSet<Scorecard> Scorecards { get; set; }
+        public DbSet<ScorecardCriterion> ScorecardCriteria { get; set; }
+        public DbSet<InterviewEvaluation> InterviewEvaluations { get; set; }
+        public DbSet<InterviewEvaluationScore> InterviewEvaluationScores { get; set; }
+        public DbSet<Division> Divisions { get; set; }
+        public DbSet<District> Districts { get; set; }
+        public DbSet<Thana> Thanas { get; set; }
+        public DbSet<Country> Countries { get; set; }
+        public DbSet<EducationBoard> EducationBoards { get; set; }
+        public DbSet<Degree> Degrees { get; set; }
+        public DbSet<Gender> Genders { get; set; }
+        public DbSet<MaritalStatus> MaritalStatuses { get; set; }
+        public DbSet<Religion> Religions { get; set; }
+        public DbSet<BloodGroup> BloodGroups { get; set; }
+        public DbSet<MajorSubjectSscHsc> MajorSubjectsSscHsc { get; set; }
+        public DbSet<MajorSubjectUniversity> MajorSubjectsUniversity { get; set; }
 
         #endregion
 

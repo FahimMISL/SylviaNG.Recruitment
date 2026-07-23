@@ -27,7 +27,13 @@ public enum ApplicationStatusEnum
     Offered,
     Hired,
     Rejected,
-    Withdrawn
+    Withdrawn,
+
+    /// <summary>EP-17: application submitted to a fee-configured vacancy, waiting on SSLCommerz
+    /// payment confirmation before it becomes a real Applied record.</summary>
+    AwaitingPayment,
+
+    DuplicateDismissed
 }
 
 public enum UserRoleEnum
@@ -69,6 +75,7 @@ public enum CandidateDocumentTypeEnum
     NID,
     EducationCertificate,
     ExperienceLetter,
+    Resume,
     Other
 }
 
@@ -94,4 +101,90 @@ public enum FilterCombinatorEnum
 {
     And,
     Or
+}
+
+public enum HrOverrideDecisionEnum
+{
+    Approved,
+    Rejected
+}
+
+/// <summary>EP-17: lifecycle of a single SSLCommerz payment attempt against a JobApplication.</summary>
+public enum PaymentStatusEnum
+{
+    Pending,
+    Initiated,
+    Success,
+    Failed,
+    Cancelled
+}
+
+public enum RecommendationStatusEnum
+{
+    Pending,
+    Accepted,
+    Rejected
+}
+
+public enum QuestionTypeEnum
+{
+    McqSingle,
+    McqMultiple,
+    TrueFalse,
+    Subjective
+}
+
+public enum DifficultyLevelEnum
+{
+    Easy,
+    Medium,
+    Hard
+}
+
+public enum GradingSystemEnum
+{
+    GPA,
+    CGPA,
+    Division
+}
+
+public enum ExamTypeEnum
+{
+    InPerson,
+    Online
+}
+
+/// <summary>Delivery status for a single ExamEnrollment's email/SMS notification.
+/// Skipped = channel not configured (e.g. SMTP disabled) - a valid outcome, not a failure.</summary>
+public enum NotificationStatusEnum
+{
+    Pending,
+    Sent,
+    Failed,
+    Skipped
+}
+
+/// <summary>How an ExamEnrollment's Score/IsPassed was set (US-058/US-059).</summary>
+public enum ScoreSourceEnum
+{
+    AutoScored,
+    ManualUpload
+}
+
+/// <summary>EP-08: whether a scheduled Interview is in-person (InterviewVenueId/InterviewRoomId) or virtual (MeetingLink).</summary>
+public enum InterviewTypeEnum
+{
+    InPerson,
+    Virtual
+}
+
+/// <summary>Lifecycle of a single scheduled Interview (EP-08). Rescheduled/Cancelled/Completed/NoShow
+/// are terminal-ish states set explicitly by HR action - there is no automatic transition.</summary>
+public enum InterviewStatusEnum
+{
+    Scheduled,
+    Rescheduled,
+    Cancelled,
+    Completed,
+    NoShow
 }

@@ -6,6 +6,8 @@ using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobApplicat
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetAllInternalPaged;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetInternalById;
+using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Controllers;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
@@ -15,12 +17,16 @@ namespace SylviaNG.Recruitment.Tests.Controllers;
 public class InternalJobBoardControllerTests
 {
     private readonly Mock<IMediator> _mediatorMock;
+    private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
+    private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly InternalJobBoardController _controller;
 
     public InternalJobBoardControllerTests()
     {
         _mediatorMock = new Mock<IMediator>();
-        _controller = new InternalJobBoardController(_mediatorMock.Object);
+        _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
+        _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
+        _controller = new InternalJobBoardController(_mediatorMock.Object, _currentCandidateServiceMock.Object, _candidateProfileRepositoryMock.Object);
     }
 
     [Fact]
