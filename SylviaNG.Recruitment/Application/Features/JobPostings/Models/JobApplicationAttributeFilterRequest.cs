@@ -23,6 +23,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public int? MinAge { get; set; }
         public int? MaxAge { get; set; }
 
+        /// <summary>HR-only candidate tags (US-041 AC3) - matches ANY of the given tags, same
+        /// semantics as Skills.</summary>
+        public List<string>? Tags { get; set; }
+
         public bool HasCandidateAttributeFilters =>
             MinEducationLevel.HasValue
             || MinExperienceYears.HasValue
@@ -30,6 +34,7 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
             || (Skills != null && Skills.Count > 0)
             || !string.IsNullOrWhiteSpace(Location)
             || MinAge.HasValue
-            || MaxAge.HasValue;
+            || MaxAge.HasValue
+            || (Tags != null && Tags.Count > 0);
     }
 }
