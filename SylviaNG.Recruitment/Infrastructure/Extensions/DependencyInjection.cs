@@ -151,6 +151,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ISmtpEmailService, SmtpEmailService>();
             services.AddScoped<ISmsNotificationService, LoggingSmsNotificationService>();
 
+            // Candidate-portal base URL, referenced by the admit-card-distribution SMS's
+            // download link (US-057 AC2).
+            services.Configure<PortalSettings>(configuration.GetSection(PortalSettings.SectionName));
+
             // Heuristic vs AI resume parsing switch - same pattern as ShortlistScoring:Provider
             // below: flip ResumeParsing:Provider, no code change, to swap implementations.
             // AiResumeParsingService falls back to HeuristicResumeParsingService in-process on

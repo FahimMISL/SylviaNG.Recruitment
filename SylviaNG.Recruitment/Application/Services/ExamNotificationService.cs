@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Email;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -20,6 +22,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ISmtpEmailService _smtpEmailService;
         private readonly ISmsNotificationService _smsNotificationService;
         private readonly IAdmitCardPdfGeneratorService _admitCardPdfGeneratorService;
+        private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<ExamNotificationService> _logger;
 
@@ -28,6 +31,7 @@ namespace SylviaNG.Recruitment.Application.Services
             ISmtpEmailService smtpEmailService,
             ISmsNotificationService smsNotificationService,
             IAdmitCardPdfGeneratorService admitCardPdfGeneratorService,
+            IOptions<PortalSettings> portalSettings,
             IUnitOfWork unitOfWork,
             ILogger<ExamNotificationService> logger)
         {
@@ -35,8 +39,26 @@ namespace SylviaNG.Recruitment.Application.Services
             _smtpEmailService = smtpEmailService;
             _smsNotificationService = smsNotificationService;
             _admitCardPdfGeneratorService = admitCardPdfGeneratorService;
+            _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
             _logger = logger;
+        }
+
+        /// <summary>US-057 AC2/AC3: re-runs the same per-enrollment notify path used at
+        /// enrollment time for every enrollment in the exam, in one HR-triggered action.</summary>
+        public async Task<(int EmailSentCount, int SmsSentCount, int TotalCount)> DistributeBulkAsync(long examId)
+        {
+            var enrollments = await _examEnrollmentRepository.GetByExamIdWithDetailsAsync(examId);
+
+            foreach (var enrollment in enrollments)
+            {
+                await NotifyEnrollmentAsync(enrollment, enrollment.Exam, enrollment.JobApplication);
+            }
+
+            return (
+                enrollments.Count(e => e.EmailNotificationStatus == NotificationStatusEnum.Sent),
+                enrollments.Count(e => e.SmsNotificationStatus == NotificationStatusEnum.Sent),
+                enrollments.Count);
         }
 
         public async Task NotifyEnrollmentAsync(ExamEnrollment enrollment, Exam exam, JobApplication jobApplication)
@@ -124,7 +146,8 @@ namespace SylviaNG.Recruitment.Application.Services
             }
 
             var summary = $"Your exam '{exam.Title}' is scheduled on {exam.ScheduledStartAt:dd MMM yyyy HH:mm}. " +
-                (string.IsNullOrWhiteSpace(enrollment.SeatNumber) ? "Seat to be assigned." : $"Seat: {enrollment.SeatNumber}.");
+                (string.IsNullOrWhiteSpace(enrollment.SeatNumber) ? "Seat to be assigned. " : $"Seat: {enrollment.SeatNumber}. ") +
+                $"Download your admit card at {_portalSettings.FrontendBaseUrl}/my-applications.";
 
             var sent = await _smsNotificationService.TrySendAsync(jobApplication.CandidatePhone, summary);
 

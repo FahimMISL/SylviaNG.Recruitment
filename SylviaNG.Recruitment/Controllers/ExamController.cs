@@ -6,14 +6,18 @@ using SylviaNG.Recruitment.Application.Features.Exams.Commands.ExamCreate;
 using SylviaNG.Recruitment.Application.Features.Exams.Models;
 using SylviaNG.Recruitment.Application.Features.Exams.Queries.ExamGetAllPaged;
 using SylviaNG.Recruitment.Application.Features.Exams.Queries.ExamGetById;
+using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamAdmitCardDistributeBulk;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamEnrollCandidates;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamEnrollmentReassignSeat;
+using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamResultsBulkMoveStage;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamScoreBulkUpload;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamScoreUpload;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamSeatPlanGenerate;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Models;
+using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamAdmitCardDownloadBulkZip;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamAdmitCardDownloadPdf;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamEnrollmentGetByExam;
+using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamResultsExportExcel;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamScoreImportTemplateDownload;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamSeatPlanDownloadExcel;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamSeatPlanDownloadPdf;
@@ -117,6 +121,38 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var file = await _mediator.Send(new ExamAdmitCardDownloadPdfQuery(enrollmentId));
             return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>Re-sends the admit-card email+SMS to every enrolled candidate in one action (US-057 AC2/AC3).</summary>
+        [HttpPost("{examId}/admit-cards/distribute")]
+        public async Task<ActionResult<ExamAdmitCardDistributeBulkResponse>> DistributeAdmitCards(long examId)
+        {
+            var result = await _mediator.Send(new ExamAdmitCardDistributeBulkCommand(examId));
+            return Ok(result);
+        }
+
+        /// <summary>All admit cards for this exam, bundled as a single ZIP (US-057 AC5).</summary>
+        [HttpGet("{examId}/admit-cards/download/zip")]
+        public async Task<IActionResult> DownloadAdmitCardsZip(long examId)
+        {
+            var file = await _mediator.Send(new ExamAdmitCardDownloadBulkZipQuery(examId));
+            return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>Exam results (score/pass-fail) exported to Excel, sorted by score descending (US-060 AC4).</summary>
+        [HttpGet("{examId}/results/export/excel")]
+        public async Task<IActionResult> DownloadResultsExcel(long examId)
+        {
+            var file = await _mediator.Send(new ExamResultsExportExcelQuery(examId));
+            return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>Bulk-moves selected passing candidates to a chosen pipeline stage (US-060 AC5).</summary>
+        [HttpPost("{examId}/results/bulk-move-stage")]
+        public async Task<ActionResult> BulkMoveResultsToStage(long examId, [FromBody] ExamResultsBulkMoveStageRequest request)
+        {
+            await _mediator.Send(new ExamResultsBulkMoveStageCommand(examId, request.ExamEnrollmentIds, request.PipelineStageId));
+            return Ok();
         }
 
         /// <summary>Downloadable XLSX score-upload template, prefilled per enrollment (US-059 AC2).</summary>
