@@ -52,6 +52,29 @@ public class HiringPipelineServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_WithAssessmentStage_ShouldPersistMaxMarksAndPassMarks()
+    {
+        var request = new HiringPipelineCreateRequest
+        {
+            Name = "Software Engineer Pipeline",
+            Stages = new List<PipelineStageRequest>
+            {
+                new() { Name = "Written Test", StageType = "WrittenTest", DisplayOrder = 0, MaxMarks = 100, PassMarks = 40 }
+            }
+        };
+
+        _repositoryMock.Setup(r => r.ExistsByNameAsync(request.Name, null)).ReturnsAsync(false);
+        _repositoryMock.Setup(r => r.AddAsync(It.IsAny<HiringPipeline>()))
+            .Callback<HiringPipeline>(p => p.HiringPipelineId = 1);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        await _service.CreateAsync(request);
+
+        _repositoryMock.Verify(r => r.AddAsync(It.Is<HiringPipeline>(p =>
+            p.Stages.Single().MaxMarks == 100 && p.Stages.Single().PassMarks == 40)), Times.Once);
+    }
+
+    [Fact]
     public async Task CreateAsync_WithDuplicateName_ShouldThrowDuplicateException()
     {
         var request = ValidCreateRequest();
@@ -109,7 +132,11 @@ public class HiringPipelineServiceTests
         {
             HiringPipelineId = 1,
             Name = "Sales Pipeline",
-            Stages = new List<PipelineStage> { new() { Name = "Application", StageType = "Application", DisplayOrder = 0 } }
+            Stages = new List<PipelineStage>
+            {
+                new() { Name = "Application", StageType = "Application", DisplayOrder = 0 },
+                new() { Name = "Written Test", StageType = "WrittenTest", DisplayOrder = 1, MaxMarks = 100, PassMarks = 40 }
+            }
         };
         _repositoryMock.Setup(r => r.GetByIdWithStagesAsync(1)).ReturnsAsync(source);
         _repositoryMock.Setup(r => r.ExistsByNameAsync("Sales Pipeline (Copy)", null)).ReturnsAsync(true);
@@ -122,7 +149,10 @@ public class HiringPipelineServiceTests
 
         newId.Should().Be(2);
         _repositoryMock.Verify(r => r.AddAsync(It.Is<HiringPipeline>(p =>
-            p.Name == "Sales Pipeline (Copy 2)" && p.IsActive == false && p.Stages.Count == 1)), Times.Once);
+            p.Name == "Sales Pipeline (Copy 2)" && p.IsActive == false && p.Stages.Count == 2)), Times.Once);
+        _repositoryMock.Verify(r => r.AddAsync(It.Is<HiringPipeline>(p =>
+            p.Stages.Single(s => s.StageType == "WrittenTest").MaxMarks == 100 &&
+            p.Stages.Single(s => s.StageType == "WrittenTest").PassMarks == 40)), Times.Once);
     }
 
     [Fact]
