@@ -12,6 +12,8 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
         public int PassingYear { get; set; }
         public GradingSystemEnum? GradingSystem { get; set; }
         public string Result { get; set; } = string.Empty;
-        public string? MajorSubject { get; set; }
+        public long? MajorSubjectSscHscId { get; set; }
+        public long? MajorSubjectUniversityId { get; set; }
+        public string? MajorSubjectOtherText { get; set; }
     }
 }

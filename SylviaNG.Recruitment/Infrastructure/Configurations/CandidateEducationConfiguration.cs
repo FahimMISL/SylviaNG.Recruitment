@@ -13,7 +13,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.Property(e => e.Institution).IsRequired().HasMaxLength(200);
             builder.Property(e => e.Result).IsRequired().HasMaxLength(50);
-            builder.Property(e => e.MajorSubject).HasMaxLength(200);
+            builder.Property(e => e.MajorSubjectOtherText).HasMaxLength(200);
+            builder.Ignore(e => e.MajorSubjectDisplay);
 
             builder.Property(e => e.EducationLevel)
                 .HasConversion<string>()
@@ -43,6 +44,16 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.HasOne(e => e.EducationBoard)
                 .WithMany()
                 .HasForeignKey(e => e.EducationBoardId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(e => e.MajorSubjectSscHsc)
+                .WithMany()
+                .HasForeignKey(e => e.MajorSubjectSscHscId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(e => e.MajorSubjectUniversity)
+                .WithMany()
+                .HasForeignKey(e => e.MajorSubjectUniversityId)
                 .OnDelete(DeleteBehavior.SetNull);
         }
     }

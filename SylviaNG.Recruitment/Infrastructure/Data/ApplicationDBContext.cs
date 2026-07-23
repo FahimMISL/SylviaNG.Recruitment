@@ -102,6 +102,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<MaritalStatus> MaritalStatuses { get; set; }
         public DbSet<Religion> Religions { get; set; }
         public DbSet<BloodGroup> BloodGroups { get; set; }
+        public DbSet<MajorSubjectSscHsc> MajorSubjectsSscHsc { get; set; }
+        public DbSet<MajorSubjectUniversity> MajorSubjectsUniversity { get; set; }
 
         #endregion
 

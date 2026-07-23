@@ -139,7 +139,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch
             var parts = new List<string> { profile.FullName, profile.Email, profile.Phone ?? string.Empty };
 
             parts.AddRange(profile.Skills.Select(s => s.SkillName));
-            parts.AddRange(profile.Educations.SelectMany(e => new[] { e.Degree.Name, e.Institution, e.MajorSubject }).Where(s => s != null)!);
+            parts.AddRange(profile.Educations.SelectMany(e => new[] { e.Degree.Name, e.Institution, e.MajorSubjectDisplay }).Where(s => s != null)!);
             parts.AddRange(profile.WorkExperiences.SelectMany(w => new[] { w.Designation, w.CompanyName, w.Responsibilities }));
             parts.AddRange(profile.Certifications.SelectMany(c => new[] { c.CertificationName, c.IssuingOrganization }).Where(s => s != null)!);
             parts.Add(resumeText);

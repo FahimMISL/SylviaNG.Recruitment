@@ -32,6 +32,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             var query = _dbSet
                 .Where(c => c.IsActive)
                 .Include(c => c.Educations).ThenInclude(e => e.Degree)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
                 .Include(c => c.Certifications)
@@ -71,6 +73,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(c => c.Educations).ThenInclude(e => e.Degree)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
                 .Include(c => c.Certifications)
@@ -85,6 +89,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             var idSet = candidateProfileIds.ToList();
             return await _dbSet
                 .Include(c => c.Educations).ThenInclude(e => e.Degree)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
                 .Include(c => c.Certifications)
