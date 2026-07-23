@@ -78,4 +78,57 @@ public class HiringPipelineCreateValidatorTests
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "Request.Stages[0].SlaDays");
     }
+
+    [Fact]
+    public void Validate_WithBothMarksNull_ShouldHaveNoError()
+    {
+        var request = ValidRequest();
+        request.Stages[0].MaxMarks = null;
+        request.Stages[0].PassMarks = null;
+        var command = new HiringPipelineCreateCommand(request);
+
+        var result = _validator.Validate(command);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_WithPassMarksLessThanOrEqualToMaxMarks_ShouldHaveNoError()
+    {
+        var request = ValidRequest();
+        request.Stages[0].MaxMarks = 100;
+        request.Stages[0].PassMarks = 40;
+        var command = new HiringPipelineCreateCommand(request);
+
+        var result = _validator.Validate(command);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_WithPassMarksGreaterThanMaxMarks_ShouldHaveError()
+    {
+        var request = ValidRequest();
+        request.Stages[0].MaxMarks = 40;
+        request.Stages[0].PassMarks = 100;
+        var command = new HiringPipelineCreateCommand(request);
+
+        var result = _validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Request.Stages[0].PassMarks");
+    }
+
+    [Fact]
+    public void Validate_WithOnlyPassMarksSet_ShouldHaveNoError()
+    {
+        var request = ValidRequest();
+        request.Stages[0].MaxMarks = null;
+        request.Stages[0].PassMarks = 40;
+        var command = new HiringPipelineCreateCommand(request);
+
+        var result = _validator.Validate(command);
+
+        result.IsValid.Should().BeTrue();
+    }
 }

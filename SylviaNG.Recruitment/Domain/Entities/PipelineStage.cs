@@ -5,7 +5,10 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// <summary>
 /// A single ordered step within a HiringPipeline (e.g. "CV Screening", "Technical Interview").
 /// StageType is a free-form code rather than an enum so admins can define custom stage types
-/// without a code change; PipelineStageTypes carries the built-in suggested set.
+/// without a code change; PipelineStageTypes carries the built-in suggested set. A stage that
+/// happens to be an assessment (written test, aptitude test, etc. - formerly a separate
+/// AssessmentWorkflow/AssessmentStage feature, merged in here) just sets MaxMarks/PassMarks;
+/// every other stage leaves them null.
 /// </summary>
 public class PipelineStage : Audit
 {
@@ -25,6 +28,8 @@ public class PipelineStage : Audit
 
     public int? EstimatedDurationMinutes { get; set; }
     public int? SlaDays { get; set; }
+    public int? MaxMarks { get; set; }
+    public int? PassMarks { get; set; }
     public string? ColorBadge { get; set; }
     public string? EmailTemplate { get; set; }
     public bool NotifyCandidateOnEnter { get; set; } = true;
