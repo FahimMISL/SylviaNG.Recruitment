@@ -35,19 +35,33 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IHiringPipelineService, HiringPipelineService>();
             services.AddScoped<IJobApplicationStageProgressService, JobApplicationStageProgressService>();
             services.AddScoped<IShortlistFilterService, ShortlistFilterService>();
+            services.AddScoped<ICandidateRecommendationService, CandidateRecommendationService>();
+            services.AddScoped<ISavedSearchService, SavedSearchService>();
             services.AddScoped<IShortlistFilterEvaluationService, ShortlistFilterEvaluationService>();
+            services.AddScoped<IAutoShortlistRunService, AutoShortlistRunService>();
             services.AddScoped<ICurrentCandidateService, CurrentCandidateService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<ICandidateProfileService, CandidateProfileService>();
             services.AddScoped<ICandidateEducationService, CandidateEducationService>();
             services.AddScoped<ICandidateWorkExperienceService, CandidateWorkExperienceService>();
             services.AddScoped<ICandidateSkillService, CandidateSkillService>();
+            services.AddScoped<ICandidateTagService, CandidateTagService>();
             services.AddScoped<ISkillLibraryService, SkillLibraryService>();
+            services.AddScoped<IUniversityLibraryService, UniversityLibraryService>();
             services.AddScoped<ICandidateCertificationService, CandidateCertificationService>();
             services.AddScoped<ICandidateDocumentService, CandidateDocumentService>();
             services.AddScoped<IStaffProfileService, StaffProfileService>();
             services.AddScoped<IAccountSettingsService, AccountSettingsService>();
             services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<IPaymentService, PaymentService>();
+            services.AddScoped<IApplicationSettingService, ApplicationSettingService>();
+            services.AddScoped<IQuestionGroupService, QuestionGroupService>();
+            services.AddScoped<IExamQuestionService, ExamQuestionService>();
+            services.AddScoped<IExamQuestionImportService, ExamQuestionImportService>();
+            services.AddScoped<ITalentPoolService, TalentPoolService>();
+            services.AddScoped<IExamVenueService, ExamVenueService>();
+            services.AddScoped<IExamRoomService, ExamRoomService>();
+            services.AddScoped<IAddressLookupService, AddressLookupService>();
 
             // Provide access to HttpContext for request metadata enrichment
             services.AddHttpContextAccessor();

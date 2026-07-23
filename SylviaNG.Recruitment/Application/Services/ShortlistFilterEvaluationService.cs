@@ -15,17 +15,20 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IJobApplicationService _jobApplicationService;
+        private readonly IAutoShortlistRunRepository _autoShortlistRunRepository;
 
         public ShortlistFilterEvaluationService(
             IShortlistFilterRepository shortlistFilterRepository,
             IJobApplicationRepository jobApplicationRepository,
             ICandidateProfileRepository candidateProfileRepository,
-            IJobApplicationService jobApplicationService)
+            IJobApplicationService jobApplicationService,
+            IAutoShortlistRunRepository autoShortlistRunRepository)
         {
             _shortlistFilterRepository = shortlistFilterRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _candidateProfileRepository = candidateProfileRepository;
             _jobApplicationService = jobApplicationService;
+            _autoShortlistRunRepository = autoShortlistRunRepository;
         }
 
         public async Task<ShortlistFilterPreviewResponse> PreviewAsync(ShortlistFilterPreviewRequest request)
@@ -79,6 +82,11 @@ namespace SylviaNG.Recruitment.Application.Services
             var profiles = await _candidateProfileRepository.GetByEmailsAsync(emails);
             var profilesByEmail = profiles.ToDictionary(p => p.Email, p => p, StringComparer.OrdinalIgnoreCase);
 
+            // Latest AI/Manual auto-shortlist score per application (US-046), feeding the
+            // MinScreeningScore criterion below. Empty dictionary (no run yet) is a normal state,
+            // not an error - MinScreeningScore just stays unmet for every application until one exists.
+            var latestScores = await _autoShortlistRunRepository.GetLatestScoresByJobPostingIdAsync(jobPostingId);
+
             var passingIds = new List<long>();
             foreach (var application in applications)
             {
@@ -91,8 +99,10 @@ namespace SylviaNG.Recruitment.Application.Services
                     continue;
 
                 var facts = CandidateFactService.BuildFacts(profile);
+                // 0 is a valid score, not "missing" - TryGetValue distinguishes the two.
+                int? screeningScore = latestScores.TryGetValue(application.JobApplicationId, out var score) ? score : null;
 
-                if (criteria.Count > 0 && Evaluate(criteria, combineWith, facts))
+                if (criteria.Count > 0 && Evaluate(criteria, combineWith, facts, screeningScore))
                     passingIds.Add(application.JobApplicationId);
             }
 
@@ -121,13 +131,13 @@ namespace SylviaNG.Recruitment.Application.Services
 
         // ── Evaluation ───────────────────────────────────────────────────
 
-        private static bool Evaluate(List<ShortlistFilterCriterionRequest> criteria, FilterCombinatorEnum combineWith, CandidateFactService.CandidateFacts facts)
+        private static bool Evaluate(List<ShortlistFilterCriterionRequest> criteria, FilterCombinatorEnum combineWith, CandidateFactService.CandidateFacts facts, int? screeningScore)
         {
-            var results = criteria.Select(c => EvaluateCriterion(c, facts)).ToList();
+            var results = criteria.Select(c => EvaluateCriterion(c, facts, screeningScore)).ToList();
             return combineWith == FilterCombinatorEnum.And ? results.All(r => r) : results.Any(r => r);
         }
 
-        private static bool EvaluateCriterion(ShortlistFilterCriterionRequest criterion, CandidateFactService.CandidateFacts facts)
+        private static bool EvaluateCriterion(ShortlistFilterCriterionRequest criterion, CandidateFactService.CandidateFacts facts, int? screeningScore)
         {
             switch (criterion.CriterionType)
             {
@@ -157,10 +167,10 @@ namespace SylviaNG.Recruitment.Application.Services
                         && facts.AddressText.Contains(criterion.RequiredDistrict, StringComparison.OrdinalIgnoreCase);
 
                 case CriterionTypeEnum.MinScreeningScore:
-                    // No screening-score field exists anywhere yet (AI resume screening is a
-                    // separate, unbuilt story) - always unmet until that lands. Documented gap,
-                    // not a bug: do not "fix" this without wiring a real score source first.
-                    return false;
+                    // Score comes from the latest AutoShortlistRun for this vacancy (US-046).
+                    // Unmet if no run has scored this application yet.
+                    return criterion.MinScreeningScore.HasValue && screeningScore.HasValue
+                        && screeningScore.Value >= criterion.MinScreeningScore.Value;
 
                 default:
                     return false;
