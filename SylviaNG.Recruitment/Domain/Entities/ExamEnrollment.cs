@@ -27,8 +27,28 @@ public class ExamEnrollment : Audit
     public NotificationStatusEnum SmsNotificationStatus { get; set; } = NotificationStatusEnum.Pending;
     public DateTime? SmsLoggedAt { get; set; }
 
+    // US-058: online attempt tracking. Null StartedAt = not started; StartedAt set + SubmittedAt
+    // null = in progress; SubmittedAt set = submitted. Derived AttemptStatus is computed in
+    // ExamEnrollmentMapper, not persisted.
+    public DateTime? StartedAt { get; set; }
+    public DateTime? SubmittedAt { get; set; }
+
+    // US-058/US-059: same fields, two possible writers - the candidate's own auto-scored
+    // submission (ScoreSource=AutoScored, ScoredByUserName=null) or HR's manual upload
+    // (ScoreSource=ManualUpload, ScoredByUserName=the uploading HR user, satisfying US-059
+    // AC5's audit requirement - no generic AuditLog entity exists in this codebase). Username,
+    // not a numeric id, matching ICurrentUserService.GetCurrentUserName()'s established
+    // attribution precedent (e.g. ApplicationStatusHistory.ChangedByUserName) - Keycloak's JWT
+    // here carries no parseable numeric user-id claim.
+    public decimal? Score { get; set; }
+    public bool? IsPassed { get; set; }
+    public ScoreSourceEnum? ScoreSource { get; set; }
+    public DateTime? ScoredAt { get; set; }
+    public string? ScoredByUserName { get; set; }
+
     // Navigation properties
     public Exam Exam { get; set; } = null!;
     public JobApplication JobApplication { get; set; } = null!;
     public ExamRoom? ExamRoom { get; set; }
+    public ICollection<ExamAnswer> Answers { get; set; } = new List<ExamAnswer>();
 }

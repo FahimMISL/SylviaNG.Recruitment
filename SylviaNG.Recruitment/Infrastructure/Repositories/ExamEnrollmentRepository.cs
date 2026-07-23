@@ -48,5 +48,25 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet.CountAsync(e => e.ExamRoomId == examRoomId);
         }
+
+        public async Task<List<ExamEnrollment>> GetByCandidateProfileIdAsync(long candidateProfileId)
+        {
+            return await _dbSet
+                .Include(e => e.Exam)
+                    .ThenInclude(e => e.JobPosting)
+                .Include(e => e.JobApplication)
+                .Where(e => e.JobApplication.CandidateProfileId == candidateProfileId)
+                .OrderByDescending(e => e.Exam.ScheduledStartAt)
+                .ToListAsync();
+        }
+
+        public async Task<ExamEnrollment?> GetByIdWithExamAndQuestionsAsync(long examEnrollmentId)
+        {
+            return await _dbSet
+                .Include(e => e.Exam)
+                .Include(e => e.JobApplication)
+                .Include(e => e.Answers)
+                .FirstOrDefaultAsync(e => e.ExamEnrollmentId == examEnrollmentId);
+        }
     }
 }

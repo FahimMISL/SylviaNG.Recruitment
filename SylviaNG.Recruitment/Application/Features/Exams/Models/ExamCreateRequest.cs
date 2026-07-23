@@ -13,5 +13,9 @@ namespace SylviaNG.Recruitment.Application.Features.Exams.Models
         public ExamTypeEnum ExamType { get; set; }
         public long? ExamVenueId { get; set; }
         public long? QuestionGroupId { get; set; }
+
+        /// <summary>US-058 AC6: whether a candidate sees their score/pass-fail immediately after
+        /// submitting an online exam, vs. just a submission confirmation.</summary>
+        public bool ShowResultsToCandidate { get; set; }
     }
 }

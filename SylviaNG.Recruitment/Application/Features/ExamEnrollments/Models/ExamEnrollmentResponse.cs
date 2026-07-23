@@ -23,5 +23,15 @@ namespace SylviaNG.Recruitment.Application.Features.ExamEnrollments.Models
 
         public NotificationStatusEnum SmsNotificationStatus { get; set; }
         public DateTime? SmsLoggedAt { get; set; }
+
+        public DateTime? StartedAt { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public string AttemptStatus { get; set; } = string.Empty;
+
+        public decimal? Score { get; set; }
+        public bool? IsPassed { get; set; }
+        public ScoreSourceEnum? ScoreSource { get; set; }
+        public DateTime? ScoredAt { get; set; }
+        public string? ScoredByUserName { get; set; }
     }
 }

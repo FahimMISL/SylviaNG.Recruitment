@@ -22,6 +22,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ExamVenueId = request.ExamVenueId,
                 QuestionGroupId = request.QuestionGroupId,
                 IsActive = true,
+                ShowResultsToCandidate = request.ShowResultsToCandidate,
             };
         }
 
@@ -43,6 +44,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 QuestionGroupName = entity.QuestionGroup?.Name,
                 SeatPlanGeneratedAt = entity.SeatPlanGeneratedAt,
                 IsActive = entity.IsActive,
+                ShowResultsToCandidate = entity.ShowResultsToCandidate,
             };
         }
     }

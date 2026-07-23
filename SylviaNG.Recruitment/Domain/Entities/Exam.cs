@@ -25,6 +25,10 @@ public class Exam : Audit
     public DateTime? SeatPlanGeneratedAt { get; set; }
     public bool IsActive { get; set; } = true;
 
+    /// <summary>US-058 AC6: candidate sees a submission confirmation with a reference number
+    /// always; detailed score/pass-fail is only shown to them if this is true.</summary>
+    public bool ShowResultsToCandidate { get; set; }
+
     // Navigation properties
     public JobPosting JobPosting { get; set; } = null!;
     public ExamVenue? ExamVenue { get; set; }

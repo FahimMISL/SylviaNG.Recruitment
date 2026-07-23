@@ -28,7 +28,23 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 EmailFailureReason = entity.EmailFailureReason,
                 SmsNotificationStatus = entity.SmsNotificationStatus,
                 SmsLoggedAt = entity.SmsLoggedAt,
+                StartedAt = entity.StartedAt,
+                SubmittedAt = entity.SubmittedAt,
+                AttemptStatus = DeriveAttemptStatus(entity),
+                Score = entity.Score,
+                IsPassed = entity.IsPassed,
+                ScoreSource = entity.ScoreSource,
+                ScoredAt = entity.ScoredAt,
+                ScoredByUserName = entity.ScoredByUserName,
             };
+        }
+
+        /// <summary>Not persisted - derived from StartedAt/SubmittedAt nullability (US-058).</summary>
+        private static string DeriveAttemptStatus(ExamEnrollment entity)
+        {
+            if (entity.SubmittedAt != null) return "Submitted";
+            if (entity.StartedAt != null) return "InProgress";
+            return "NotStarted";
         }
     }
 }

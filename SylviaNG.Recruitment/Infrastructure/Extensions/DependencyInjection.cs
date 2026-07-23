@@ -105,6 +105,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IExamRoomRepository, ExamRoomRepository>();
             services.AddScoped<IExamRepository, ExamRepository>();
             services.AddScoped<IExamEnrollmentRepository, ExamEnrollmentRepository>();
+            services.AddScoped<IExamAnswerRepository, ExamAnswerRepository>();
             services.AddScoped<IDivisionRepository, DivisionRepository>();
             services.AddScoped<IDistrictRepository, DistrictRepository>();
             services.AddScoped<IThanaRepository, ThanaRepository>();

@@ -23,6 +23,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasMaxLength(20)
                 .IsRequired();
 
+            builder.Property(e => e.Score).HasColumnType("decimal(6,2)");
+
+            builder.Property(e => e.ScoreSource)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            builder.Property(e => e.ScoredByUserName).HasMaxLength(150);
+
             builder.HasOne(e => e.Exam)
                 .WithMany(x => x.Enrollments)
                 .HasForeignKey(e => e.ExamId)

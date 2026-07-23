@@ -19,6 +19,15 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .FirstOrDefaultAsync(q => q.ExamQuestionId == examQuestionId);
         }
 
+        public async Task<List<ExamQuestion>> GetActiveByQuestionGroupIdAsync(long questionGroupId)
+        {
+            return await _dbSet
+                .Include(q => q.Options.OrderBy(o => o.DisplayOrder))
+                .Where(q => q.QuestionGroupId == questionGroupId && q.IsActive)
+                .OrderBy(q => q.ExamQuestionId)
+                .ToListAsync();
+        }
+
         public async Task<PagedResult<ExamQuestion>> GetPaginatedAsync(
             PagedRequest request,
             long? questionGroupId,

@@ -18,5 +18,6 @@ namespace SylviaNG.Recruitment.Application.Features.Exams.Models
         public string? QuestionGroupName { get; set; }
         public DateTime? SeatPlanGeneratedAt { get; set; }
         public bool IsActive { get; set; }
+        public bool ShowResultsToCandidate { get; set; }
     }
 }

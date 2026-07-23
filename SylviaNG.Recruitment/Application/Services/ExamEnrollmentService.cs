@@ -17,6 +17,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IExamRoomRepository _examRoomRepository;
         private readonly IExamNotificationService _examNotificationService;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<ExamEnrollmentService> _logger;
 
@@ -26,6 +27,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IJobApplicationRepository jobApplicationRepository,
             IExamRoomRepository examRoomRepository,
             IExamNotificationService examNotificationService,
+            ICurrentUserService currentUserService,
             IUnitOfWork unitOfWork,
             ILogger<ExamEnrollmentService> logger)
         {
@@ -34,6 +36,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _jobApplicationRepository = jobApplicationRepository;
             _examRoomRepository = examRoomRepository;
             _examNotificationService = examNotificationService;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
             _logger = logger;
         }
@@ -127,6 +130,25 @@ namespace SylviaNG.Recruitment.Application.Services
 
             enrollment.ExamRoomId = examRoomId;
             enrollment.SeatNumber = seatNumber;
+
+            _examEnrollmentRepository.Update(enrollment);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task UploadScoreAsync(long examEnrollmentId, decimal score)
+        {
+            var enrollment = await _examEnrollmentRepository.GetByIdWithDetailsAsync(examEnrollmentId)
+                ?? throw new NotFoundException("ExamEnrollment", examEnrollmentId);
+
+            if (score < 0 || score > enrollment.Exam.TotalMarks)
+                throw new InvalidStatusTransitionException(
+                    $"Score must be between 0 and the exam's total marks ({enrollment.Exam.TotalMarks}).");
+
+            enrollment.Score = score;
+            enrollment.IsPassed = score >= enrollment.Exam.PassMarks;
+            enrollment.ScoreSource = ScoreSourceEnum.ManualUpload;
+            enrollment.ScoredAt = DateTime.UtcNow;
+            enrollment.ScoredByUserName = _currentUserService.GetCurrentUserName();
 
             _examEnrollmentRepository.Update(enrollment);
             await _unitOfWork.SaveChangesAsync();

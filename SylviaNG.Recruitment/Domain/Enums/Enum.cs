@@ -163,3 +163,10 @@ public enum NotificationStatusEnum
     Failed,
     Skipped
 }
+
+/// <summary>How an ExamEnrollment's Score/IsPassed was set (US-058/US-059).</summary>
+public enum ScoreSourceEnum
+{
+    AutoScored,
+    ManualUpload
+}

@@ -18,6 +18,7 @@ public class ExamEnrollmentServiceTests
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<IExamRoomRepository> _examRoomRepositoryMock;
     private readonly Mock<IExamNotificationService> _examNotificationServiceMock;
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExamEnrollmentService _service;
 
@@ -28,6 +29,7 @@ public class ExamEnrollmentServiceTests
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _examRoomRepositoryMock = new Mock<IExamRoomRepository>();
         _examNotificationServiceMock = new Mock<IExamNotificationService>();
+        _currentUserServiceMock = new Mock<ICurrentUserService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
@@ -37,15 +39,18 @@ public class ExamEnrollmentServiceTests
             _jobApplicationRepositoryMock.Object,
             _examRoomRepositoryMock.Object,
             _examNotificationServiceMock.Object,
+            _currentUserServiceMock.Object,
             _unitOfWorkMock.Object,
             new Mock<ILogger<ExamEnrollmentService>>().Object);
     }
 
-    private static Exam ExamFor(long examId, long jobPostingId, long? examVenueId = null) => new()
+    private static Exam ExamFor(long examId, long jobPostingId, long? examVenueId = null, decimal totalMarks = 100, decimal passMarks = 40) => new()
     {
         ExamId = examId,
         JobPostingId = jobPostingId,
         ExamVenueId = examVenueId,
+        TotalMarks = totalMarks,
+        PassMarks = passMarks,
     };
 
     private static JobApplication ApplicationFor(
@@ -213,5 +218,57 @@ public class ExamEnrollmentServiceTests
         enrollment.SeatNumber.Should().Be("A-001");
         _examEnrollmentRepositoryMock.Verify(r => r.Update(enrollment), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UploadScoreAsync_ScoreAboveTotalMarks_ShouldThrowInvalidStatusTransitionException()
+    {
+        var enrollment = new ExamEnrollment { ExamEnrollmentId = 1, ExamId = 1, Exam = ExamFor(1, 100, totalMarks: 100, passMarks: 40) };
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(enrollment);
+
+        var act = () => _service.UploadScoreAsync(1, 150);
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        _examEnrollmentRepositoryMock.Verify(r => r.Update(It.IsAny<ExamEnrollment>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UploadScoreAsync_NegativeScore_ShouldThrowInvalidStatusTransitionException()
+    {
+        var enrollment = new ExamEnrollment { ExamEnrollmentId = 1, ExamId = 1, Exam = ExamFor(1, 100, totalMarks: 100, passMarks: 40) };
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(enrollment);
+
+        var act = () => _service.UploadScoreAsync(1, -5);
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public async Task UploadScoreAsync_ValidScoreAboveOrEqualPassMarks_ShouldSetPassedAndManualUploadSource()
+    {
+        var enrollment = new ExamEnrollment { ExamEnrollmentId = 1, ExamId = 1, Exam = ExamFor(1, 100, totalMarks: 100, passMarks: 40) };
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(enrollment);
+        _currentUserServiceMock.Setup(s => s.GetCurrentUserName()).Returns("hr.abir");
+
+        await _service.UploadScoreAsync(1, 45);
+
+        enrollment.Score.Should().Be(45);
+        enrollment.IsPassed.Should().BeTrue();
+        enrollment.ScoreSource.Should().Be(ScoreSourceEnum.ManualUpload);
+        enrollment.ScoredByUserName.Should().Be("hr.abir");
+        enrollment.ScoredAt.Should().NotBeNull();
+        _examEnrollmentRepositoryMock.Verify(r => r.Update(enrollment), Times.Once);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UploadScoreAsync_ScoreBelowPassMarks_ShouldSetIsPassedFalse()
+    {
+        var enrollment = new ExamEnrollment { ExamEnrollmentId = 1, ExamId = 1, Exam = ExamFor(1, 100, totalMarks: 100, passMarks: 40) };
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(enrollment);
+
+        await _service.UploadScoreAsync(1, 30);
+
+        enrollment.IsPassed.Should().BeFalse();
     }
 }

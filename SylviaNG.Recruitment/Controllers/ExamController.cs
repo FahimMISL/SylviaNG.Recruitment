@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.Exams.Commands.ExamCreate;
 using SylviaNG.Recruitment.Application.Features.Exams.Models;
@@ -7,10 +8,13 @@ using SylviaNG.Recruitment.Application.Features.Exams.Queries.ExamGetAllPaged;
 using SylviaNG.Recruitment.Application.Features.Exams.Queries.ExamGetById;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamEnrollCandidates;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamEnrollmentReassignSeat;
+using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamScoreBulkUpload;
+using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamScoreUpload;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Commands.ExamSeatPlanGenerate;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Models;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamAdmitCardDownloadPdf;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamEnrollmentGetByExam;
+using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamScoreImportTemplateDownload;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamSeatPlanDownloadExcel;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Queries.ExamSeatPlanDownloadPdf;
 using SylviaNG.Recruitment.Domain.Enums;
@@ -113,6 +117,31 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var file = await _mediator.Send(new ExamAdmitCardDownloadPdfQuery(enrollmentId));
             return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>Downloadable XLSX score-upload template, prefilled per enrollment (US-059 AC2).</summary>
+        [HttpGet("{examId}/score-upload-template")]
+        public async Task<IActionResult> DownloadScoreUploadTemplate(long examId)
+        {
+            var template = await _mediator.Send(new ExamScoreImportTemplateDownloadQuery(examId));
+            return File(template.Content, template.ContentType, template.FileName);
+        }
+
+        /// <summary>Bulk-upload scores from an XLSX/CSV file (US-059 AC2/AC3/AC4/AC5).</summary>
+        [HttpPost("{examId}/score-upload/bulk")]
+        public async Task<ActionResult<ExamScoreBulkUploadResponse>> BulkUploadScores(long examId, [FromForm] IFormFile file)
+        {
+            var result = await _mediator.Send(new ExamScoreBulkUploadCommand(examId, file));
+            return Ok(result);
+        }
+
+        /// <summary>Upload/overwrite a single enrollment's score (US-059 AC1) - also the finalization
+        /// path for online exams left with an ungraded Subjective question (US-058 AC3).</summary>
+        [HttpPatch("{examId}/enrollments/{enrollmentId}/score")]
+        public async Task<ActionResult> UploadScore(long examId, long enrollmentId, [FromBody] ExamScoreUploadRequest request)
+        {
+            await _mediator.Send(new ExamScoreUploadCommand(enrollmentId, request.Score));
+            return Ok();
         }
     }
 }
