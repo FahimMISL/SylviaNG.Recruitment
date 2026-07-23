@@ -209,8 +209,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ApplicationStatus = entity.ApplicationStatus,
                 CanWithdraw = canWithdraw,
                 Interviews = entity.Interviews
-                    .Where(i => i.IsActive)
-                    .OrderBy(i => i.ScheduledDate)
+                    .Where(i => i.Status != InterviewStatusEnum.Cancelled)
+                    .OrderBy(i => i.ScheduledStartAt)
                     .Select(i => i.ToMyApplicationInterviewResponse())
                     .ToList()
             };
@@ -221,10 +221,12 @@ namespace SylviaNG.Recruitment.Application.Mappings
             return new MyApplicationInterviewResponse
             {
                 InterviewId = entity.InterviewId,
-                ScheduledDate = entity.ScheduledDate,
-                Location = entity.Location,
+                ScheduledDate = entity.ScheduledStartAt,
+                Location = entity.InterviewType == InterviewTypeEnum.InPerson
+                    ? $"{entity.InterviewVenue?.VenueName} - {entity.InterviewRoom?.RoomName}"
+                    : null,
                 MeetingLink = entity.MeetingLink,
-                Round = entity.Round
+                Round = entity.Round.ToString()
             };
         }
 

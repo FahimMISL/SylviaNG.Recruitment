@@ -67,6 +67,10 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IExamScoreImportService, ExamScoreImportService>();
             services.AddScoped<IExamSeatPlanService, ExamSeatPlanService>();
             services.AddScoped<IExamNotificationService, ExamNotificationService>();
+            services.AddScoped<IInterviewVenueService, InterviewVenueService>();
+            services.AddScoped<IInterviewRoomService, InterviewRoomService>();
+            services.AddScoped<IInterviewService, InterviewService>();
+            services.AddScoped<IInterviewNotificationService, InterviewNotificationService>();
             services.AddScoped<IAddressLookupService, AddressLookupService>();
             services.AddScoped<ICountryService, CountryService>();
             services.AddScoped<IEducationBoardService, EducationBoardService>();

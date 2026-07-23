@@ -170,3 +170,21 @@ public enum ScoreSourceEnum
     AutoScored,
     ManualUpload
 }
+
+/// <summary>EP-08: whether a scheduled Interview is in-person (InterviewVenueId/InterviewRoomId) or virtual (MeetingLink).</summary>
+public enum InterviewTypeEnum
+{
+    InPerson,
+    Virtual
+}
+
+/// <summary>Lifecycle of a single scheduled Interview (EP-08). Rescheduled/Cancelled/Completed/NoShow
+/// are terminal-ish states set explicitly by HR action - there is no automatic transition.</summary>
+public enum InterviewStatusEnum
+{
+    Scheduled,
+    Rescheduled,
+    Cancelled,
+    Completed,
+    NoShow
+}
