@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Login;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Refresh;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Register;
+using SylviaNG.Recruitment.Application.Features.Auth.Commands.ResendOtp;
+using SylviaNG.Recruitment.Application.Features.Auth.Commands.VerifyOtp;
 using SylviaNG.Recruitment.Application.Features.Auth.Models;
 
 namespace SylviaNG.Recruitment.Controllers
@@ -55,6 +57,30 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var result = await _mediator.Send(new RegisterCommand(request));
             return Ok(result);
+        }
+
+        /// <summary>
+        /// EP-09 Feature 2: completes a candidate login that Login returned with RequiresOtp=true.
+        /// AllowAnonymous - no token exists yet at this point, only the opaque ChallengeId proves
+        /// the caller already passed the Keycloak credential check.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("verify-otp")]
+        public async Task<ActionResult<LoginResponse>> VerifyOtp([FromBody] VerifyOtpRequest request)
+        {
+            var result = await _mediator.Send(new VerifyOtpCommand(request));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Re-sends a fresh OTP code for a still-open candidate login challenge.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("resend-otp")]
+        public async Task<ActionResult> ResendOtp([FromBody] ResendOtpRequest request)
+        {
+            await _mediator.Send(new ResendOtpCommand(request));
+            return Ok();
         }
     }
 }

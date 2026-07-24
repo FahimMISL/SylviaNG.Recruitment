@@ -21,7 +21,8 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = await _applicationSettingRepository.GetSingletonAsync();
             return new ApplicationSettingResponse
             {
-                MinimumProfileCompletenessPercentage = entity.MinimumProfileCompletenessPercentage
+                MinimumProfileCompletenessPercentage = entity.MinimumProfileCompletenessPercentage,
+                HrNotificationEmail = entity.HrNotificationEmail
             };
         }
 
@@ -39,6 +40,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var entity = await _applicationSettingRepository.GetSingletonAsync();
             entity.MinimumProfileCompletenessPercentage = request.MinimumProfileCompletenessPercentage;
+            entity.HrNotificationEmail = string.IsNullOrWhiteSpace(request.HrNotificationEmail) ? null : request.HrNotificationEmail.Trim();
             _applicationSettingRepository.Update(entity);
             await _unitOfWork.SaveChangesAsync();
         }
@@ -47,6 +49,12 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await _applicationSettingRepository.GetSingletonAsync();
             return entity.MinimumProfileCompletenessPercentage;
+        }
+
+        public async Task<string?> GetHrNotificationEmailAsync()
+        {
+            var entity = await _applicationSettingRepository.GetSingletonAsync();
+            return entity.HrNotificationEmail;
         }
     }
 }

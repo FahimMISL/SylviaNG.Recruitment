@@ -144,6 +144,18 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
+        /// Re-dispatch a chosen event's notification (e.g. ApplicationStatusChanged) across a batch
+        /// of applications at once (US-076). POST, not PATCH - this doesn't mutate application state.
+        /// </summary>
+        [HttpPost("bulk-notify")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<JobApplicationBulkNotifyResponse>> BulkNotify([FromBody] JobApplicationBulkNotifyRequest request)
+        {
+            var result = await _jobApplicationService.BulkNotifyAsync(request);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// HR submits an application on behalf of a candidate (agency/direct outreach), to any open
         /// vacancy regardless of its audience restriction. Recorded with Source=Admin (US-034).
         /// </summary>

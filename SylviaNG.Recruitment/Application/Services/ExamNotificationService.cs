@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Email;
+using SylviaNG.Recruitment.Application.Common.Notifications;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -122,7 +123,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 }
             };
 
-            var result = await _smtpEmailService.TrySendAsync(message);
+            var result = await EmailRetrySender.SendWithRetryAsync(_smtpEmailService, message, _logger);
 
             if (result.Success)
             {

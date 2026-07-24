@@ -10,5 +10,13 @@ namespace SylviaNG.Recruitment.Application.Features.Auth.Models
         public string Username { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
+
+        /// <summary>EP-09 Feature 2: true when Token/RefreshToken are withheld pending OTP
+        /// verification (candidate login only, gate enabled). False for every existing
+        /// Admin/HR login and whenever the gate is disabled - no behavior change for them.</summary>
+        public bool RequiresOtp { get; set; }
+
+        /// <summary>Opaque id to pass to verify-otp/resend-otp. Only set when RequiresOtp is true.</summary>
+        public string? ChallengeId { get; set; }
     }
 }

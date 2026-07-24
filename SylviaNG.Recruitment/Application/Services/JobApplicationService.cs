@@ -28,6 +28,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IPaymentService _paymentService;
         private readonly IApplicationSettingService _applicationSettingService;
         private readonly IResumeParsingService _resumeParsingService;
+        private readonly INotificationDispatchService _notificationDispatchService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<JobApplicationService> _logger;
 
@@ -78,6 +79,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IPaymentService paymentService,
             IApplicationSettingService applicationSettingService,
             IResumeParsingService resumeParsingService,
+            INotificationDispatchService notificationDispatchService,
             IUnitOfWork unitOfWork,
             ILogger<JobApplicationService> logger)
         {
@@ -91,8 +93,25 @@ namespace SylviaNG.Recruitment.Application.Services
             _paymentService = paymentService;
             _applicationSettingService = applicationSettingService;
             _resumeParsingService = resumeParsingService;
+            _notificationDispatchService = notificationDispatchService;
             _unitOfWork = unitOfWork;
             _logger = logger;
+        }
+
+        private async Task<NotificationDispatchTargets> BuildDispatchTargetsAsync(JobApplication entity)
+        {
+            var hrEmail = await _applicationSettingService.GetHrNotificationEmailAsync();
+            return new NotificationDispatchTargets(entity.CandidateEmail, hrEmail, entity.JobApplicationId);
+        }
+
+        private static Dictionary<string, string> BuildBaseDispatchPlaceholders(JobApplication entity, string jobPostingTitle)
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CandidateName"] = entity.CandidateName,
+                ["JobPostingTitle"] = jobPostingTitle,
+                ["ApplicationStatus"] = entity.ApplicationStatus.ToString()
+            };
         }
 
         public async Task<long> CreateAsync(JobApplicationCreateRequest request, long? candidateProfileId = null)
@@ -248,6 +267,20 @@ namespace SylviaNG.Recruitment.Application.Services
                 {
                     // response.PaymentRedirectUrl stays null - frontend offers a retry button.
                 }
+            }
+
+            // US-075/US-076: dispatch on submit. requiresPayment is the only currently-wired
+            // trigger for CandidateActionRequired - "candidate must act (pay) before this
+            // application proceeds" - not a general-purpose event yet.
+            try
+            {
+                var recruitmentEvent = requiresPayment ? RecruitmentEventEnum.CandidateActionRequired : RecruitmentEventEnum.ApplicationSubmitted;
+                var placeholders = BuildBaseDispatchPlaceholders(entity, jobPosting.Title);
+                await _notificationDispatchService.DispatchAsync(recruitmentEvent, placeholders, await BuildDispatchTargetsAsync(entity));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching submit notification for JobApplicationId {JobApplicationId}.", entity.JobApplicationId);
             }
 
             return response;
@@ -493,6 +526,63 @@ namespace SylviaNG.Recruitment.Application.Services
             return result;
         }
 
+        // US-076: same best-effort bulk shape as BulkUpdateStatusAsync above - a bad id shouldn't
+        // block the rest of the batch. Unlike a status move, "notify" is idempotent and doesn't
+        // touch ApplicationStatus, so there's no legal-transition check here.
+        public async Task<JobApplicationBulkNotifyResponse> BulkNotifyAsync(JobApplicationBulkNotifyRequest request)
+        {
+            if (request.JobApplicationIds.Count == 0)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.JobApplicationIds), "At least one JobApplicationId is required.")
+                });
+            }
+
+            if (request.JobApplicationIds.Count > 500)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.JobApplicationIds), "A bulk notify batch cannot exceed 500 applications.")
+                });
+            }
+
+            var result = new JobApplicationBulkNotifyResponse();
+
+            foreach (var jobApplicationId in request.JobApplicationIds)
+            {
+                try
+                {
+                    var entity = await _jobApplicationRepository.GetByIdAsync(jobApplicationId)
+                        ?? throw new NotFoundException("JobApplication", jobApplicationId);
+
+                    var jobPosting = await _jobPostingRepository.GetByIdAsync(entity.JobPostingId);
+                    var placeholders = BuildBaseDispatchPlaceholders(entity, jobPosting?.Title ?? string.Empty);
+
+                    await _notificationDispatchService.DispatchAsync(
+                        request.RecruitmentEvent,
+                        placeholders,
+                        await BuildDispatchTargetsAsync(entity),
+                        persistImmediately: false);
+
+                    result.SucceededIds.Add(jobApplicationId);
+                }
+                catch (NotFoundException ex)
+                {
+                    result.Failed.Add(new JobApplicationBulkNotifyFailure
+                    {
+                        JobApplicationId = jobApplicationId,
+                        Reason = ex.Message
+                    });
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+            return result;
+        }
+
         private async Task ApplyStatusChangeAsync(JobApplication entity, JobApplicationStatusUpdateRequest request)
         {
             var fromStatus = entity.ApplicationStatus;
@@ -531,6 +621,27 @@ namespace SylviaNG.Recruitment.Application.Services
                 FromStatus = fromStatus.ToString(),
                 ToStatus = request.ToStatus.ToString()
             });
+
+            // US-075: covers both UpdateStatusAsync (single) and BulkUpdateStatusAsync (loop) -
+            // both funnel through here. persistImmediately:false so the NotificationLog row rides
+            // along in the caller's own SaveChangesAsync instead of committing early.
+            try
+            {
+                var jobPosting = await _jobPostingRepository.GetByIdAsync(entity.JobPostingId);
+                var placeholders = BuildBaseDispatchPlaceholders(entity, jobPosting?.Title ?? string.Empty);
+                placeholders["FromStatus"] = fromStatus.ToString();
+                placeholders["ToStatus"] = request.ToStatus.ToString();
+
+                await _notificationDispatchService.DispatchAsync(
+                    RecruitmentEventEnum.ApplicationStatusChanged,
+                    placeholders,
+                    await BuildDispatchTargetsAsync(entity),
+                    persistImmediately: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching status-change notification for JobApplicationId {JobApplicationId}.", entity.JobApplicationId);
+            }
 
             if (request.ToStatus == ApplicationStatusEnum.Hired)
                 await MarkCandidateInternalAsync(entity);
@@ -635,6 +746,25 @@ namespace SylviaNG.Recruitment.Application.Services
                 FromStatus = fromStatus.ToString(),
                 ToStatus = ApplicationStatusEnum.Withdrawn.ToString()
             });
+
+            // US-075: separate hook from ApplyStatusChangeAsync since this path duplicates the
+            // status-history logic inline rather than calling it.
+            try
+            {
+                var placeholders = BuildBaseDispatchPlaceholders(entity, jobPosting?.Title ?? string.Empty);
+                placeholders["FromStatus"] = fromStatus.ToString();
+                placeholders["ToStatus"] = ApplicationStatusEnum.Withdrawn.ToString();
+
+                await _notificationDispatchService.DispatchAsync(
+                    RecruitmentEventEnum.ApplicationWithdrawn,
+                    placeholders,
+                    await BuildDispatchTargetsAsync(entity),
+                    persistImmediately: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching withdrawal notification for JobApplicationId {JobApplicationId}.", entity.JobApplicationId);
+            }
 
             await _unitOfWork.SaveChangesAsync();
         }

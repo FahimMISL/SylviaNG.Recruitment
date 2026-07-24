@@ -15,4 +15,12 @@ public class ApplicationSetting : Audit
     /// with an existing profile can submit a job application. 0 = gate disabled.
     /// </summary>
     public int MinimumProfileCompletenessPercentage { get; set; }
+
+    /// <summary>
+    /// EP-09 Feature 2: mailbox that receives the AdminHr leg of every dispatched notification
+    /// (application submitted/withdrawn/status-changed, etc). Null = AdminHr notifications are
+    /// skipped until an Admin configures this - there's no other HR contact address anywhere
+    /// in the system today.
+    /// </summary>
+    public string? HrNotificationEmail { get; set; }
 }

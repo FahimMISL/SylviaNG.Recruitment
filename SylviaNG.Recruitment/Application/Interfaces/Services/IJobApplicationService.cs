@@ -49,6 +49,9 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// <summary>Best-effort bulk status move across multiple applications (US-035 AC5).</summary>
         Task<JobApplicationBulkStatusUpdateResponse> BulkUpdateStatusAsync(JobApplicationBulkStatusUpdateRequest request);
 
+        /// <summary>Best-effort re-dispatch of a chosen event's notification across multiple applications (US-076).</summary>
+        Task<JobApplicationBulkNotifyResponse> BulkNotifyAsync(JobApplicationBulkNotifyRequest request);
+
         /// <summary>Every application the current authenticated candidate has submitted (US-040 AC1/AC2/AC3).</summary>
         Task<List<MyApplicationResponse>> GetMyApplicationsAsync();
 

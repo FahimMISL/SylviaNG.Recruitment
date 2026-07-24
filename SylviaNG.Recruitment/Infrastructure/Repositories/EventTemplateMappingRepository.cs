@@ -36,5 +36,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(m => m.NotificationTemplate)
                 .FirstOrDefaultAsync(m => m.EventTemplateMappingId == eventTemplateMappingId);
         }
+
+        public async Task<EventTemplateMapping?> GetActiveMappingAsync(RecruitmentEventEnum recruitmentEvent, NotificationChannelEnum channel, NotificationRecipientTypeEnum recipientType)
+        {
+            return await _dbSet
+                .Include(m => m.NotificationTemplate)
+                .Where(m => m.RecruitmentEvent == recruitmentEvent
+                    && m.Channel == channel
+                    && m.RecipientType == recipientType
+                    && m.IsActive
+                    && m.NotificationTemplate.IsActive)
+                .FirstOrDefaultAsync();
+        }
     }
 }

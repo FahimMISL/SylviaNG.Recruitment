@@ -30,6 +30,11 @@ namespace SylviaNG.Recruitment.Middlewares
                 _logger.LogWarning(ex, "Invalid credentials.");
                 await HandleExceptionAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
             }
+            catch (OtpVerificationException ex)
+            {
+                _logger.LogWarning(ex, "OTP verification failed.");
+                await HandleExceptionAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
+            }
             catch (DuplicateException ex)
             {
                 _logger.LogWarning(ex, "Duplicate resource.");

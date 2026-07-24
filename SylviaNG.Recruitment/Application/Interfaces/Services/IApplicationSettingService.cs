@@ -12,5 +12,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
 
         /// <summary>Raw threshold for the JobApplicationService submit gate - 0 means disabled.</summary>
         Task<int> GetMinimumProfileCompletenessPercentageAsync();
+
+        /// <summary>EP-09 Feature 2: mailbox for the AdminHr leg of dispatched notifications - null if unset.</summary>
+        Task<string?> GetHrNotificationEmailAsync();
     }
 }

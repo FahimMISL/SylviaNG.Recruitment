@@ -47,6 +47,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddHttpContextAccessor();
             services.AddSingleton<UtcDateTimeInterceptor>();
 
+            // EP-09 Feature 2: caches the Keycloak refresh token obtained at the initial login
+            // attempt, keyed by OTP ChallengeId, for the short window until verify-otp completes.
+            services.AddMemoryCache();
+
             // Configure database provider with audit interceptor
             services.AddDbContext<ApplicationDBContext>((sp, options) =>
             {
@@ -126,6 +130,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IMajorSubjectUniversityRepository, MajorSubjectUniversityRepository>();
             services.AddScoped<INotificationTemplateRepository, NotificationTemplateRepository>();
             services.AddScoped<IEventTemplateMappingRepository, EventTemplateMappingRepository>();
+            services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
+            services.AddScoped<ICandidateLoginOtpRepository, CandidateLoginOtpRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -188,6 +194,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             });
 
             services.AddScoped<ICandidateTalentPoolRepository, CandidateTalentPoolRepository>();
+
+            // EP-09 Feature 2: candidate login OTP gate, layered on top of Keycloak's own
+            // RequireEmailVerification link flow above - off by default (Enabled:false).
+            services.Configure<OtpSettings>(configuration.GetSection(OtpSettings.SectionName));
 
             // Keycloak REST client (login token proxy + Admin REST user registration)
             services.Configure<KeycloakSettings>(configuration.GetSection(KeycloakSettings.SectionName));
