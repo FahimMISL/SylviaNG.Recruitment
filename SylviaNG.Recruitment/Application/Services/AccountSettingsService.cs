@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using SylviaNG.Recruitment.Application.Extensions;
 using SylviaNG.Recruitment.Application.Features.AccountSettings.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Enums;
@@ -98,8 +99,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         private static UserRoleEnum GetRole(ClaimsPrincipal user)
         {
-            var roleValue = user.FindFirst(ClaimTypes.Role)?.Value;
-            return Enum.TryParse<UserRoleEnum>(roleValue, true, out var role) ? role : UserRoleEnum.Candidate;
+            return user.GetHighestRole();
         }
     }
 }

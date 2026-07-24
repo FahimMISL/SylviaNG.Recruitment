@@ -6,7 +6,13 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
 {
     public interface IJobApplicationService
     {
-        Task<long> CreateAsync(JobApplicationCreateRequest request);
+        /// <summary>
+        /// candidateProfileId is an internal-only override for callers that already have the
+        /// candidate's real profile in hand (e.g. TalentPoolService.FastTrackAsync) - when
+        /// omitted, resolves the same way SubmitAsync does (current authenticated candidate, else
+        /// an existing profile matching CandidateEmail, else null for a not-yet-linked guest).
+        /// </summary>
+        Task<long> CreateAsync(JobApplicationCreateRequest request, long? candidateProfileId = null);
         Task UpdateAsync(long jobApplicationId, JobApplicationUpdateRequest request);
         Task DeleteAsync(long jobApplicationId);
         Task<JobApplicationResponse> GetByIdAsync(long jobApplicationId);
@@ -43,6 +49,9 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// <summary>Best-effort bulk status move across multiple applications (US-035 AC5).</summary>
         Task<JobApplicationBulkStatusUpdateResponse> BulkUpdateStatusAsync(JobApplicationBulkStatusUpdateRequest request);
 
+        /// <summary>Best-effort re-dispatch of a chosen event's notification across multiple applications (US-076).</summary>
+        Task<JobApplicationBulkNotifyResponse> BulkNotifyAsync(JobApplicationBulkNotifyRequest request);
+
         /// <summary>Every application the current authenticated candidate has submitted (US-040 AC1/AC2/AC3).</summary>
         Task<List<MyApplicationResponse>> GetMyApplicationsAsync();
 
@@ -52,5 +61,26 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// terminal state that can no longer transition to Withdrawn.
         /// </summary>
         Task WithdrawMyApplicationAsync(long jobApplicationId);
+
+        /// <summary>
+        /// Checks the current authenticated candidate's profile against a job posting's own
+        /// eligibility criteria (age/education/experience/district) and returns which, if any,
+        /// requirements are unmet (US-024 AC2/AC3).
+        /// </summary>
+        Task<JobEligibilityResponse> CheckEligibilityAsync(long jobPostingId);
+
+        /// <summary>
+        /// Groups applications to the given vacancy that share an email, national ID, or phone
+        /// number across different applications, so HR can spot cross-channel duplicates (US-038 AC1/AC2).
+        /// Already-DuplicateDismissed applications are excluded from re-surfacing as open groups.
+        /// </summary>
+        Task<List<JobApplicationDuplicateGroupResponse>> GetDuplicatesAsync(long jobPostingId);
+
+        /// <summary>
+        /// HR keeps one application as primary and dismisses the rest of a detected duplicate
+        /// group (US-038 AC3/AC4). Re-validates the group server-side; dismissed applications
+        /// move to DuplicateDismissed with an audit trail entry, retained for history.
+        /// </summary>
+        Task ResolveDuplicatesAsync(JobApplicationDuplicateResolveRequest request);
     }
 }
