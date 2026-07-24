@@ -62,7 +62,7 @@ public class AuthServiceTests
     {
         var keycloakToken = BuildKeycloakStyleToken("abir", "Abir Hasan", "offline_access", "HR");
         _keycloakClientMock.Setup(k => k.TokenAsync("abir", "abir123"))
-            .ReturnsAsync(new KeycloakTokenResult(keycloakToken, 300));
+            .ReturnsAsync(new KeycloakTokenResult(keycloakToken, 300, "refresh-token-stub"));
 
         var result = await _service.LoginAsync(new LoginRequest { Username = "abir", Password = "abir123" });
 
@@ -78,7 +78,7 @@ public class AuthServiceTests
     {
         var keycloakToken = BuildKeycloakStyleToken("root", "Root", "Candidate", "Admin", "HR");
         _keycloakClientMock.Setup(k => k.TokenAsync("root", "pw"))
-            .ReturnsAsync(new KeycloakTokenResult(keycloakToken, 300));
+            .ReturnsAsync(new KeycloakTokenResult(keycloakToken, 300, "refresh-token-stub"));
 
         var result = await _service.LoginAsync(new LoginRequest { Username = "root", Password = "pw" });
 

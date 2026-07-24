@@ -17,8 +17,15 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(e => e.EmployeeCode)
                 .HasMaxLength(50);
 
+            builder.Property(e => e.Email)
+                .HasMaxLength(200);
+
+            builder.Property(e => e.Phone)
+                .HasMaxLength(50);
+
             // Indexes
             builder.HasIndex(e => e.EmployeeCode);
+            builder.HasIndex(e => e.Email);
         }
     }
 }
