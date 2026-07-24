@@ -124,6 +124,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IBloodGroupRepository, BloodGroupRepository>();
             services.AddScoped<IMajorSubjectSscHscRepository, MajorSubjectSscHscRepository>();
             services.AddScoped<IMajorSubjectUniversityRepository, MajorSubjectUniversityRepository>();
+            services.AddScoped<INotificationTemplateRepository, NotificationTemplateRepository>();
+            services.AddScoped<IEventTemplateMappingRepository, EventTemplateMappingRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();

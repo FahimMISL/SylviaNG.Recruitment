@@ -114,6 +114,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<BloodGroup> BloodGroups { get; set; }
         public DbSet<MajorSubjectSscHsc> MajorSubjectsSscHsc { get; set; }
         public DbSet<MajorSubjectUniversity> MajorSubjectsUniversity { get; set; }
+        public DbSet<NotificationTemplate> NotificationTemplates { get; set; }
+        public DbSet<NotificationTemplateVersion> NotificationTemplateVersions { get; set; }
+        public DbSet<EventTemplateMapping> EventTemplateMappings { get; set; }
 
         #endregion
 

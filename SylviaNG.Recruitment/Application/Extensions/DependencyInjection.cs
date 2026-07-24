@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using MediatR;
+using SylviaNG.Recruitment.Application.Common.Notifications;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using System.Reflection;
@@ -84,6 +85,9 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IBloodGroupService, BloodGroupService>();
             services.AddScoped<IMajorSubjectSscHscService, MajorSubjectSscHscService>();
             services.AddScoped<IMajorSubjectUniversityService, MajorSubjectUniversityService>();
+            services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
+            services.AddScoped<IEventTemplateMappingService, EventTemplateMappingService>();
+            services.AddScoped<IPlaceholderSubstitutionService, PlaceholderSubstitutionService>();
 
             // Provide access to HttpContext for request metadata enrichment
             services.AddHttpContextAccessor();

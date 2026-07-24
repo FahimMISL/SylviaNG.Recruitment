@@ -198,3 +198,40 @@ public enum InterviewResultEnum
     Passed,
     Failed
 }
+
+/// <summary>EP-09: recruitment lifecycle event a NotificationTemplate can be mapped to via
+/// EventTemplateMapping. Extend this list as later EP-09 features need new trigger points.</summary>
+public enum RecruitmentEventEnum
+{
+    ApplicationSubmitted,
+    ApplicationWithdrawn,
+    ApplicationStatusChanged,
+    CandidateActionRequired,
+    InterviewScheduled,
+    InterviewRescheduled,
+    InterviewCancelled,
+    ExamEnrolled,
+    AdmitCardIssued,
+    ExamResultPublished,
+    AccountCreatedOtp
+}
+
+/// <summary>EP-09: delivery channel a NotificationTemplate is written for. Only Email has a working
+/// transport wired up so far (US-073/074) - Sms/InApp/Push are modeled now so mappings/templates for
+/// them can be authored ahead of their own dispatch work landing.</summary>
+public enum NotificationChannelEnum
+{
+    Email,
+    Sms,
+    InApp,
+    Push
+}
+
+/// <summary>EP-09: which audience an EventTemplateMapping targets. The same RecruitmentEvent+Channel
+/// commonly needs two different templates - one candidate-facing, one for internal Admin/HR - so this
+/// is a mapping-key dimension, not a NotificationTemplate field.</summary>
+public enum NotificationRecipientTypeEnum
+{
+    Candidate,
+    AdminHr
+}
