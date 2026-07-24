@@ -24,9 +24,18 @@ public class NotificationLog : Audit
     public long? JobApplicationId { get; set; }
 
     public string? RenderedSubject { get; set; }
+
+    /// <summary>Set alongside RenderedSubject at render time so a Failed row can be Retried without
+    /// re-rendering placeholders (which are never persisted). Skipped rows never reach render, so
+    /// this stays null for them - Retry only operates on Failed rows.</summary>
+    public string? RenderedBody { get; set; }
     public NotificationStatusEnum DeliveryStatus { get; set; }
     public DateTime? SentAt { get; set; }
     public string? FailureReason { get; set; }
+
+    /// <summary>EP-09 Feature 3 (US-079): read state for the in-app HR/Admin notification bell.</summary>
+    public bool IsRead { get; set; }
+    public DateTime? ReadAt { get; set; }
 
     public NotificationTemplate? NotificationTemplate { get; set; }
     public JobApplication? JobApplication { get; set; }

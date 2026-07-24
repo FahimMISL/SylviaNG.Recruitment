@@ -91,6 +91,7 @@ namespace SylviaNG.Recruitment.Application.Services
                     var renderedSubject = _placeholderSubstitutionService.Render(mapping.NotificationTemplate.Subject ?? string.Empty, placeholderValues);
                     var renderedBody = _placeholderSubstitutionService.Render(mapping.NotificationTemplate.Body, placeholderValues);
                     log.RenderedSubject = renderedSubject;
+                    log.RenderedBody = renderedBody;
 
                     var result = await _smtpEmailService.TrySendAsync(new EmailMessage
                     {
