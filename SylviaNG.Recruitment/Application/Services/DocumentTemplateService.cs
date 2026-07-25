@@ -66,7 +66,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = await _documentTemplateRepository.GetByIdAsync(documentTemplateId)
                 ?? throw new NotFoundException("DocumentTemplate", documentTemplateId);
 
-            var usageCount = await _documentTemplateRepository.CountOfferLetterUsageAsync(documentTemplateId);
+            var usageCount = await _documentTemplateRepository.CountUsageAsync(documentTemplateId);
             if (usageCount > 0)
                 throw new ResourceInUseException("DocumentTemplate", documentTemplateId, usageCount);
 

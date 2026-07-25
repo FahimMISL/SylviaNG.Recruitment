@@ -135,6 +135,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IDocumentTemplateRepository, DocumentTemplateRepository>();
             services.AddScoped<IOfferLetterRepository, OfferLetterRepository>();
             services.AddScoped<IAppointmentLetterRepository, AppointmentLetterRepository>();
+            services.AddScoped<IJoiningBookletRepository, JoiningBookletRepository>();
+            services.AddScoped<IMedicalLetterRepository, MedicalLetterRepository>();
+            services.AddScoped<ITargetLetterRepository, TargetLetterRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -169,6 +172,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
 
             // EP-10 US-083: appointment letter PDF generation, same QuestPDF pattern/storage reuse.
             services.AddScoped<IAppointmentLetterPdfGeneratorService, QuestPdfAppointmentLetterGenerator>();
+
+            // EP-10 US-084/US-086: joining booklet / medical / target letter PDF generation, same
+            // QuestPDF pattern/storage reuse as above.
+            services.AddScoped<IJoiningBookletPdfGeneratorService, QuestPdfJoiningBookletGenerator>();
+            services.AddScoped<IMedicalLetterPdfGeneratorService, QuestPdfMedicalLetterGenerator>();
+            services.AddScoped<ITargetLetterPdfGeneratorService, QuestPdfTargetLetterGenerator>();
 
             // Exam enrollment notifications (US-055/US-056): real SMTP email via MailKit, SMS is a
             // logging stub until a real gateway is integrated - disabled/off by default, see

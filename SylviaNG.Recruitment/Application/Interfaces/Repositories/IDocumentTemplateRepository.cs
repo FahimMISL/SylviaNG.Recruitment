@@ -7,7 +7,7 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
     {
         Task<bool> ExistsByCodeAsync(string code, long? excludeId = null);
         Task<List<DocumentTemplate>> GetAllOrderedAsync();
-        Task<int> CountOfferLetterUsageAsync(long documentTemplateId);
+        Task<int> CountUsageAsync(long documentTemplateId);
         Task AddVersionAsync(DocumentTemplateVersion version);
         Task<List<DocumentTemplateVersion>> GetVersionsOrderedAsync(long documentTemplateId);
     }

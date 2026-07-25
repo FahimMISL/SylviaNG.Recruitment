@@ -217,7 +217,10 @@ public enum RecruitmentEventEnum
     OfferLetterAvailable,
     OfferAccepted,
     OfferDeclined,
-    AppointmentLetterGenerated
+    AppointmentLetterGenerated,
+    JoiningBookletAvailable,
+    MedicalLetterAvailable,
+    TargetLetterAvailable
 }
 
 /// <summary>EP-09: delivery channel a NotificationTemplate is written for. Only Email has a working

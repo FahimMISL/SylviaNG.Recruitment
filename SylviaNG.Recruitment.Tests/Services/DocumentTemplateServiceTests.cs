@@ -105,7 +105,7 @@ public class DocumentTemplateServiceTests
     public async Task DeleteAsync_InUse_ShouldThrowResourceInUseException()
     {
         _repositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new DocumentTemplate { DocumentTemplateId = 1 });
-        _repositoryMock.Setup(r => r.CountOfferLetterUsageAsync(1)).ReturnsAsync(2);
+        _repositoryMock.Setup(r => r.CountUsageAsync(1)).ReturnsAsync(2);
 
         var act = () => _service.DeleteAsync(1);
 
@@ -118,7 +118,7 @@ public class DocumentTemplateServiceTests
     {
         var entity = new DocumentTemplate { DocumentTemplateId = 1 };
         _repositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(entity);
-        _repositoryMock.Setup(r => r.CountOfferLetterUsageAsync(1)).ReturnsAsync(0);
+        _repositoryMock.Setup(r => r.CountUsageAsync(1)).ReturnsAsync(0);
 
         await _service.DeleteAsync(1);
 

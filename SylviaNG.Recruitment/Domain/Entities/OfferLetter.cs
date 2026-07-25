@@ -34,4 +34,7 @@ public class OfferLetter : Audit
     public JobApplication JobApplication { get; set; } = null!;
     public DocumentTemplate DocumentTemplate { get; set; } = null!;
     public ICollection<AppointmentLetter> AppointmentLetters { get; set; } = new List<AppointmentLetter>();
+    public ICollection<JoiningBooklet> JoiningBooklets { get; set; } = new List<JoiningBooklet>();
+    public ICollection<MedicalLetter> MedicalLetters { get; set; } = new List<MedicalLetter>();
+    public ICollection<TargetLetter> TargetLetters { get; set; } = new List<TargetLetter>();
 }

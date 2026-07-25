@@ -93,6 +93,9 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IDocumentTemplateService, DocumentTemplateService>();
             services.AddScoped<IOfferLetterService, OfferLetterService>();
             services.AddScoped<IAppointmentLetterService, AppointmentLetterService>();
+            services.AddScoped<IJoiningBookletService, JoiningBookletService>();
+            services.AddScoped<IMedicalLetterService, MedicalLetterService>();
+            services.AddScoped<ITargetLetterService, TargetLetterService>();
             services.AddScoped<IDocumentTrackingService, DocumentTrackingService>();
 
             // Provide access to HttpContext for request metadata enrichment

@@ -14,17 +14,26 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IOfferLetterRepository _offerLetterRepository;
         private readonly IAppointmentLetterRepository _appointmentLetterRepository;
+        private readonly IJoiningBookletRepository _joiningBookletRepository;
+        private readonly IMedicalLetterRepository _medicalLetterRepository;
+        private readonly ITargetLetterRepository _targetLetterRepository;
         private readonly INotificationDispatchService _notificationDispatchService;
         private readonly PortalSettings _portalSettings;
 
         public DocumentTrackingService(
             IOfferLetterRepository offerLetterRepository,
             IAppointmentLetterRepository appointmentLetterRepository,
+            IJoiningBookletRepository joiningBookletRepository,
+            IMedicalLetterRepository medicalLetterRepository,
+            ITargetLetterRepository targetLetterRepository,
             INotificationDispatchService notificationDispatchService,
             IOptions<PortalSettings> portalSettings)
         {
             _offerLetterRepository = offerLetterRepository;
             _appointmentLetterRepository = appointmentLetterRepository;
+            _joiningBookletRepository = joiningBookletRepository;
+            _medicalLetterRepository = medicalLetterRepository;
+            _targetLetterRepository = targetLetterRepository;
             _notificationDispatchService = notificationDispatchService;
             _portalSettings = portalSettings.Value;
         }
@@ -45,6 +54,24 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 var appointmentLetters = await _appointmentLetterRepository.GetAllOrderedAsync(null);
                 items.AddRange(appointmentLetters.Select(ToTrackingItem));
+            }
+
+            if (filter.DocumentType is null or DocumentTypeEnum.JoiningBooklet)
+            {
+                var joiningBooklets = await _joiningBookletRepository.GetAllOrderedAsync(null);
+                items.AddRange(joiningBooklets.Select(ToTrackingItem));
+            }
+
+            if (filter.DocumentType is null or DocumentTypeEnum.MedicalReferral)
+            {
+                var medicalLetters = await _medicalLetterRepository.GetAllOrderedAsync(null);
+                items.AddRange(medicalLetters.Select(ToTrackingItem));
+            }
+
+            if (filter.DocumentType is null or DocumentTypeEnum.TargetLetter)
+            {
+                var targetLetters = await _targetLetterRepository.GetAllOrderedAsync(null);
+                items.AddRange(targetLetters.Select(ToTrackingItem));
             }
 
             if (filter.AcceptanceStatus.HasValue)
@@ -123,6 +150,39 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             DocumentType = DocumentTypeEnum.AppointmentLetter,
             SourceId = entity.AppointmentLetterId,
+            JobApplicationId = entity.JobApplicationId,
+            RecipientName = entity.JobApplication?.CandidateName ?? string.Empty,
+            RecipientEmail = entity.JobApplication?.CandidateEmail,
+            GeneratedAt = entity.GeneratedAt,
+            AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+        };
+
+        private static DocumentTrackingItemResponse ToTrackingItem(JoiningBooklet entity) => new()
+        {
+            DocumentType = DocumentTypeEnum.JoiningBooklet,
+            SourceId = entity.JoiningBookletId,
+            JobApplicationId = entity.JobApplicationId,
+            RecipientName = entity.JobApplication?.CandidateName ?? string.Empty,
+            RecipientEmail = entity.JobApplication?.CandidateEmail,
+            GeneratedAt = entity.GeneratedAt,
+            AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+        };
+
+        private static DocumentTrackingItemResponse ToTrackingItem(MedicalLetter entity) => new()
+        {
+            DocumentType = DocumentTypeEnum.MedicalReferral,
+            SourceId = entity.MedicalLetterId,
+            JobApplicationId = entity.JobApplicationId,
+            RecipientName = entity.JobApplication?.CandidateName ?? string.Empty,
+            RecipientEmail = entity.JobApplication?.CandidateEmail,
+            GeneratedAt = entity.GeneratedAt,
+            AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+        };
+
+        private static DocumentTrackingItemResponse ToTrackingItem(TargetLetter entity) => new()
+        {
+            DocumentType = DocumentTypeEnum.TargetLetter,
+            SourceId = entity.TargetLetterId,
             JobApplicationId = entity.JobApplicationId,
             RecipientName = entity.JobApplication?.CandidateName ?? string.Empty,
             RecipientEmail = entity.JobApplication?.CandidateEmail,

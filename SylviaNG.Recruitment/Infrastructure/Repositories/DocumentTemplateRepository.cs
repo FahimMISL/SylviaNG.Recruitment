@@ -20,9 +20,15 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.OrderBy(t => t.Name).ToListAsync();
         }
 
-        public async Task<int> CountOfferLetterUsageAsync(long documentTemplateId)
+        public async Task<int> CountUsageAsync(long documentTemplateId)
         {
-            return await _dbContext.OfferLetters.CountAsync(o => o.DocumentTemplateId == documentTemplateId);
+            var offerLetterCount = await _dbContext.OfferLetters.CountAsync(o => o.DocumentTemplateId == documentTemplateId);
+            var appointmentLetterCount = await _dbContext.AppointmentLetters.CountAsync(a => a.DocumentTemplateId == documentTemplateId);
+            var joiningBookletCount = await _dbContext.JoiningBooklets.CountAsync(j => j.DocumentTemplateId == documentTemplateId);
+            var medicalLetterCount = await _dbContext.MedicalLetters.CountAsync(m => m.DocumentTemplateId == documentTemplateId);
+            var targetLetterCount = await _dbContext.TargetLetters.CountAsync(t => t.DocumentTemplateId == documentTemplateId);
+
+            return offerLetterCount + appointmentLetterCount + joiningBookletCount + medicalLetterCount + targetLetterCount;
         }
 
         public async Task AddVersionAsync(DocumentTemplateVersion version)

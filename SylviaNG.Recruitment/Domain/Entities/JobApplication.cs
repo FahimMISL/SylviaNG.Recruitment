@@ -42,4 +42,7 @@ public class JobApplication : Audit
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public ICollection<OfferLetter> OfferLetters { get; set; } = new List<OfferLetter>();
     public ICollection<AppointmentLetter> AppointmentLetters { get; set; } = new List<AppointmentLetter>();
+    public ICollection<JoiningBooklet> JoiningBooklets { get; set; } = new List<JoiningBooklet>();
+    public ICollection<MedicalLetter> MedicalLetters { get; set; } = new List<MedicalLetter>();
+    public ICollection<TargetLetter> TargetLetters { get; set; } = new List<TargetLetter>();
 }
