@@ -16,6 +16,7 @@ public class ShortlistFilterEvaluationServiceTests
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
+    private readonly Mock<IAutoShortlistRunRepository> _autoShortlistRunRepositoryMock;
     private readonly ShortlistFilterEvaluationService _service;
 
     public ShortlistFilterEvaluationServiceTests()
@@ -24,12 +25,17 @@ public class ShortlistFilterEvaluationServiceTests
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
         _jobApplicationServiceMock = new Mock<IJobApplicationService>();
+        _autoShortlistRunRepositoryMock = new Mock<IAutoShortlistRunRepository>();
+        _autoShortlistRunRepositoryMock
+            .Setup(r => r.GetLatestScoresByJobPostingIdAsync(It.IsAny<long>()))
+            .ReturnsAsync(new Dictionary<long, int>());
 
         _service = new ShortlistFilterEvaluationService(
             _shortlistFilterRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object,
             _candidateProfileRepositoryMock.Object,
-            _jobApplicationServiceMock.Object);
+            _jobApplicationServiceMock.Object,
+            _autoShortlistRunRepositoryMock.Object);
     }
 
     private static JobApplication Application(long id, string email) =>
@@ -46,7 +52,7 @@ public class ShortlistFilterEvaluationServiceTests
         {
             Email = email,
             DateOfBirth = dob,
-            PresentAddress = presentAddress,
+            PresentAddressDetail = presentAddress,
             Educations = educations ?? new List<CandidateEducation>(),
             WorkExperiences = workExperiences ?? new List<CandidateWorkExperience>(),
             Skills = skills ?? new List<CandidateSkill>()
@@ -207,14 +213,48 @@ public class ShortlistFilterEvaluationServiceTests
     }
 
     [Fact]
-    public async Task PreviewAsync_MinScreeningScoreCriterion_AlwaysUnmet()
+    public async Task PreviewAsync_MinScreeningScoreCriterion_NoAutoShortlistRunYet_ShouldBeUnmet()
     {
-        // No score field exists anywhere on JobApplication yet - documented, intentional gap.
         var profile = Profile("a@x.com");
         SetupApplicationsAndProfiles(new List<JobApplication> { Application(1, "a@x.com") }, new List<CandidateProfile> { profile });
+        // Default mock setup returns an empty scores dictionary (no run yet).
 
         var request = DefinitionRequest(FilterCombinatorEnum.And,
             new ShortlistFilterCriterionRequest { CriterionType = CriterionTypeEnum.MinScreeningScore, MinScreeningScore = 0 });
+
+        var result = await _service.PreviewAsync(request);
+
+        result.PassingCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task PreviewAsync_MinScreeningScoreCriterion_ScoreMeetsThreshold_ShouldPass()
+    {
+        var profile = Profile("a@x.com");
+        SetupApplicationsAndProfiles(new List<JobApplication> { Application(1, "a@x.com") }, new List<CandidateProfile> { profile });
+        _autoShortlistRunRepositoryMock
+            .Setup(r => r.GetLatestScoresByJobPostingIdAsync(1))
+            .ReturnsAsync(new Dictionary<long, int> { [1] = 80 });
+
+        var request = DefinitionRequest(FilterCombinatorEnum.And,
+            new ShortlistFilterCriterionRequest { CriterionType = CriterionTypeEnum.MinScreeningScore, MinScreeningScore = 70 });
+
+        var result = await _service.PreviewAsync(request);
+
+        result.PassingCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PreviewAsync_MinScreeningScoreCriterion_ScoreBelowThreshold_ShouldFail()
+    {
+        var profile = Profile("a@x.com");
+        SetupApplicationsAndProfiles(new List<JobApplication> { Application(1, "a@x.com") }, new List<CandidateProfile> { profile });
+        _autoShortlistRunRepositoryMock
+            .Setup(r => r.GetLatestScoresByJobPostingIdAsync(1))
+            .ReturnsAsync(new Dictionary<long, int> { [1] = 50 });
+
+        var request = DefinitionRequest(FilterCombinatorEnum.And,
+            new ShortlistFilterCriterionRequest { CriterionType = CriterionTypeEnum.MinScreeningScore, MinScreeningScore = 70 });
 
         var result = await _service.PreviewAsync(request);
 
