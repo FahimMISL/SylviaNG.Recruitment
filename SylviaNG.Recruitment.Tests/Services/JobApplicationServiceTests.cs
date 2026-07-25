@@ -63,6 +63,7 @@ public class JobApplicationServiceTests
             _paymentServiceMock.Object,
             _applicationSettingServiceMock.Object,
             _resumeParsingServiceMock.Object,
+            Mock.Of<INotificationDispatchService>(),
             _unitOfWorkMock.Object,
             Mock.Of<ILogger<JobApplicationService>>());
     }

@@ -235,3 +235,31 @@ public enum NotificationRecipientTypeEnum
     Candidate,
     AdminHr
 }
+
+/// <summary>EP-10: the kind of letter/document a DocumentTemplate is written for. Closed set -
+/// covers the full EP-10 scope (F1-F3): OfferLetter/AppointmentLetter (F1/F2), JoiningBooklet (F3
+/// bulk), MedicalReferral/TargetLetter (F3), plus RejectionLetter/ExperienceCertificate/
+/// RelievingLetter as the remaining common HR letter types admins can author ahead of any feature
+/// work wiring their generation.</summary>
+public enum DocumentTypeEnum
+{
+    OfferLetter,
+    AppointmentLetter,
+    JoiningBooklet,
+    MedicalReferral,
+    TargetLetter,
+    RejectionLetter,
+    ExperienceCertificate,
+    RelievingLetter
+}
+
+/// <summary>EP-10 US-081: lifecycle of a single generated OfferLetter. Generated is the only status
+/// this feature (F1) ever sets - Sent/Accepted/Declined are wired to real transitions in F2
+/// (candidate accept/decline, US-082/083).</summary>
+public enum OfferLetterStatusEnum
+{
+    Generated,
+    Sent,
+    Accepted,
+    Declined
+}

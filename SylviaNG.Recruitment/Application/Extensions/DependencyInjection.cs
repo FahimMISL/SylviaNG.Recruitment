@@ -90,6 +90,8 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IPlaceholderSubstitutionService, PlaceholderSubstitutionService>();
             services.AddScoped<INotificationDispatchService, NotificationDispatchService>();
             services.AddScoped<INotificationLogService, NotificationLogService>();
+            services.AddScoped<IDocumentTemplateService, DocumentTemplateService>();
+            services.AddScoped<IOfferLetterService, OfferLetterService>();
 
             // Provide access to HttpContext for request metadata enrichment
             services.AddHttpContextAccessor();

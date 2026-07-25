@@ -40,4 +40,5 @@ public class JobApplication : Audit
     public ICollection<ApplicationStatusHistory> StatusHistory { get; set; } = new List<ApplicationStatusHistory>();
     public ICollection<JobApplicationStageProgress> StageProgress { get; set; } = new List<JobApplicationStageProgress>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public ICollection<OfferLetter> OfferLetters { get; set; } = new List<OfferLetter>();
 }

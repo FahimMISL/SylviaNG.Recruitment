@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -6,8 +7,10 @@ using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.Auth.Models;
+using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
+using SylviaNG.Recruitment.SharedKernel.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -39,7 +42,18 @@ public class AuthServiceTests
             RequireEmailVerification = true
         });
 
-        _service = new AuthService(configuration, _keycloakClientMock.Object, settings, NullLogger<AuthService>.Instance);
+        var otpSettings = Options.Create(new OtpSettings { Enabled = false });
+
+        _service = new AuthService(
+            configuration,
+            _keycloakClientMock.Object,
+            settings,
+            otpSettings,
+            Mock.Of<ICandidateLoginOtpRepository>(),
+            Mock.Of<INotificationDispatchService>(),
+            Mock.Of<IMemoryCache>(),
+            Mock.Of<IUnitOfWork>(),
+            NullLogger<AuthService>.Instance);
     }
 
     private static string BuildKeycloakStyleToken(string username, string displayName, params string[] realmRoles)

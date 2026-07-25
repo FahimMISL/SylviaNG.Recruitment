@@ -132,6 +132,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IEventTemplateMappingRepository, EventTemplateMappingRepository>();
             services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
             services.AddScoped<ICandidateLoginOtpRepository, CandidateLoginOtpRepository>();
+            services.AddScoped<IDocumentTemplateRepository, DocumentTemplateRepository>();
+            services.AddScoped<IOfferLetterRepository, OfferLetterRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -159,6 +161,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // Exam seat-plan/admit-card PDFs (US-055/US-056), same QuestPDF pattern as the CV generator above
             services.AddScoped<ISeatPlanPdfGeneratorService, QuestPdfSeatPlanGenerator>();
             services.AddScoped<IAdmitCardPdfGeneratorService, QuestPdfAdmitCardGenerator>();
+
+            // EP-10 US-081: offer letter PDF generation, same QuestPDF pattern as above; storage
+            // reuses IFileStorageService/FileStorageSettings (see comment above on that root reuse).
+            services.AddScoped<IOfferLetterPdfGeneratorService, QuestPdfOfferLetterGenerator>();
 
             // Exam enrollment notifications (US-055/US-056): real SMTP email via MailKit, SMS is a
             // logging stub until a real gateway is integrated - disabled/off by default, see
