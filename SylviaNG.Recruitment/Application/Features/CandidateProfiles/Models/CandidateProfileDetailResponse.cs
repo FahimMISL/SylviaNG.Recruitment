@@ -1,4 +1,5 @@
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
+using SylviaNG.Recruitment.Application.Features.TalentPools.Models;
 
 namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 {
@@ -12,25 +13,41 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
         // Personal info
         public string FullName { get; set; } = string.Empty;
         public DateTime? DateOfBirth { get; set; }
-        public string? Gender { get; set; }
+        public long? GenderId { get; set; }
         public string? NationalId { get; set; }
         public string? FatherName { get; set; }
         public string? MotherName { get; set; }
-        public string? MaritalStatus { get; set; }
-        public string? Religion { get; set; }
+        public long? MaritalStatusId { get; set; }
+        public long? ReligionId { get; set; }
         public string? Nationality { get; set; }
+        public long? BloodGroupId { get; set; }
 
         // Contact
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }
-        public string? PresentAddress { get; set; }
-        public string? PermanentAddress { get; set; }
+        public long? CountryId { get; set; }
+
+        public long? PresentDivisionId { get; set; }
+        public long? PresentDistrictId { get; set; }
+        public long? PresentThanaId { get; set; }
+        public string? PresentAddressDetail { get; set; }
+
+        public long? HomeDivisionId { get; set; }
+        public long? HomeDistrictId { get; set; }
+        public long? HomeThanaId { get; set; }
+        public string? PermanentAddressDetail { get; set; }
 
         // Photo/Signature
         public string? ProfilePhotoPath { get; set; }
         public string? SignaturePath { get; set; }
 
         public int CompletenessPercentage { get; set; }
+
+        // Internal candidate / Core HR pre-population (US-005).
+        public bool IsInternal { get; set; }
+        public string? DepartmentName { get; set; }
+        public string? DesignationName { get; set; }
+        public bool HasPrepopulatedFieldEdits { get; set; }
 
         public List<CandidateEducationResponse> Educations { get; set; } = new();
         public List<CandidateWorkExperienceResponse> WorkExperiences { get; set; } = new();
@@ -43,5 +60,11 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         /// <summary>HR-only annotation (AC5) - never shown to or editable by the candidate.</summary>
         public string? HrNotes { get; set; }
+
+        /// <summary>Named talent pools this candidate belongs to (US-039 AC2) - HR/Admin view only.</summary>
+        public List<TalentPoolBadgeResponse> TalentPools { get; set; } = new();
+
+        /// <summary>HR-only tags (US-041 AC1/AC4) - never shown to or editable by the candidate.</summary>
+        public List<string> Tags { get; set; } = new();
     }
 }

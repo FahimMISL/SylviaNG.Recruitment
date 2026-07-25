@@ -1,6 +1,6 @@
 namespace SylviaNG.Recruitment.Application.Interfaces.Services
 {
-    public record KeycloakTokenResult(string AccessToken, int ExpiresInSeconds);
+    public record KeycloakTokenResult(string AccessToken, int ExpiresInSeconds, string? RefreshToken);
 
     public interface IKeycloakClient
     {
@@ -10,6 +10,14 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// when the server cannot be reached.
         /// </summary>
         Task<KeycloakTokenResult> TokenAsync(string username, string password);
+
+        /// <summary>
+        /// Refresh grant against the realm token endpoint - exchanges a still-valid refresh
+        /// token for a new access token (and, since Keycloak rotates them by default, a new
+        /// refresh token too). Throws InvalidCredentialsException when the refresh token
+        /// itself has expired or been revoked, KeycloakUnavailableException when unreachable.
+        /// </summary>
+        Task<KeycloakTokenResult> RefreshTokenAsync(string refreshToken);
 
         /// <summary>
         /// Creates a realm user via the Admin REST API (service-account client-credentials
