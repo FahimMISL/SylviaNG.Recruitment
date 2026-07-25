@@ -30,5 +30,15 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(o => o.DocumentTemplate)
                 .FirstOrDefaultAsync(o => o.OfferLetterId == offerLetterId);
         }
+
+        public async Task<List<OfferLetter>> GetAllForCandidateAsync(long candidateProfileId)
+        {
+            return await _dbSet
+                .Include(o => o.JobApplication)
+                .Include(o => o.DocumentTemplate)
+                .Where(o => o.JobApplication.CandidateProfileId == candidateProfileId)
+                .OrderByDescending(o => o.GeneratedAt)
+                .ToListAsync();
+        }
     }
 }

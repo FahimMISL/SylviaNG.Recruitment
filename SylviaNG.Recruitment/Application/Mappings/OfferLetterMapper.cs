@@ -22,6 +22,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 GeneratedPdfPath = entity.GeneratedPdfPath,
                 Status = entity.Status,
                 GeneratedAt = entity.GeneratedAt,
+                DecisionAt = entity.DecisionAt,
+                DeclineReason = entity.DeclineReason,
             };
         }
     }

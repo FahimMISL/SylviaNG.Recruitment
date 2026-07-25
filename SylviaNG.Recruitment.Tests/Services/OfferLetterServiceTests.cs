@@ -1,7 +1,9 @@
 using FluentAssertions;
 using FluentValidation;
+using Microsoft.Extensions.Options;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.OfferLetters.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -21,8 +23,13 @@ public class OfferLetterServiceTests
     private readonly Mock<IPlaceholderSubstitutionService> _placeholderSubstitutionServiceMock;
     private readonly Mock<IOfferLetterPdfGeneratorService> _pdfGeneratorServiceMock;
     private readonly Mock<IFileStorageService> _fileStorageServiceMock;
+    private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
+    private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
+    private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly OfferLetterService _service;
+
+    private const long CandidateProfileId = 7;
 
     public OfferLetterServiceTests()
     {
@@ -32,6 +39,10 @@ public class OfferLetterServiceTests
         _placeholderSubstitutionServiceMock = new Mock<IPlaceholderSubstitutionService>();
         _pdfGeneratorServiceMock = new Mock<IOfferLetterPdfGeneratorService>();
         _fileStorageServiceMock = new Mock<IFileStorageService>();
+        _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
+        _currentCandidateServiceMock.Setup(c => c.GetOrCreateCurrentProfileIdAsync()).ReturnsAsync(CandidateProfileId);
+        _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
+        _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
@@ -42,8 +53,20 @@ public class OfferLetterServiceTests
             _placeholderSubstitutionServiceMock.Object,
             _pdfGeneratorServiceMock.Object,
             _fileStorageServiceMock.Object,
+            _currentCandidateServiceMock.Object,
+            _notificationDispatchServiceMock.Object,
+            _applicationSettingServiceMock.Object,
+            Options.Create(new PortalSettings()),
             _unitOfWorkMock.Object);
     }
+
+    private static OfferLetter OwnedOfferLetter(OfferLetterStatusEnum status = OfferLetterStatusEnum.Generated) => new()
+    {
+        OfferLetterId = 1,
+        Designation = "Software Engineer",
+        Status = status,
+        JobApplication = new JobApplication { JobApplicationId = 5, CandidateName = "John Smith", CandidateProfileId = CandidateProfileId },
+    };
 
     private static OfferLetterGenerateRequest ValidRequest() => new()
     {
@@ -189,5 +212,59 @@ public class OfferLetterServiceTests
 
         result.Should().HaveCount(1);
         result[0].CandidateName.Should().Be("A");
+    }
+
+    [Fact]
+    public async Task AcceptAsync_ValidGeneratedOffer_ShouldSetAcceptedAndNotifyHr()
+    {
+        var entity = OwnedOfferLetter();
+        _offerLetterRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(entity);
+        _applicationSettingServiceMock.Setup(s => s.GetHrNotificationEmailAsync()).ReturnsAsync("hr@example.com");
+
+        var response = await _service.AcceptAsync(1);
+
+        response.Status.Should().Be(OfferLetterStatusEnum.Accepted);
+        entity.DecisionAt.Should().NotBeNull();
+        _notificationDispatchServiceMock.Verify(n => n.DispatchAsync(
+            RecruitmentEventEnum.OfferAccepted,
+            It.IsAny<IDictionary<string, string>>(),
+            It.IsAny<NotificationDispatchTargets>(),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeclineAsync_ValidGeneratedOffer_ShouldSetDeclinedWithReason()
+    {
+        var entity = OwnedOfferLetter();
+        _offerLetterRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(entity);
+
+        var response = await _service.DeclineAsync(1, "Accepted a different offer");
+
+        response.Status.Should().Be(OfferLetterStatusEnum.Declined);
+        response.DeclineReason.Should().Be("Accepted a different offer");
+    }
+
+    [Fact]
+    public async Task AcceptAsync_AlreadyDecided_ShouldThrowInvalidStatusTransitionException()
+    {
+        var entity = OwnedOfferLetter(OfferLetterStatusEnum.Accepted);
+        _offerLetterRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(entity);
+
+        var act = () => _service.AcceptAsync(1);
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public async Task AcceptAsync_NotOwnedByCallingCandidate_ShouldThrowForbiddenException()
+    {
+        var entity = OwnedOfferLetter();
+        entity.JobApplication.CandidateProfileId = CandidateProfileId + 1;
+        _offerLetterRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(entity);
+
+        var act = () => _service.AcceptAsync(1);
+
+        await act.Should().ThrowAsync<ForbiddenException>();
     }
 }

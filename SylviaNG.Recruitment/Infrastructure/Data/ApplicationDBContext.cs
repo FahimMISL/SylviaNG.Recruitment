@@ -121,6 +121,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<DocumentTemplate> DocumentTemplates { get; set; }
         public DbSet<DocumentTemplateVersion> DocumentTemplateVersions { get; set; }
         public DbSet<OfferLetter> OfferLetters { get; set; }
+        public DbSet<AppointmentLetter> AppointmentLetters { get; set; }
         public DbSet<CandidateLoginOtp> CandidateLoginOtps { get; set; }
 
         #endregion

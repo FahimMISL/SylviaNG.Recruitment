@@ -134,6 +134,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ICandidateLoginOtpRepository, CandidateLoginOtpRepository>();
             services.AddScoped<IDocumentTemplateRepository, DocumentTemplateRepository>();
             services.AddScoped<IOfferLetterRepository, OfferLetterRepository>();
+            services.AddScoped<IAppointmentLetterRepository, AppointmentLetterRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -165,6 +166,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // EP-10 US-081: offer letter PDF generation, same QuestPDF pattern as above; storage
             // reuses IFileStorageService/FileStorageSettings (see comment above on that root reuse).
             services.AddScoped<IOfferLetterPdfGeneratorService, QuestPdfOfferLetterGenerator>();
+
+            // EP-10 US-083: appointment letter PDF generation, same QuestPDF pattern/storage reuse.
+            services.AddScoped<IAppointmentLetterPdfGeneratorService, QuestPdfAppointmentLetterGenerator>();
 
             // Exam enrollment notifications (US-055/US-056): real SMTP email via MailKit, SMS is a
             // logging stub until a real gateway is integrated - disabled/off by default, see

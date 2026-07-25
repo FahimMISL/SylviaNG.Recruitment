@@ -23,4 +23,5 @@ public class DocumentTemplate : Audit
 
     public ICollection<DocumentTemplateVersion> Versions { get; set; } = new List<DocumentTemplateVersion>();
     public ICollection<OfferLetter> OfferLetters { get; set; } = new List<OfferLetter>();
+    public ICollection<AppointmentLetter> AppointmentLetters { get; set; } = new List<AppointmentLetter>();
 }

@@ -17,5 +17,7 @@ namespace SylviaNG.Recruitment.Application.Features.OfferLetters.Models
         public string GeneratedPdfPath { get; set; } = string.Empty;
         public OfferLetterStatusEnum Status { get; set; }
         public DateTime GeneratedAt { get; set; }
+        public DateTime? DecisionAt { get; set; }
+        public string? DeclineReason { get; set; }
     }
 }

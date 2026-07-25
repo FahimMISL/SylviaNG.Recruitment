@@ -213,7 +213,11 @@ public enum RecruitmentEventEnum
     ExamEnrolled,
     AdmitCardIssued,
     ExamResultPublished,
-    AccountCreatedOtp
+    AccountCreatedOtp,
+    OfferLetterAvailable,
+    OfferAccepted,
+    OfferDeclined,
+    AppointmentLetterGenerated
 }
 
 /// <summary>EP-09: delivery channel a NotificationTemplate is written for. Only Email has a working
@@ -262,4 +266,15 @@ public enum OfferLetterStatusEnum
     Sent,
     Accepted,
     Declined
+}
+
+/// <summary>EP-10 US-085: unified acceptance status shown on the document-tracking dashboard,
+/// merging OfferLetter.Status (Generated/Sent -> Pending) with AppointmentLetter, which has no
+/// candidate-decision step of its own and always reports NotApplicable.</summary>
+public enum DocumentAcceptanceStatusEnum
+{
+    Pending,
+    Accepted,
+    Declined,
+    NotApplicable
 }

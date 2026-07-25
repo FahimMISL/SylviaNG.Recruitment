@@ -26,6 +26,12 @@ public class OfferLetter : Audit
     public new OfferLetterStatusEnum Status { get; set; } = OfferLetterStatusEnum.Generated;
     public DateTime GeneratedAt { get; set; }
 
+    // EP-10 US-082: set together when the candidate accepts/declines. DecisionAt being non-null
+    // is the lock check AcceptAsync/DeclineAsync use to reject a second decision.
+    public DateTime? DecisionAt { get; set; }
+    public string? DeclineReason { get; set; }
+
     public JobApplication JobApplication { get; set; } = null!;
     public DocumentTemplate DocumentTemplate { get; set; } = null!;
+    public ICollection<AppointmentLetter> AppointmentLetters { get; set; } = new List<AppointmentLetter>();
 }
