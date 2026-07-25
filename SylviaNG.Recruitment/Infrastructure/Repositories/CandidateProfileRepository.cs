@@ -16,9 +16,44 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.FirstOrDefaultAsync(c => c.KeycloakSubjectId == keycloakSubjectId);
         }
 
-        public async Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request)
+        public async Task<long?> GetIdByEmailAsync(string email)
         {
-            var query = _dbSet.Where(c => c.IsActive).AsQueryable();
+            return await _dbSet
+                .Where(c => c.Email.ToLower() == email.ToLower())
+                .Select(c => (long?)c.CandidateProfileId)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<PagedResult<CandidateProfile>> GetPagedAsync(PagedRequest request, List<long>? talentPoolIds = null, List<string>? tags = null)
+        {
+            // CalculateCompleteness (CandidateProfileMapper.ToSummaryResponse) reads these
+            // collections - without the Includes they're always empty here, undercounting
+            // every candidate's completeness in the list regardless of their real data.
+            var query = _dbSet
+                .Where(c => c.IsActive)
+                .Include(c => c.Educations).ThenInclude(e => e.Degree)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)
+                .Include(c => c.WorkExperiences)
+                .Include(c => c.Skills)
+                .Include(c => c.Certifications)
+                .Include(c => c.Documents)
+                .Include(c => c.Gender)
+                .AsSplitQuery()
+                .AsQueryable();
+
+            if (talentPoolIds != null && talentPoolIds.Count > 0)
+            {
+                var matchingProfileIds = _dbContext.TalentPoolCandidates
+                    .Where(tc => talentPoolIds.Contains(tc.TalentPoolId))
+                    .Select(tc => tc.CandidateProfileId);
+
+                query = query.Where(c => matchingProfileIds.Contains(c.CandidateProfileId));
+            }
+
+            if (tags != null && tags.Count > 0)
+                query = query.Where(c => c.Tags.Any(t => tags.Contains(t.TagName)));
+
             return await query.ToPaginatedResultAsync(request);
         }
 
@@ -29,7 +64,38 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(c => c.Educations)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
+                .Include(c => c.Tags)
                 .Where(c => emailSet.Contains(c.Email))
+                .ToListAsync();
+        }
+
+        public async Task<List<CandidateProfile>> GetAllActiveWithDetailsAsync()
+        {
+            return await _dbSet
+                .Include(c => c.Educations).ThenInclude(e => e.Degree)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)
+                .Include(c => c.WorkExperiences)
+                .Include(c => c.Skills)
+                .Include(c => c.Certifications)
+                .Include(c => c.Documents)
+                .Include(c => c.Gender)
+                .Where(c => c.IsActive)
+                .ToListAsync();
+        }
+
+        public async Task<List<CandidateProfile>> GetByIdsWithDetailsAsync(IEnumerable<long> candidateProfileIds)
+        {
+            var idSet = candidateProfileIds.ToList();
+            return await _dbSet
+                .Include(c => c.Educations).ThenInclude(e => e.Degree)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
+                .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)
+                .Include(c => c.WorkExperiences)
+                .Include(c => c.Skills)
+                .Include(c => c.Certifications)
+                .Include(c => c.Gender)
+                .Where(c => idSet.Contains(c.CandidateProfileId))
                 .ToListAsync();
         }
     }

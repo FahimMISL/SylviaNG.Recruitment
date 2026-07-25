@@ -13,9 +13,11 @@
   <ItemGroup>
 
     <!-- Multi-Tenancy Dependencies -->
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
     <PackageReference Include="Finbuckle.MultiTenant.AspNetCore" Version="10.0.4" />
     <PackageReference Include="Finbuckle.MultiTenant.EntityFrameworkCore" Version="10.0.4" />
+    <PackageReference Include="MailKit" Version="4.17.0" />
 
     <!-- MediatR Dependencies -->
     <PackageReference Include="MediatR" Version="14.1.0" />
@@ -42,6 +44,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
     <PackageReference Include="Oracle.EntityFrameworkCore" Version="10.23.26100" />
+    <PackageReference Include="QuestPDF" Version="2026.7.1" />
     <PackageReference Include="Steeltoe.Configuration.ConfigServer" Version="4.1.0" />
     <PackageReference Include="Steeltoe.Management.Endpoint" Version="4.1.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
