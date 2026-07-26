@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Http;
+using SylviaNG.Recruitment.Application.Extensions;
 using SylviaNG.Recruitment.Application.Features.Dashboard.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Enums;
-using System.Security.Claims;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -61,8 +61,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var user = _httpContextAccessor.HttpContext?.User
                 ?? throw new UnauthorizedAccessException("No authenticated user in the current request.");
 
-            var roleValue = user.FindFirst(ClaimTypes.Role)?.Value;
-            return Enum.TryParse<UserRoleEnum>(roleValue, true, out var role) ? role : UserRoleEnum.Candidate;
+            return user.GetHighestRole();
         }
     }
 }

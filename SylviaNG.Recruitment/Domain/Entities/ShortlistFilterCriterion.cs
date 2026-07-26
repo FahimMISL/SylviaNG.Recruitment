@@ -33,9 +33,8 @@ public class ShortlistFilterCriterion : Audit
     // free-text address (no structured district field exists on CandidateProfile).
     public string? RequiredDistrict { get; set; }
 
-    // CriterionType.MinScreeningScore - no score field exists anywhere yet (AI resume
-    // screening is a separate, unbuilt story); this criterion always evaluates as unmet
-    // until that lands. Documented gap, not a special-cased no-op in the UI.
+    // CriterionType.MinScreeningScore - compared against the latest AutoShortlistRun score for
+    // the application (US-046). Unmet if no run has scored the application yet.
     public int? MinScreeningScore { get; set; }
 
     // Navigation properties
