@@ -220,7 +220,14 @@ public enum RecruitmentEventEnum
     AppointmentLetterGenerated,
     JoiningBookletAvailable,
     MedicalLetterAvailable,
-    TargetLetterAvailable
+    TargetLetterAvailable,
+
+    /// <summary>EP-12 US-094: candidate notified to fill the pre-boarding form after entering the
+    /// Final Selection Pool.</summary>
+    PreBoardingRequested,
+
+    /// <summary>EP-12 US-095: HR notified of a candidate's final pre-boarding submission.</summary>
+    PreBoardingSubmitted
 }
 
 /// <summary>EP-09: delivery channel a NotificationTemplate is written for. Only Email has a working
@@ -280,4 +287,12 @@ public enum DocumentAcceptanceStatusEnum
     Accepted,
     Declined,
     NotApplicable
+}
+
+/// <summary>EP-12 US-095: lifecycle of a candidate's PreBoardingSubmission. F2 (validation/
+/// correction-request) will add Approved/NeedsCorrection later - not defined here.</summary>
+public enum PreBoardingSubmissionStatusEnum
+{
+    Draft,
+    Submitted
 }

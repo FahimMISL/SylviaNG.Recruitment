@@ -138,6 +138,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IJoiningBookletRepository, JoiningBookletRepository>();
             services.AddScoped<IMedicalLetterRepository, MedicalLetterRepository>();
             services.AddScoped<ITargetLetterRepository, TargetLetterRepository>();
+            services.AddScoped<IFinalSelectionPoolRepository, FinalSelectionPoolRepository>();
+            services.AddScoped<IPreBoardingSubmissionRepository, PreBoardingSubmissionRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();

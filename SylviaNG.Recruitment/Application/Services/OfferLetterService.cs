@@ -22,6 +22,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ICurrentCandidateService _currentCandidateService;
         private readonly INotificationDispatchService _notificationDispatchService;
         private readonly IApplicationSettingService _applicationSettingService;
+        private readonly IFinalSelectionPoolService _finalSelectionPoolService;
         private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -37,6 +38,7 @@ namespace SylviaNG.Recruitment.Application.Services
             ICurrentCandidateService currentCandidateService,
             INotificationDispatchService notificationDispatchService,
             IApplicationSettingService applicationSettingService,
+            IFinalSelectionPoolService finalSelectionPoolService,
             IOptions<PortalSettings> portalSettings,
             IUnitOfWork unitOfWork)
         {
@@ -49,6 +51,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _currentCandidateService = currentCandidateService;
             _notificationDispatchService = notificationDispatchService;
             _applicationSettingService = applicationSettingService;
+            _finalSelectionPoolService = finalSelectionPoolService;
             _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
         }
@@ -157,6 +160,12 @@ namespace SylviaNG.Recruitment.Application.Services
             await _unitOfWork.SaveChangesAsync();
 
             await NotifyHrOfDecisionAsync(entity, RecruitmentEventEnum.OfferAccepted);
+
+            // EP-12 US-094: entering the Final Selection Pool is the onboarding pipeline's entry
+            // point - every Accepted offer gets exactly one pool row, created here so no other path
+            // can accept an offer without also enrolling it in the pool.
+            await _finalSelectionPoolService.CreateFromAcceptedOfferAsync(entity);
+
             return entity.ToResponse();
         }
 

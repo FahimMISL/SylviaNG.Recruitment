@@ -26,6 +26,7 @@ public class OfferLetterServiceTests
     private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
     private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
     private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
+    private readonly Mock<IFinalSelectionPoolService> _finalSelectionPoolServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly OfferLetterService _service;
 
@@ -43,6 +44,7 @@ public class OfferLetterServiceTests
         _currentCandidateServiceMock.Setup(c => c.GetOrCreateCurrentProfileIdAsync()).ReturnsAsync(CandidateProfileId);
         _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
         _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
+        _finalSelectionPoolServiceMock = new Mock<IFinalSelectionPoolService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
@@ -56,6 +58,7 @@ public class OfferLetterServiceTests
             _currentCandidateServiceMock.Object,
             _notificationDispatchServiceMock.Object,
             _applicationSettingServiceMock.Object,
+            _finalSelectionPoolServiceMock.Object,
             Options.Create(new PortalSettings()),
             _unitOfWorkMock.Object);
     }
@@ -231,6 +234,7 @@ public class OfferLetterServiceTests
             It.IsAny<NotificationDispatchTargets>(),
             true,
             It.IsAny<CancellationToken>()), Times.Once);
+        _finalSelectionPoolServiceMock.Verify(s => s.CreateFromAcceptedOfferAsync(entity), Times.Once);
     }
 
     [Fact]

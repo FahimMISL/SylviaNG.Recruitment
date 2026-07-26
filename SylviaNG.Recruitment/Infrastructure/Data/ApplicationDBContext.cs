@@ -126,6 +126,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<MedicalLetter> MedicalLetters { get; set; }
         public DbSet<TargetLetter> TargetLetters { get; set; }
         public DbSet<CandidateLoginOtp> CandidateLoginOtps { get; set; }
+        public DbSet<FinalSelectionPool> FinalSelectionPools { get; set; }
+        public DbSet<PreBoardingSubmission> PreBoardingSubmissions { get; set; }
+        public DbSet<PreBoardingNominee> PreBoardingNominees { get; set; }
 
         #endregion
 
