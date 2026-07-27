@@ -2,9 +2,11 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Commands.ExportRequestCreate;
+using SylviaNG.Recruitment.Application.Features.ExportRequests.Commands.ExportRequestCreateBulkCvZip;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Models;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Queries.ExportRequestDownload;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Queries.ExportRequestGetPaged;
+using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
 
 namespace SylviaNG.Recruitment.Controllers
@@ -27,6 +29,15 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult<long>> RequestCandidateListExport([FromBody] ExportRequestCreateRequest request)
         {
             var id = await _mediator.Send(new ExportRequestCreateCommand(request));
+            return Ok(id);
+        }
+
+        /// <summary>US-101: queues a large bulk-CV-ZIP request (JobApplicationController's
+        /// bulk-download-cvs is the synchronous counterpart for small batches).</summary>
+        [HttpPost("bulk-cv-zip")]
+        public async Task<ActionResult<long>> RequestBulkCvZipExport([FromBody] JobApplicationCvBulkDownloadRequest request)
+        {
+            var id = await _mediator.Send(new ExportRequestCreateBulkCvZipCommand(request.JobApplicationIds));
             return Ok(id);
         }
 

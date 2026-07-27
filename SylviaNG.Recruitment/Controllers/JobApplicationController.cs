@@ -156,6 +156,19 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
+        /// Synchronous bulk-ZIP download of selected applications' system-rendered CVs, capped at
+        /// JobApplicationService.BulkDownloadCvsSyncMaxCount (US-101). Larger batches should use
+        /// POST recruitment/export-requests/bulk-cv-zip instead.
+        /// </summary>
+        [HttpPost("bulk-download-cvs")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<IActionResult> BulkDownloadCvs([FromBody] JobApplicationCvBulkDownloadRequest request)
+        {
+            var file = await _jobApplicationService.BulkDownloadCvsAsync(request);
+            return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>
         /// HR submits an application on behalf of a candidate (agency/direct outreach), to any open
         /// vacancy regardless of its audience restriction. Recorded with Source=Admin (US-034).
         /// </summary>

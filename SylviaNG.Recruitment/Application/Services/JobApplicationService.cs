@@ -22,6 +22,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobPostingRepository _jobPostingRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IApplicationCvStorageService _applicationCvStorageService;
+        private readonly ICvPdfGeneratorService _cvPdfGeneratorService;
         private readonly IApplicationStatusReasonRepository _applicationStatusReasonRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICurrentCandidateService _currentCandidateService;
@@ -73,6 +74,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IJobPostingRepository jobPostingRepository,
             ICandidateProfileRepository candidateProfileRepository,
             IApplicationCvStorageService applicationCvStorageService,
+            ICvPdfGeneratorService cvPdfGeneratorService,
             IApplicationStatusReasonRepository applicationStatusReasonRepository,
             ICurrentUserService currentUserService,
             ICurrentCandidateService currentCandidateService,
@@ -87,6 +89,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _jobPostingRepository = jobPostingRepository;
             _candidateProfileRepository = candidateProfileRepository;
             _applicationCvStorageService = applicationCvStorageService;
+            _cvPdfGeneratorService = cvPdfGeneratorService;
             _applicationStatusReasonRepository = applicationStatusReasonRepository;
             _currentUserService = currentUserService;
             _currentCandidateService = currentCandidateService;
@@ -581,6 +584,70 @@ namespace SylviaNG.Recruitment.Application.Services
 
             await _unitOfWork.SaveChangesAsync();
             return result;
+        }
+
+        // US-101: batches above this size go through the EP-13 F1 async export queue
+        // (IExportRequestService.RequestBulkCvZipExportAsync) instead - QuestPDF rendering per
+        // candidate is heavier than the cheap row-append bulk-status/bulk-notify do, so the
+        // sync-download cap is intentionally much lower than BulkNotifyAsync's 500.
+        public const int BulkDownloadCvsSyncMaxCount = 20;
+
+        public async Task<JobApplicationCvBulkDownloadResponse> BulkDownloadCvsAsync(JobApplicationCvBulkDownloadRequest request)
+        {
+            var jobApplicationIds = request.JobApplicationIds.Distinct().ToList();
+
+            if (jobApplicationIds.Count == 0)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.JobApplicationIds), "Select at least one candidate.")
+                });
+            }
+
+            if (jobApplicationIds.Count > BulkDownloadCvsSyncMaxCount)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.JobApplicationIds),
+                        $"A synchronous bulk CV download cannot exceed {BulkDownloadCvsSyncMaxCount} applications - use the Export Requests queue for larger batches.")
+                });
+            }
+
+            var applications = _jobApplicationRepository.Query()
+                .Where(a => jobApplicationIds.Contains(a.JobApplicationId))
+                .ToList();
+
+            var content = await BuildCvZipAsync(applications, CancellationToken.None);
+
+            return new JobApplicationCvBulkDownloadResponse
+            {
+                Content = content,
+                ContentType = "application/zip",
+                FileName = $"Candidate-CVs-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip"
+            };
+        }
+
+        private async Task<byte[]> BuildCvZipAsync(List<JobApplication> applications, CancellationToken cancellationToken)
+        {
+            var profileIds = applications
+                .Where(a => a.CandidateProfileId.HasValue)
+                .Select(a => a.CandidateProfileId!.Value)
+                .Distinct()
+                .ToList();
+
+            var profilesById = profileIds.Count == 0
+                ? new Dictionary<long, CandidateProfile>()
+                : (await _candidateProfileRepository.GetByIdsWithDetailsAsync(profileIds)).ToDictionary(p => p.CandidateProfileId);
+
+            // Guest applicants with no CandidateProfileId have no system-rendered CV to include -
+            // silently skipped, consistent with US-101 AC5 ("only CVs accessible to permission level").
+            var items = applications
+                .Where(a => a.CandidateProfileId.HasValue && profilesById.ContainsKey(a.CandidateProfileId.Value))
+                .Select(a => (a.JobApplicationId, a.CandidateName, profilesById[a.CandidateProfileId!.Value]));
+
+            return await CvZipBuilder.BuildAsync(items, _cvPdfGeneratorService, cancellationToken);
         }
 
         private async Task ApplyStatusChangeAsync(JobApplication entity, JobApplicationStatusUpdateRequest request)

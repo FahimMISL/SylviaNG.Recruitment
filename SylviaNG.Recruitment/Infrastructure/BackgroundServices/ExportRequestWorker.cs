@@ -85,7 +85,11 @@ namespace SylviaNG.Recruitment.Infrastructure.BackgroundServices
                 try
                 {
                     var jobApplicationIds = JsonSerializer.Deserialize<List<long>>(entity.JobApplicationIdsJson) ?? new List<long>();
-                    var file = await exportGenerationService.GenerateCandidateListExportAsync(jobApplicationIds, entity.Format, stoppingToken);
+                    var file = entity.ExportType switch
+                    {
+                        ExportTypeEnum.BulkCvZip => await exportGenerationService.GenerateBulkCvZipAsync(jobApplicationIds, stoppingToken),
+                        _ => await exportGenerationService.GenerateCandidateListExportAsync(jobApplicationIds, entity.Format, stoppingToken)
+                    };
 
                     entity.Content = file.Content;
                     entity.ContentType = file.ContentType;

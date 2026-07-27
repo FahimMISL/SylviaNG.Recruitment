@@ -13,5 +13,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
             List<long> jobApplicationIds,
             Domain.Enums.ExportFormatEnum format,
             CancellationToken cancellationToken = default);
+
+        /// <summary>US-101: large-batch counterpart to JobApplicationService.BulkDownloadCvsAsync's
+        /// synchronous path - same one-PDF-per-application ZIP, rendered on the worker thread.</summary>
+        Task<ExportFileResult> GenerateBulkCvZipAsync(
+            List<long> jobApplicationIds,
+            CancellationToken cancellationToken = default);
     }
 }

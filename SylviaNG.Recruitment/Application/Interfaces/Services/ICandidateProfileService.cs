@@ -24,6 +24,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// <summary>Full read-only aggregate of one candidate's profile, for HR/Admin (US-009).</summary>
         Task<CandidateProfileDetailResponse> GetProfileDetailAsync(long candidateProfileId);
 
+        /// <summary>US-103: standardized, branded profile summary PDF (personal details, education/
+        /// experience summary, skills, certifications, latest screening score if any).</summary>
+        Task<CandidateProfileDownloadResponse> DownloadProfilePdfAsync(long candidateProfileId);
+
         /// <summary>HR/Admin-only annotation on a candidate's profile (US-009 AC5).</summary>
         Task UpdateHrNotesAsync(long candidateProfileId, string? hrNotes);
 
