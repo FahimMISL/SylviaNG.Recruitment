@@ -144,6 +144,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IFitmentDataRepository, FitmentDataRepository>();
             services.AddScoped<IOfficeNoteRepository, OfficeNoteRepository>();
             services.AddScoped<IExportRequestRepository, ExportRequestRepository>();
+            services.AddScoped<ICompanyBrandingRepository, CompanyBrandingRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -190,6 +191,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
 
             // EP-12 US-129: office note PDF generation, same QuestPDF pattern/storage reuse as above.
             services.AddScoped<IOfficeNotePdfGeneratorService, QuestPdfOfficeNoteGenerator>();
+
+            // EP-18 F1: resolves the active CompanyBranding for shared document components
+            // (Infrastructure/Documents/Shared) - consumed by all 10 generators as of F2/F3.
+            services.AddScoped<IBrandingResolverService, BrandingResolverService>();
+
+            // EP-18 F3: admin-facing branding settings CRUD + logo upload + sample-preview PDF.
+            services.AddScoped<ICompanyBrandingService, CompanyBrandingService>();
+            services.AddScoped<IBrandingPreviewPdfGeneratorService, BrandingPreviewPdfGenerator>();
 
             // Exam enrollment notifications (US-055/US-056): real SMTP email via MailKit, SMS is a
             // logging stub until a real gateway is integrated - disabled/off by default, see

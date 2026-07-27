@@ -485,7 +485,7 @@ public class CandidateProfileServiceTests
         _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "jane@example.com"))
             .ReturnsAsync(new List<JobApplication>());
         _candidateProfilePdfGeneratorServiceMock.Setup(g => g.Generate(profile, null))
-            .Returns(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
+            .ReturnsAsync(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
 
         var result = await _service.DownloadProfilePdfAsync(1);
 
@@ -512,7 +512,7 @@ public class CandidateProfileServiceTests
             .ReturnsAsync(new Dictionary<long, int> { [10] = 60 });
 
         _candidateProfilePdfGeneratorServiceMock.Setup(g => g.Generate(profile, 85))
-            .Returns(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
+            .ReturnsAsync(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
 
         await _service.DownloadProfilePdfAsync(1);
 

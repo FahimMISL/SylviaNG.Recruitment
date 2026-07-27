@@ -86,7 +86,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var placeholderValues = BuildPlaceholderValues(jobApplication, request);
             var renderedBody = _placeholderSubstitutionService.Render(template.Body, placeholderValues);
 
-            var pdfBytes = _offerLetterPdfGeneratorService.Generate(template.Name, jobApplication.CandidateName, renderedBody);
+            var pdfBytes = await _offerLetterPdfGeneratorService.Generate(template.Name, jobApplication.CandidateName, renderedBody, jobApplication.JobApplicationId);
 
             using var pdfStream = new MemoryStream(pdfBytes);
             var (_, filePath) = await _fileStorageService.SaveAsync(pdfStream, "offer-letter.pdf", PdfStorageSubFolder);

@@ -34,7 +34,7 @@ namespace SylviaNG.Recruitment.Application.Features.ExamTaking.Queries.ExamTakin
             if (enrollment.JobApplication.CandidateProfileId != candidateProfileId)
                 throw new ForbiddenException("This exam enrollment does not belong to you.");
 
-            var content = _admitCardPdfGeneratorService.Generate(enrollment, enrollment.Exam, enrollment.JobApplication);
+            var content = await _admitCardPdfGeneratorService.Generate(enrollment, enrollment.Exam, enrollment.JobApplication);
 
             return new ExamFileResponse
             {

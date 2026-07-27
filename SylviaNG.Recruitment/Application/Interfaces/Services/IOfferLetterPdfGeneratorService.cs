@@ -8,6 +8,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     /// </summary>
     public interface IOfferLetterPdfGeneratorService
     {
-        byte[] Generate(string documentTitle, string candidateName, string renderedBody);
+        Task<byte[]> Generate(string documentTitle, string candidateName, string renderedBody, long sequenceValue);
     }
 }

@@ -1,93 +1,70 @@
+using Microsoft.AspNetCore.Hosting;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
+using SylviaNG.Recruitment.Infrastructure.Documents.Shared;
 
 namespace SylviaNG.Recruitment.Infrastructure.Documents
 {
     /// <summary>
-    /// US-103: standardized, branded candidate profile summary (photo/personal details/contact,
-    /// education/experience summary, skills, certifications, screening score) for sharing with
-    /// interview panels without sending the raw CV. Same QuestPDF Document.Create / Compose* /
-    /// TryLoadPhoto shape as QuestPdfCvGenerator and QuestPdfAdmitCardGenerator.
+    /// EP-18 F3: branded candidate profile summary (US-103) for sharing with interview panels
+    /// without sending the raw CV. Distinct from QuestPdfCvGenerator - adds a screening-score
+    /// line, omits the "Curriculum Vitae" framing. No QR/signature block, same reasoning as the
+    /// CV generator (personal profile export, not an official outbound letter).
     /// </summary>
     public class QuestPdfCandidateProfileGenerator : ICandidateProfilePdfGeneratorService
     {
         private readonly IWebHostEnvironment _environment;
+        private readonly IBrandingResolverService _brandingResolverService;
 
-        public QuestPdfCandidateProfileGenerator(IWebHostEnvironment environment)
+        public QuestPdfCandidateProfileGenerator(IWebHostEnvironment environment, IBrandingResolverService brandingResolverService)
         {
             _environment = environment;
+            _brandingResolverService = brandingResolverService;
         }
 
-        public byte[] Generate(CandidateProfile profile, int? screeningScore)
+        public async Task<byte[]> Generate(CandidateProfile profile, int? screeningScore)
         {
-            var photoBytes = TryLoadPhoto(profile.ProfilePhotoPath);
+            var branding = await _brandingResolverService.GetActiveBrandingAsync();
+            var photoBytes = RelativeFileLoader.TryLoad(_environment, profile.ProfilePhotoPath);
+            var logoBytes = RelativeFileLoader.TryLoad(_environment, branding.LogoFilePath);
+            var referenceNumber = ReferenceNumberComponent.BuildReferenceNumber(branding, "PROFILE", DateTime.UtcNow.Year, profile.CandidateProfileId);
 
             var document = Document.Create(container =>
             {
                 container.Page(page =>
                 {
                     page.Size(PageSizes.A4);
-                    page.Margin(36);
-                    page.DefaultTextStyle(x => x.FontSize(10).FontColor(Colors.Grey.Darken3));
+                    page.MarginTop(branding.MarginTop);
+                    page.MarginBottom(branding.MarginBottom);
+                    page.MarginLeft(branding.MarginLeft);
+                    page.MarginRight(branding.MarginRight);
+                    page.DefaultTextStyle(x => x
+                        .FontSize(10)
+                        .FontFamily(string.IsNullOrWhiteSpace(branding.FontFamily) ? "Helvetica" : branding.FontFamily)
+                        .FontColor(DocumentFrame.ResolveColor(branding.SecondaryColor, Colors.Grey.Darken3)));
 
-                    page.Header().Element(header => ComposeHeader(header, profile, photoBytes));
-                    page.Content().PaddingTop(15).Element(content => ComposeContent(content, profile, screeningScore));
-
-                    page.Footer().AlignCenter().Text(x =>
-                    {
-                        x.Span("SylviaNG Recruitment - Candidate Profile - Page ").FontSize(8);
-                        x.CurrentPageNumber().FontSize(8);
-                        x.Span(" of ").FontSize(8);
-                        x.TotalPages().FontSize(8);
-                    });
+                    page.Header().Component(new DocumentHeaderComponent(branding, "Candidate Profile Summary", referenceNumber, DateTime.UtcNow, logoBytes));
+                    page.Content().PaddingTop(15).Element(content => DocumentFrame.ComposeWatermarked(content, branding,
+                        inner => ComposeFramedContent(inner, branding, profile, screeningScore, photoBytes)));
+                    page.Footer().Element(footer => footer.Component(new DocumentFooterComponent(branding)));
                 });
             });
 
             return document.GeneratePdf();
         }
 
-        private static void ComposeHeader(IContainer container, CandidateProfile profile, byte[]? photoBytes)
+        private static void ComposeFramedContent(IContainer container, CompanyBranding branding, CandidateProfile profile, int? screeningScore, byte[]? photoBytes)
         {
-            container.Row(row =>
-            {
-                row.RelativeItem().Column(column =>
-                {
-                    column.Item().Text(profile.FullName).FontSize(20).Bold().FontColor(Colors.Blue.Darken2);
-                    column.Item().Text("Candidate Profile Summary").FontSize(11).Italic().FontColor(Colors.Grey.Medium);
-
-                    column.Item().PaddingTop(8).Text(text =>
-                    {
-                        text.Span("Email: ").SemiBold();
-                        text.Span(profile.Email);
-                    });
-
-                    if (!string.IsNullOrWhiteSpace(profile.Phone))
-                    {
-                        column.Item().Text(text =>
-                        {
-                            text.Span("Phone: ").SemiBold();
-                            text.Span(profile.Phone);
-                        });
-                    }
-                });
-
-                if (photoBytes != null)
-                {
-                    row.ConstantItem(80).Height(90).Image(photoBytes).FitArea();
-                }
-            });
-        }
-
-        private static void ComposeContent(IContainer container, CandidateProfile profile, int? screeningScore)
-        {
-            container.Column(column =>
+            DocumentFrame.ApplyBorder(container, branding).Padding(10).Column(column =>
             {
                 column.Spacing(14);
 
-                column.Item().Element(section => ComposeSection(section, "Personal Details", body => body.Column(inner =>
+                column.Item().Element(section => ComposeCandidateSummary(section, branding, profile, photoBytes));
+
+                column.Item().Element(section => ComposeSection(section, branding, "Personal Details", body => body.Column(inner =>
                 {
                     inner.Spacing(2);
 
@@ -114,7 +91,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
                 var educations = profile.Educations.OrderByDescending(e => e.PassingYear).ToList();
                 if (educations.Count > 0)
                 {
-                    column.Item().Element(section => ComposeSection(section, "Education", body => body.Table(table =>
+                    column.Item().Element(section => ComposeSection(section, branding, "Education", body => body.Table(table =>
                     {
                         table.ColumnsDefinition(columns =>
                         {
@@ -127,11 +104,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
 
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCell).Text("Degree");
-                            header.Cell().Element(HeaderCell).Text("Institution");
-                            header.Cell().Element(HeaderCell).Text("Major");
-                            header.Cell().Element(HeaderCell).Text("Year");
-                            header.Cell().Element(HeaderCell).Text("Result");
+                            header.Cell().Element(cell => HeaderCell(cell, branding)).Text("Degree");
+                            header.Cell().Element(cell => HeaderCell(cell, branding)).Text("Institution");
+                            header.Cell().Element(cell => HeaderCell(cell, branding)).Text("Major");
+                            header.Cell().Element(cell => HeaderCell(cell, branding)).Text("Year");
+                            header.Cell().Element(cell => HeaderCell(cell, branding)).Text("Result");
                         });
 
                         foreach (var education in educations)
@@ -152,7 +129,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
 
                 if (experiences.Count > 0)
                 {
-                    column.Item().Element(section => ComposeSection(section, "Work Experience", body =>
+                    column.Item().Element(section => ComposeSection(section, branding, "Work Experience", body =>
                     {
                         body.Column(inner =>
                         {
@@ -180,12 +157,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
                     var skillsText = string.Join(", ", profile.Skills.Select(s =>
                         string.IsNullOrWhiteSpace(s.ProficiencyLevel) ? s.SkillName : $"{s.SkillName} ({s.ProficiencyLevel})"));
 
-                    column.Item().Element(section => ComposeSection(section, "Skills", body => body.Text(skillsText)));
+                    column.Item().Element(section => ComposeSection(section, branding, "Skills", body => body.Text(skillsText)));
                 }
 
                 if (profile.Certifications.Count > 0)
                 {
-                    column.Item().Element(section => ComposeSection(section, "Certifications", body =>
+                    column.Item().Element(section => ComposeSection(section, branding, "Certifications", body =>
                     {
                         body.Column(inner =>
                         {
@@ -201,36 +178,53 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
             });
         }
 
-        private static void ComposeSection(IContainer container, string title, Action<IContainer> body)
+        private static void ComposeCandidateSummary(IContainer container, CompanyBranding branding, CandidateProfile profile, byte[]? photoBytes)
+        {
+            container.Row(row =>
+            {
+                row.RelativeItem().Column(column =>
+                {
+                    column.Item().Text(profile.FullName).FontSize(18).Bold().FontColor(DocumentFrame.ResolveColor(branding.PrimaryColor, Colors.Brown.Darken2));
+
+                    column.Item().PaddingTop(6).Text(text =>
+                    {
+                        text.Span("Email: ").SemiBold();
+                        text.Span(profile.Email);
+                    });
+
+                    if (!string.IsNullOrWhiteSpace(profile.Phone))
+                    {
+                        column.Item().Text(text =>
+                        {
+                            text.Span("Phone: ").SemiBold();
+                            text.Span(profile.Phone);
+                        });
+                    }
+                });
+
+                if (photoBytes != null)
+                {
+                    row.ConstantItem(80).Height(90).Border(1).BorderColor(DocumentFrame.ResolveColor(branding.AccentColor, Colors.Brown.Lighten4)).Padding(2).Image(photoBytes).FitArea();
+                }
+            });
+        }
+
+        private static void ComposeSection(IContainer container, CompanyBranding branding, string title, Action<IContainer> body)
         {
             container.Column(column =>
             {
-                column.Item().BorderBottom(1).BorderColor(Colors.Blue.Darken2).PaddingBottom(2)
-                    .Text(title).FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                var primaryColor = DocumentFrame.ResolveColor(branding.PrimaryColor, Colors.Brown.Darken2);
+                column.Item().Background(primaryColor).Padding(4)
+                    .Text(title).FontSize(10).Bold().FontColor(Colors.White);
                 column.Item().PaddingTop(6).Element(body.Invoke);
             });
         }
 
-        private static IContainer HeaderCell(IContainer container) =>
-            container.DefaultTextStyle(x => x.SemiBold().FontSize(9)).PaddingBottom(3).BorderBottom(1).BorderColor(Colors.Grey.Lighten1);
+        private static IContainer HeaderCell(IContainer container, CompanyBranding branding) =>
+            container.Background(DocumentFrame.ResolveColor(branding.AccentColor, Colors.Brown.Lighten4))
+                .DefaultTextStyle(x => x.SemiBold().FontSize(9)).Padding(3);
 
         private static IContainer BodyCell(IContainer container) =>
             container.PaddingVertical(3).DefaultTextStyle(x => x.FontSize(9));
-
-        private byte[]? TryLoadPhoto(string? relativePath)
-        {
-            if (string.IsNullOrWhiteSpace(relativePath))
-                return null;
-
-            try
-            {
-                var physicalPath = Path.Combine(_environment.ContentRootPath, "wwwroot", relativePath.TrimStart('/'));
-                return File.Exists(physicalPath) ? File.ReadAllBytes(physicalPath) : null;
-            }
-            catch (IOException)
-            {
-                return null;
-            }
-        }
     }
 }

@@ -33,7 +33,7 @@ public class ExamNotificationServiceTests
 
         _admitCardPdfGeneratorServiceMock
             .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
-            .Returns(new byte[] { 1, 2, 3 });
+            .ReturnsAsync(new byte[] { 1, 2, 3 });
 
         _service = new ExamNotificationService(
             _examEnrollmentRepositoryMock.Object,

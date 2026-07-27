@@ -1,66 +1,34 @@
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
+using Microsoft.AspNetCore.Hosting;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Infrastructure.Documents.Shared;
 
 namespace SylviaNG.Recruitment.Infrastructure.Documents
 {
     /// <summary>
-    /// Single-page appointment letter (EP-10 US-083). Same QuestPDF Document.Create / Compose*
-    /// shape as QuestPdfOfferLetterGenerator - finalBody is plain text with line breaks, each line
-    /// becomes its own paragraph.
+    /// EP-18 F3: branded appointment letter (EP-10 US-083), rolled onto BrandedLetterPdfComposer -
+    /// same "letter" shape as QuestPdfOfferLetterGenerator.
     /// </summary>
     public class QuestPdfAppointmentLetterGenerator : IAppointmentLetterPdfGeneratorService
     {
-        public byte[] Generate(string documentTitle, string candidateName, string finalBody)
+        private readonly IWebHostEnvironment _environment;
+        private readonly IBrandingResolverService _brandingResolverService;
+
+        public QuestPdfAppointmentLetterGenerator(IWebHostEnvironment environment, IBrandingResolverService brandingResolverService)
         {
-            var document = Document.Create(container =>
-            {
-                container.Page(page =>
-                {
-                    page.Size(PageSizes.A4);
-                    page.Margin(40);
-                    page.DefaultTextStyle(x => x.FontSize(11).FontColor(Colors.Grey.Darken3));
-
-                    page.Header().Element(header => ComposeHeader(header, documentTitle, candidateName));
-                    page.Content().PaddingTop(15).Element(content => ComposeContent(content, finalBody));
-
-                    page.Footer().AlignCenter().Text("This is a system-generated document.")
-                        .FontSize(8).FontColor(Colors.Grey.Medium);
-                });
-            });
-
-            return document.GeneratePdf();
+            _environment = environment;
+            _brandingResolverService = brandingResolverService;
         }
 
-        private static void ComposeHeader(IContainer container, string documentTitle, string candidateName)
+        public async Task<byte[]> Generate(string documentTitle, string candidateName, string finalBody, long sequenceValue)
         {
-            container.Column(column =>
-            {
-                column.Item().Text(documentTitle).FontSize(18).Bold().FontColor(Colors.Blue.Darken2);
-                column.Item().Text($"Prepared for: {candidateName}").FontSize(10).Italic().FontColor(Colors.Grey.Medium);
-            });
-        }
+            var branding = await _brandingResolverService.GetActiveBrandingAsync();
+            var logoBytes = RelativeFileLoader.TryLoad(_environment, branding.LogoFilePath);
+            var issueDate = DateTime.UtcNow;
+            var referenceNumber = ReferenceNumberComponent.BuildReferenceNumber(branding, "APPOINTMENT", issueDate.Year, sequenceValue);
 
-        private static void ComposeContent(IContainer container, string finalBody)
-        {
-            container.Column(column =>
-            {
-                column.Spacing(6);
-
-                var lines = finalBody.Replace("\r\n", "\n").Split('\n');
-                foreach (var line in lines)
-                {
-                    if (string.IsNullOrWhiteSpace(line))
-                    {
-                        column.Item().Height(6);
-                    }
-                    else
-                    {
-                        column.Item().Text(line);
-                    }
-                }
-            });
+            return BrandedLetterPdfComposer.Compose(
+                branding, documentTitle, candidateName, finalBody, referenceNumber, issueDate, logoBytes,
+                signeeName: "Head of HR", signeeTitle: "Authorized Signatory");
         }
     }
 }

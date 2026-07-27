@@ -153,8 +153,8 @@ namespace SylviaNG.Recruitment.Application.Services
 
                     var entry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
                     await using var entryStream = entry.Open();
-                    var pdfBytes = _joiningBookletPdfGeneratorService.Generate(
-                        booklet.DocumentTemplate.Name, booklet.JobApplication.CandidateName, booklet.RenderedBody);
+                    var pdfBytes = await _joiningBookletPdfGeneratorService.Generate(
+                        booklet.DocumentTemplate.Name, booklet.JobApplication.CandidateName, booklet.RenderedBody, booklet.JoiningBookletId);
                     await entryStream.WriteAsync(pdfBytes);
                 }
             }
@@ -194,8 +194,8 @@ namespace SylviaNG.Recruitment.Application.Services
             };
             var renderedBody = _placeholderSubstitutionService.Render(template.Body, placeholderValues);
 
-            var pdfBytes = _joiningBookletPdfGeneratorService.Generate(
-                template.Name, offerLetter.JobApplication.CandidateName, renderedBody);
+            var pdfBytes = await _joiningBookletPdfGeneratorService.Generate(
+                template.Name, offerLetter.JobApplication.CandidateName, renderedBody, offerLetter.OfferLetterId);
 
             using var pdfStream = new MemoryStream(pdfBytes);
             var (_, filePath) = await _fileStorageService.SaveAsync(pdfStream, "joining-booklet.pdf", PdfStorageSubFolder);

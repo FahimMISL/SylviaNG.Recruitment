@@ -53,8 +53,8 @@ public class JoiningBookletServiceTests
             .Setup(f => f.SaveAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(("abc.pdf", "uploads/documents/joining-booklets/abc.pdf"));
         _pdfGeneratorServiceMock
-            .Setup(p => p.Generate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(new byte[] { 1, 2, 3 });
+            .Setup(p => p.Generate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>()))
+            .ReturnsAsync(new byte[] { 1, 2, 3 });
     }
 
     private static OfferLetter AcceptedOfferLetter(long offerLetterId = 1) => new()
@@ -232,7 +232,7 @@ public class JoiningBookletServiceTests
 
         response.ContentType.Should().Be("application/zip");
         response.Content.Should().NotBeEmpty();
-        _pdfGeneratorServiceMock.Verify(p => p.Generate("Standard Joining Booklet", "John Smith", "Dear John Smith."), Times.Once);
+        _pdfGeneratorServiceMock.Verify(p => p.Generate("Standard Joining Booklet", "John Smith", "Dear John Smith.", 1), Times.Once);
         _fileStorageServiceMock.Verify(f => f.SaveAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 }

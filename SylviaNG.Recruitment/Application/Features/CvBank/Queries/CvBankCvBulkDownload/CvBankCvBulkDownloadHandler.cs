@@ -46,7 +46,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankCvBulkD
 
                     var entry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
                     await using var entryStream = entry.Open();
-                    var pdfBytes = _cvPdfGeneratorService.Generate(profile);
+                    var pdfBytes = await _cvPdfGeneratorService.Generate(profile);
                     await entryStream.WriteAsync(pdfBytes, cancellationToken);
                 }
             }

@@ -47,7 +47,7 @@ public class ExamTakingAdmitCardDownloadHandlerTests
         _currentCandidateServiceMock.Setup(s => s.GetOrCreateCurrentProfileIdAsync()).ReturnsAsync(5);
         _admitCardPdfGeneratorServiceMock
             .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
-            .Returns(new byte[] { 1, 2, 3 });
+            .ReturnsAsync(new byte[] { 1, 2, 3 });
 
         var result = await _handler.Handle(new ExamTakingAdmitCardDownloadQuery(1), CancellationToken.None);
 

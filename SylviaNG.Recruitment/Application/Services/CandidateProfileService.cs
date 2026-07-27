@@ -97,7 +97,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 ?? throw new NotFoundException("CandidateProfile", candidateProfileId);
 
             var screeningScore = await ResolveLatestScreeningScoreAsync(candidateProfileId, entity.Email);
-            var content = _candidateProfilePdfGeneratorService.Generate(entity, screeningScore);
+            var content = await _candidateProfilePdfGeneratorService.Generate(entity, screeningScore);
             var safeName = System.Text.RegularExpressions.Regex.Replace(entity.FullName, @"[^a-zA-Z0-9\-]+", "_").Trim('_');
             if (string.IsNullOrEmpty(safeName))
                 safeName = "candidate";

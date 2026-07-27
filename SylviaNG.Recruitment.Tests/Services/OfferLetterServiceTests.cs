@@ -169,8 +169,8 @@ public class OfferLetterServiceTests
             .Setup(p => p.Render(template.Body, It.IsAny<Dictionary<string, string>>()))
             .Returns("Dear John Smith, you are offered Software Engineer.");
         _pdfGeneratorServiceMock
-            .Setup(p => p.Generate("Standard Offer Letter", "John Smith", "Dear John Smith, you are offered Software Engineer."))
-            .Returns(new byte[] { 1, 2, 3 });
+            .Setup(p => p.Generate("Standard Offer Letter", "John Smith", "Dear John Smith, you are offered Software Engineer.", 5))
+            .ReturnsAsync(new byte[] { 1, 2, 3 });
         _fileStorageServiceMock
             .Setup(f => f.SaveAsync(It.IsAny<Stream>(), "offer-letter.pdf", "documents/offer-letters"))
             .ReturnsAsync(("abc123.pdf", "uploads/job-postings/documents/offer-letters/abc123.pdf"));

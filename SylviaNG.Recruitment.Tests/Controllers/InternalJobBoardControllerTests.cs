@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobApplicationSubmit;
@@ -9,8 +10,10 @@ using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGe
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Controllers;
+using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
+using System.Security.Claims;
 
 namespace SylviaNG.Recruitment.Tests.Controllers;
 
@@ -26,7 +29,23 @@ public class InternalJobBoardControllerTests
         _mediatorMock = new Mock<IMediator>();
         _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
-        _controller = new InternalJobBoardController(_mediatorMock.Object, _currentCandidateServiceMock.Object, _candidateProfileRepositoryMock.Object);
+        _controller = new InternalJobBoardController(_mediatorMock.Object, _currentCandidateServiceMock.Object, _candidateProfileRepositoryMock.Object)
+        {
+            // ControllerBase.User reads ControllerContext.HttpContext.User, which is null unless
+            // explicitly assigned in tests - CurrentUserMayViewInternalPostingsAsync() calls
+            // User.IsInRole(...) before falling back to the candidate-profile check below.
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) }
+            }
+        };
+
+        // Anonymous (no Admin/HR role claim) falls through to the candidate-profile check -
+        // default it to an internal candidate so GetAll/GetById/Apply reach their actual
+        // mediator-delegation logic, which is what these tests assert on.
+        _currentCandidateServiceMock.Setup(s => s.GetCurrentKeycloakSubjectId()).Returns("test-subject");
+        _candidateProfileRepositoryMock.Setup(r => r.GetByKeycloakSubjectIdAsync("test-subject"))
+            .ReturnsAsync(new CandidateProfile { IsManuallyInternal = true });
     }
 
     [Fact]

@@ -105,7 +105,7 @@ namespace SylviaNG.Recruitment.Application.Services
             }
 
             var htmlBody = BuildEmailBody(enrollment, exam, jobApplication);
-            var admitCardPdf = _admitCardPdfGeneratorService.Generate(enrollment, exam, jobApplication);
+            var admitCardPdf = await _admitCardPdfGeneratorService.Generate(enrollment, exam, jobApplication);
 
             var message = new EmailMessage
             {

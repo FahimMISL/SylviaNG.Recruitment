@@ -22,7 +22,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankCvDownl
             var profiles = await _candidateProfileRepository.GetByIdsWithDetailsAsync(new[] { query.CandidateProfileId });
             var profile = profiles.FirstOrDefault() ?? throw new NotFoundException("CandidateProfile", query.CandidateProfileId);
 
-            var pdfBytes = _cvPdfGeneratorService.Generate(profile);
+            var pdfBytes = await _cvPdfGeneratorService.Generate(profile);
 
             return new CvBankCvFileResponse
             {

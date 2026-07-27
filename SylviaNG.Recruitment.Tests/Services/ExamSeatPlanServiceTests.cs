@@ -182,7 +182,7 @@ public class ExamSeatPlanServiceTests
         _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdWithDetailsAsync(1)).ReturnsAsync(enrollments);
         _admitCardPdfGeneratorServiceMock
             .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
-            .Returns(Encoding.UTF8.GetBytes("pdf-bytes"));
+            .ReturnsAsync(Encoding.UTF8.GetBytes("pdf-bytes"));
 
         var (content, fileName) = await _service.GenerateAdmitCardZipAsync(1);
 
@@ -208,7 +208,7 @@ public class ExamSeatPlanServiceTests
         _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdWithDetailsAsync(1)).ReturnsAsync(new List<ExamEnrollment> { enrollment });
         _admitCardPdfGeneratorServiceMock
             .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
-            .Returns(Encoding.UTF8.GetBytes("pdf-bytes"));
+            .ReturnsAsync(Encoding.UTF8.GetBytes("pdf-bytes"));
 
         var (content, _) = await _service.GenerateAdmitCardZipAsync(1);
 
@@ -235,7 +235,7 @@ public class ExamSeatPlanServiceTests
         _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdWithDetailsAsync(1)).ReturnsAsync(new List<ExamEnrollment> { delivered, failed });
         _admitCardPdfGeneratorServiceMock
             .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
-            .Returns(Encoding.UTF8.GetBytes("pdf-bytes"));
+            .ReturnsAsync(Encoding.UTF8.GetBytes("pdf-bytes"));
 
         var (content, _) = await _service.GenerateAdmitCardZipAsync(1);
 

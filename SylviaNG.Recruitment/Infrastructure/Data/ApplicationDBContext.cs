@@ -120,6 +120,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<NotificationLog> NotificationLogs { get; set; }
         public DbSet<DocumentTemplate> DocumentTemplates { get; set; }
         public DbSet<DocumentTemplateVersion> DocumentTemplateVersions { get; set; }
+        public DbSet<CompanyBranding> CompanyBrandings { get; set; }
         public DbSet<OfferLetter> OfferLetters { get; set; }
         public DbSet<AppointmentLetter> AppointmentLetters { get; set; }
         public DbSet<JoiningBooklet> JoiningBooklets { get; set; }

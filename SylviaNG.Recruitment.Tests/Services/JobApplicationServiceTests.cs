@@ -1304,7 +1304,7 @@ public class JobApplicationServiceTests
         var profile = new CandidateProfile { CandidateProfileId = 100, FullName = "Jane Doe" };
         _candidateProfileRepositoryMock.Setup(r => r.GetByIdsWithDetailsAsync(It.Is<IEnumerable<long>>(ids => ids.Contains(100))))
             .ReturnsAsync(new List<CandidateProfile> { profile });
-        _cvPdfGeneratorServiceMock.Setup(g => g.Generate(profile)).Returns(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
+        _cvPdfGeneratorServiceMock.Setup(g => g.Generate(profile)).ReturnsAsync(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
 
         var result = await _service.BulkDownloadCvsAsync(new JobApplicationCvBulkDownloadRequest { JobApplicationIds = new List<long> { 1 } });
 

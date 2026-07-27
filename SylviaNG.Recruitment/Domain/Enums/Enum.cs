@@ -337,3 +337,56 @@ public enum PreBoardingSubmissionStatusEnum
     Approved,
     NeedsCorrection
 }
+
+/// <summary>EP-18 F1: where a QR code, signature block, or seal is placed on a generated
+/// document. Shared by CompanyBranding.QrCodePosition/SignaturePosition/SealPosition.</summary>
+public enum DocumentElementPositionEnum
+{
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+    Center,
+    None
+}
+
+/// <summary>EP-18 F1: CompanyBranding.HeaderLayout - arrangement of logo and text in a
+/// generated document's header, applied by DocumentHeaderComponent.</summary>
+public enum HeaderLayoutEnum
+{
+    LogoLeftTextRight,
+    LogoCenterStacked,
+    LogoRightTextLeft,
+    TextOnly
+}
+
+/// <summary>EP-18 F1: CompanyBranding.FooterLayout - arrangement of company contact info in a
+/// generated document's footer, applied by DocumentFooterComponent.</summary>
+public enum FooterLayoutEnum
+{
+    SingleLineCentered,
+    ThreeColumn,
+    AddressBlockLeft,
+    Minimal
+}
+
+/// <summary>EP-18 F1: CompanyBranding.BorderStyle - page/section border treatment applied
+/// across the shared document component layer.</summary>
+public enum DocumentBorderStyleEnum
+{
+    None,
+    Solid,
+    Double,
+    Rounded
+}
+
+/// <summary>EP-18 F1: CompanyBranding.HeaderDividerStyle/FooterDividerStyle - the rule line
+/// drawn under a document header or above its footer.</summary>
+public enum DocumentDividerStyleEnum
+{
+    None,
+    SolidLine,
+    DoubleLine,
+    Dotted,
+    Dashed
+}

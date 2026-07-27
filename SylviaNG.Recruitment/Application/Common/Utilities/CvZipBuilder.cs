@@ -31,7 +31,7 @@ namespace SylviaNG.Recruitment.Application.Common.Utilities
 
                     var entry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
                     await using var entryStream = entry.Open();
-                    var pdfBytes = cvPdfGeneratorService.Generate(profile);
+                    var pdfBytes = await cvPdfGeneratorService.Generate(profile);
                     await entryStream.WriteAsync(pdfBytes, cancellationToken);
                 }
             }

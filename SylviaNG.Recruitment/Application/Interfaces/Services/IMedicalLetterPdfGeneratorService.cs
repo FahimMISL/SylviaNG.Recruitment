@@ -6,6 +6,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     /// </summary>
     public interface IMedicalLetterPdfGeneratorService
     {
-        byte[] Generate(string documentTitle, string candidateName, string finalBody);
+        Task<byte[]> Generate(string documentTitle, string candidateName, string finalBody, long sequenceValue);
     }
 }

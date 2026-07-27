@@ -50,8 +50,8 @@ public class MedicalLetterServiceTests
             .Setup(f => f.SaveAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(("abc.pdf", "uploads/documents/medical-letters/abc.pdf"));
         _pdfGeneratorServiceMock
-            .Setup(p => p.Generate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(new byte[] { 1, 2, 3 });
+            .Setup(p => p.Generate(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>()))
+            .ReturnsAsync(new byte[] { 1, 2, 3 });
     }
 
     private static OfferLetter AcceptedOfferLetter() => new()

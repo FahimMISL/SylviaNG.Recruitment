@@ -120,7 +120,7 @@ public class ExportGenerationServiceTests
         var profile = new CandidateProfile { CandidateProfileId = 7, FullName = "Jane Doe" };
         _candidateProfileRepositoryMock.Setup(r => r.GetByIdsWithDetailsAsync(It.Is<IEnumerable<long>>(ids => ids.Contains(7))))
             .ReturnsAsync(new List<CandidateProfile> { profile });
-        _cvPdfGeneratorServiceMock.Setup(g => g.Generate(profile)).Returns(Encoding.UTF8.GetBytes("pdf-bytes"));
+        _cvPdfGeneratorServiceMock.Setup(g => g.Generate(profile)).ReturnsAsync(Encoding.UTF8.GetBytes("pdf-bytes"));
 
         var result = await _service.GenerateBulkCvZipAsync(new List<long> { 30 });
 

@@ -95,7 +95,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var enrollments = await _examEnrollmentRepository.GetByExamIdAsync(examId);
 
-            var content = _seatPlanPdfGeneratorService.Generate(exam, enrollments);
+            var content = await _seatPlanPdfGeneratorService.Generate(exam, enrollments);
             var fileName = $"Seat-Plan-{examId}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
 
             return (content, fileName);
@@ -143,7 +143,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var enrollment = await _examEnrollmentRepository.GetByIdWithDetailsAsync(examEnrollmentId)
                 ?? throw new NotFoundException("ExamEnrollment", examEnrollmentId);
 
-            var content = _admitCardPdfGeneratorService.Generate(enrollment, enrollment.Exam, enrollment.JobApplication);
+            var content = await _admitCardPdfGeneratorService.Generate(enrollment, enrollment.Exam, enrollment.JobApplication);
             var fileName = $"Admit-Card-{enrollment.JobApplicationId}.pdf";
 
             return (content, fileName);
@@ -166,7 +166,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
                     var entry = archive.CreateEntry(entryName, CompressionLevel.Fastest);
                     await using var entryStream = entry.Open();
-                    var pdfBytes = _admitCardPdfGeneratorService.Generate(enrollment, enrollment.Exam, enrollment.JobApplication);
+                    var pdfBytes = await _admitCardPdfGeneratorService.Generate(enrollment, enrollment.Exam, enrollment.JobApplication);
                     await entryStream.WriteAsync(pdfBytes);
                 }
             }

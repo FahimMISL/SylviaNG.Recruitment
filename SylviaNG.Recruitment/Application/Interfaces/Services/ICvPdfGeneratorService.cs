@@ -9,6 +9,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     /// </summary>
     public interface ICvPdfGeneratorService
     {
-        byte[] Generate(CandidateProfile profile);
+        Task<byte[]> Generate(CandidateProfile profile);
     }
 }

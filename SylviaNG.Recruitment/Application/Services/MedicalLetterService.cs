@@ -77,8 +77,8 @@ namespace SylviaNG.Recruitment.Application.Services
                         nameof(request.DocumentTemplateId), "The selected template is inactive.")
                 });
 
-            var pdfBytes = _medicalLetterPdfGeneratorService.Generate(
-                template.Name, offerLetter.JobApplication.CandidateName, request.FinalBody);
+            var pdfBytes = await _medicalLetterPdfGeneratorService.Generate(
+                template.Name, offerLetter.JobApplication.CandidateName, request.FinalBody, offerLetter.OfferLetterId);
 
             using var pdfStream = new MemoryStream(pdfBytes);
             var (_, filePath) = await _fileStorageService.SaveAsync(pdfStream, "medical-letter.pdf", PdfStorageSubFolder);

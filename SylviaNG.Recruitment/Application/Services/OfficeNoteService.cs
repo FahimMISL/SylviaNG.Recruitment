@@ -115,7 +115,7 @@ namespace SylviaNG.Recruitment.Application.Services
             };
             var renderedBody = _placeholderSubstitutionService.Render(template.Body, placeholderValues);
 
-            var pdfBytes = _officeNotePdfGeneratorService.Generate(template.Name, jobApplication.CandidateName, renderedBody);
+            var pdfBytes = await _officeNotePdfGeneratorService.Generate(template.Name, jobApplication.CandidateName, renderedBody, jobApplication.JobApplicationId);
 
             using var pdfStream = new MemoryStream(pdfBytes);
             var (_, filePath) = await _fileStorageService.SaveAsync(pdfStream, "office-note.pdf", PdfStorageSubFolder);

@@ -7,6 +7,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     /// Vitae" framing).</summary>
     public interface ICandidateProfilePdfGeneratorService
     {
-        byte[] Generate(CandidateProfile profile, int? screeningScore);
+        Task<byte[]> Generate(CandidateProfile profile, int? screeningScore);
     }
 }
