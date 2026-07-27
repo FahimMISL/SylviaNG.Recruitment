@@ -4,9 +4,10 @@ using SylviaNG.Recruitment.SharedKernel.Audit;
 namespace SylviaNG.Recruitment.Domain.Entities;
 
 /// <summary>
-/// EP-12 US-095: candidate self-service pre-boarding data collection, 1:1 with a FinalSelectionPool
-/// entry. Status starts Draft (auto-created on the candidate's first GET) and locks to Submitted -
-/// F2 (validation/correction-request) owns reopening a locked submission, not built yet. Uses `new`
+/// EP-12 US-095/096: candidate self-service pre-boarding data collection, 1:1 with a
+/// FinalSelectionPool entry. Status starts Draft (auto-created on the candidate's first GET) and
+/// locks to Submitted. HR then Validates (-> Approved) or RequestsCorrection (-> NeedsCorrection,
+/// which re-opens the form for candidate edits same as Draft) via PreBoardingService. Uses `new`
 /// to shadow Audit.Status (int) the same way OfferLetter.Status does.
 /// </summary>
 public class PreBoardingSubmission : Audit
@@ -15,6 +16,9 @@ public class PreBoardingSubmission : Audit
     public long FinalSelectionPoolId { get; set; }
 
     public new PreBoardingSubmissionStatusEnum Status { get; set; } = PreBoardingSubmissionStatusEnum.Draft;
+
+    // EP-12 US-096: HR's free-text reason when requesting corrections. Cleared when HR Validates.
+    public string? CorrectionComment { get; set; }
 
     public string EmergencyContactName { get; set; } = string.Empty;
     public string EmergencyContactRelationship { get; set; } = string.Empty;

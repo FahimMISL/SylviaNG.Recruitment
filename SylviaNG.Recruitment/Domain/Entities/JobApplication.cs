@@ -45,4 +45,6 @@ public class JobApplication : Audit
     public ICollection<JoiningBooklet> JoiningBooklets { get; set; } = new List<JoiningBooklet>();
     public ICollection<MedicalLetter> MedicalLetters { get; set; } = new List<MedicalLetter>();
     public ICollection<TargetLetter> TargetLetters { get; set; } = new List<TargetLetter>();
+    public FitmentData? FitmentData { get; set; }
+    public ICollection<OfficeNote> OfficeNotes { get; set; } = new List<OfficeNote>();
 }

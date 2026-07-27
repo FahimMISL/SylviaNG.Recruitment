@@ -17,6 +17,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJoiningBookletRepository _joiningBookletRepository;
         private readonly IMedicalLetterRepository _medicalLetterRepository;
         private readonly ITargetLetterRepository _targetLetterRepository;
+        private readonly IOfficeNoteRepository _officeNoteRepository;
         private readonly INotificationDispatchService _notificationDispatchService;
         private readonly PortalSettings _portalSettings;
 
@@ -26,6 +27,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IJoiningBookletRepository joiningBookletRepository,
             IMedicalLetterRepository medicalLetterRepository,
             ITargetLetterRepository targetLetterRepository,
+            IOfficeNoteRepository officeNoteRepository,
             INotificationDispatchService notificationDispatchService,
             IOptions<PortalSettings> portalSettings)
         {
@@ -34,6 +36,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _joiningBookletRepository = joiningBookletRepository;
             _medicalLetterRepository = medicalLetterRepository;
             _targetLetterRepository = targetLetterRepository;
+            _officeNoteRepository = officeNoteRepository;
             _notificationDispatchService = notificationDispatchService;
             _portalSettings = portalSettings.Value;
         }
@@ -72,6 +75,12 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 var targetLetters = await _targetLetterRepository.GetAllOrderedAsync(null);
                 items.AddRange(targetLetters.Select(ToTrackingItem));
+            }
+
+            if (filter.DocumentType is null or DocumentTypeEnum.OfficeNote)
+            {
+                var officeNotes = await _officeNoteRepository.GetAllOrderedAsync(null);
+                items.AddRange(officeNotes.Select(ToTrackingItem));
             }
 
             if (filter.AcceptanceStatus.HasValue)
@@ -183,6 +192,17 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             DocumentType = DocumentTypeEnum.TargetLetter,
             SourceId = entity.TargetLetterId,
+            JobApplicationId = entity.JobApplicationId,
+            RecipientName = entity.JobApplication?.CandidateName ?? string.Empty,
+            RecipientEmail = entity.JobApplication?.CandidateEmail,
+            GeneratedAt = entity.GeneratedAt,
+            AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+        };
+
+        private static DocumentTrackingItemResponse ToTrackingItem(OfficeNote entity) => new()
+        {
+            DocumentType = DocumentTypeEnum.OfficeNote,
+            SourceId = entity.OfficeNoteId,
             JobApplicationId = entity.JobApplicationId,
             RecipientName = entity.JobApplication?.CandidateName ?? string.Empty,
             RecipientEmail = entity.JobApplication?.CandidateEmail,

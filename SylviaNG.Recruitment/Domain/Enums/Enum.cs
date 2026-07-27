@@ -227,7 +227,13 @@ public enum RecruitmentEventEnum
     PreBoardingRequested,
 
     /// <summary>EP-12 US-095: HR notified of a candidate's final pre-boarding submission.</summary>
-    PreBoardingSubmitted
+    PreBoardingSubmitted,
+
+    /// <summary>EP-12 US-096: candidate notified that HR validated their pre-boarding submission.</summary>
+    PreBoardingApproved,
+
+    /// <summary>EP-12 US-096: candidate notified that HR requested corrections on their pre-boarding submission.</summary>
+    PreBoardingCorrectionRequested
 }
 
 /// <summary>EP-09: delivery channel a NotificationTemplate is written for. Only Email has a working
@@ -254,7 +260,7 @@ public enum NotificationRecipientTypeEnum
 /// covers the full EP-10 scope (F1-F3): OfferLetter/AppointmentLetter (F1/F2), JoiningBooklet (F3
 /// bulk), MedicalReferral/TargetLetter (F3), plus RejectionLetter/ExperienceCertificate/
 /// RelievingLetter as the remaining common HR letter types admins can author ahead of any feature
-/// work wiring their generation.</summary>
+/// work wiring their generation. OfficeNote added for EP-12 US-129.</summary>
 public enum DocumentTypeEnum
 {
     OfferLetter,
@@ -264,7 +270,8 @@ public enum DocumentTypeEnum
     TargetLetter,
     RejectionLetter,
     ExperienceCertificate,
-    RelievingLetter
+    RelievingLetter,
+    OfficeNote
 }
 
 /// <summary>EP-10 US-081: lifecycle of a single generated OfferLetter. Generated is the only status
@@ -289,10 +296,13 @@ public enum DocumentAcceptanceStatusEnum
     NotApplicable
 }
 
-/// <summary>EP-12 US-095: lifecycle of a candidate's PreBoardingSubmission. F2 (validation/
-/// correction-request) will add Approved/NeedsCorrection later - not defined here.</summary>
+/// <summary>EP-12 US-095/096: lifecycle of a candidate's PreBoardingSubmission. Draft/Submitted are
+/// candidate-editable (Submitted only via SubmitAsync); Approved/NeedsCorrection are HR-set
+/// (US-096) - NeedsCorrection re-opens the form for candidate edits the same as Draft.</summary>
 public enum PreBoardingSubmissionStatusEnum
 {
     Draft,
-    Submitted
+    Submitted,
+    Approved,
+    NeedsCorrection
 }

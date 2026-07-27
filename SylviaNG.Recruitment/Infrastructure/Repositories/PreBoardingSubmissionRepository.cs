@@ -16,5 +16,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(s => s.Nominees)
                 .FirstOrDefaultAsync(s => s.FinalSelectionPoolId == finalSelectionPoolId);
         }
+
+        public async Task<PreBoardingSubmission?> GetByIdWithDetailsAsync(long preBoardingSubmissionId)
+        {
+            return await _dbSet
+                .Include(s => s.Nominees)
+                .Include(s => s.FinalSelectionPool)
+                    .ThenInclude(p => p.JobApplication)
+                .FirstOrDefaultAsync(s => s.PreBoardingSubmissionId == preBoardingSubmissionId);
+        }
     }
 }

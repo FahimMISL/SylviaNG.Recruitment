@@ -23,6 +23,7 @@ namespace SylviaNG.Recruitment.Application.Features.PreBoarding.Models
         public string? BankRoutingNumber { get; set; }
 
         public DateTime? SubmittedAt { get; set; }
+        public string? CorrectionComment { get; set; }
         public List<PreBoardingNomineeResponse> Nominees { get; set; } = new();
     }
 }

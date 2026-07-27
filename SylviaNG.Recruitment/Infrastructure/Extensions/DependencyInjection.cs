@@ -140,6 +140,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ITargetLetterRepository, TargetLetterRepository>();
             services.AddScoped<IFinalSelectionPoolRepository, FinalSelectionPoolRepository>();
             services.AddScoped<IPreBoardingSubmissionRepository, PreBoardingSubmissionRepository>();
+            services.AddScoped<IFitmentDataRepository, FitmentDataRepository>();
+            services.AddScoped<IOfficeNoteRepository, OfficeNoteRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -180,6 +182,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IJoiningBookletPdfGeneratorService, QuestPdfJoiningBookletGenerator>();
             services.AddScoped<IMedicalLetterPdfGeneratorService, QuestPdfMedicalLetterGenerator>();
             services.AddScoped<ITargetLetterPdfGeneratorService, QuestPdfTargetLetterGenerator>();
+
+            // EP-12 US-129: office note PDF generation, same QuestPDF pattern/storage reuse as above.
+            services.AddScoped<IOfficeNotePdfGeneratorService, QuestPdfOfficeNoteGenerator>();
 
             // Exam enrollment notifications (US-055/US-056): real SMTP email via MailKit, SMS is a
             // logging stub until a real gateway is integrated - disabled/off by default, see

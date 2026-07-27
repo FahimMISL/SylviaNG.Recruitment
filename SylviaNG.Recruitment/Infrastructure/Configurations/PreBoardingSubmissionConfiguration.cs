@@ -28,6 +28,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(s => s.BankAccountName).IsRequired().HasMaxLength(200);
             builder.Property(s => s.BankAccountNumber).IsRequired().HasMaxLength(50);
             builder.Property(s => s.BankRoutingNumber).HasMaxLength(50);
+            builder.Property(s => s.CorrectionComment).HasMaxLength(1000);
 
             builder.HasIndex(s => s.FinalSelectionPoolId).IsUnique();
         }
