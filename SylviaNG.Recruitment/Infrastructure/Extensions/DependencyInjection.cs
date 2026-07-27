@@ -6,6 +6,7 @@ using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
+using SylviaNG.Recruitment.Infrastructure.BackgroundServices;
 using SylviaNG.Recruitment.Infrastructure.Data;
 using SylviaNG.Recruitment.Infrastructure.Documents;
 using SylviaNG.Recruitment.Infrastructure.Interceptors;
@@ -142,6 +143,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IPreBoardingSubmissionRepository, PreBoardingSubmissionRepository>();
             services.AddScoped<IFitmentDataRepository, FitmentDataRepository>();
             services.AddScoped<IOfficeNoteRepository, OfficeNoteRepository>();
+            services.AddScoped<IExportRequestRepository, ExportRequestRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -269,6 +271,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // Kafka — disabled, no broker reachable at configured BootstrapServers
             // services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
             // services.AddHostedService<EmployeeEventConsumer>();
+
+            // EP-13 US-104: polls for queued export requests and renders them off the HTTP request thread
+            services.AddHostedService<ExportRequestWorker>();
 
             return services;
         }

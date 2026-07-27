@@ -131,6 +131,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<PreBoardingNominee> PreBoardingNominees { get; set; }
         public DbSet<FitmentData> FitmentDatas { get; set; }
         public DbSet<OfficeNote> OfficeNotes { get; set; }
+        public DbSet<ExportRequest> ExportRequests { get; set; }
 
         #endregion
 

@@ -18,5 +18,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
 
         /// <summary>Whether the current request's user is in the given role (e.g. Admin bypass for ownership checks).</summary>
         bool IsInRole(string role);
+
+        /// <summary>Best-effort email for the current request: Keycloak's "email" claim, falling
+        /// back to ClaimTypes.Email - same fallback pattern as CurrentCandidateService.GetCurrentEmailAsync
+        /// and AccountSettingsService. Used to address the requester on EP-13 export-ready notifications.
+        /// Returns null outside an authenticated request.</summary>
+        string? GetCurrentUserEmail();
     }
 }

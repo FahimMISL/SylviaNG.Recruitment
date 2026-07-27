@@ -233,7 +233,37 @@ public enum RecruitmentEventEnum
     PreBoardingApproved,
 
     /// <summary>EP-12 US-096: candidate notified that HR requested corrections on their pre-boarding submission.</summary>
-    PreBoardingCorrectionRequested
+    PreBoardingCorrectionRequested,
+
+    /// <summary>EP-13 US-104: HR/Admin notified their queued export finished generating.</summary>
+    ExportRequestReady,
+
+    /// <summary>EP-13 US-104: HR/Admin notified their queued export failed to generate.</summary>
+    ExportRequestFailed
+}
+
+/// <summary>EP-13 US-104: what kind of data an ExportRequest generates. Single value for now
+/// (F1 only builds the candidate list export) - left as an enum since F2/F3 of EP-13 add more
+/// export types onto the same queue.</summary>
+public enum ExportTypeEnum
+{
+    CandidateListExport
+}
+
+/// <summary>EP-13 US-100/104: output file format for an ExportRequest.</summary>
+public enum ExportFormatEnum
+{
+    Xlsx,
+    Csv
+}
+
+/// <summary>EP-13 US-104: lifecycle of a queued ExportRequest, processed by ExportRequestWorker.</summary>
+public enum ExportRequestStatusEnum
+{
+    Pending,
+    Processing,
+    Completed,
+    Failed
 }
 
 /// <summary>EP-09: delivery channel a NotificationTemplate is written for. Only Email has a working
