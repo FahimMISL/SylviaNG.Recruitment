@@ -23,5 +23,11 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             return _httpContextAccessor.HttpContext?.User?.IsInRole(role) ?? false;
         }
+
+        public string? GetCurrentUserEmail()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user?.FindFirst(ClaimTypes.Email)?.Value ?? user?.FindFirst("email")?.Value;
+        }
     }
 }
