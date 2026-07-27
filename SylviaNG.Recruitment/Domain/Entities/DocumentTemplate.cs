@@ -27,4 +27,5 @@ public class DocumentTemplate : Audit
     public ICollection<JoiningBooklet> JoiningBooklets { get; set; } = new List<JoiningBooklet>();
     public ICollection<MedicalLetter> MedicalLetters { get; set; } = new List<MedicalLetter>();
     public ICollection<TargetLetter> TargetLetters { get; set; } = new List<TargetLetter>();
+    public ICollection<OfficeNote> OfficeNotes { get; set; } = new List<OfficeNote>();
 }

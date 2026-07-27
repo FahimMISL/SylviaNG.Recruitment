@@ -24,6 +24,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 BankAccountNumber = entity.BankAccountNumber,
                 BankRoutingNumber = entity.BankRoutingNumber,
                 SubmittedAt = entity.SubmittedAt,
+                CorrectionComment = entity.CorrectionComment,
                 Nominees = entity.Nominees.Select(n => n.ToResponse()).ToList(),
             };
         }

@@ -129,6 +129,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<FinalSelectionPool> FinalSelectionPools { get; set; }
         public DbSet<PreBoardingSubmission> PreBoardingSubmissions { get; set; }
         public DbSet<PreBoardingNominee> PreBoardingNominees { get; set; }
+        public DbSet<FitmentData> FitmentDatas { get; set; }
+        public DbSet<OfficeNote> OfficeNotes { get; set; }
 
         #endregion
 

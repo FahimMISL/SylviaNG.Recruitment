@@ -181,4 +181,115 @@ public class PreBoardingServiceTests
             true,
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    private static PreBoardingSubmission SubmittedSubmissionWithPool(PreBoardingSubmissionStatusEnum status)
+    {
+        var submission = new PreBoardingSubmission
+        {
+            PreBoardingSubmissionId = 20,
+            FinalSelectionPoolId = 1,
+            Status = status,
+        };
+        submission.FinalSelectionPool = new FinalSelectionPool
+        {
+            FinalSelectionPoolId = 1,
+            JobApplicationId = 5,
+            JobApplication = new JobApplication { JobApplicationId = 5, CandidateName = "John Smith", CandidateEmail = "john@example.com" },
+        };
+        return submission;
+    }
+
+    [Fact]
+    public async Task ValidateAsync_Submitted_ShouldSetApprovedAndDispatchNotification()
+    {
+        var submission = SubmittedSubmissionWithPool(PreBoardingSubmissionStatusEnum.Submitted);
+        _preBoardingSubmissionRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(20)).ReturnsAsync(submission);
+
+        var response = await _service.ValidateAsync(20);
+
+        response.Status.Should().Be(PreBoardingSubmissionStatusEnum.Approved);
+        submission.CorrectionComment.Should().BeNull();
+        _notificationDispatchServiceMock.Verify(n => n.DispatchAsync(
+            RecruitmentEventEnum.PreBoardingApproved,
+            It.IsAny<IDictionary<string, string>>(),
+            It.IsAny<NotificationDispatchTargets>(),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_NotSubmitted_ShouldThrowInvalidStatusTransitionException()
+    {
+        var submission = SubmittedSubmissionWithPool(PreBoardingSubmissionStatusEnum.Draft);
+        _preBoardingSubmissionRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(20)).ReturnsAsync(submission);
+
+        var act = () => _service.ValidateAsync(20);
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public async Task RequestCorrectionAsync_Submitted_ShouldSetNeedsCorrectionAndDispatchNotification()
+    {
+        var submission = SubmittedSubmissionWithPool(PreBoardingSubmissionStatusEnum.Submitted);
+        _preBoardingSubmissionRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(20)).ReturnsAsync(submission);
+
+        var response = await _service.RequestCorrectionAsync(20, "Please fix bank details.");
+
+        response.Status.Should().Be(PreBoardingSubmissionStatusEnum.NeedsCorrection);
+        response.CorrectionComment.Should().Be("Please fix bank details.");
+        _notificationDispatchServiceMock.Verify(n => n.DispatchAsync(
+            RecruitmentEventEnum.PreBoardingCorrectionRequested,
+            It.IsAny<IDictionary<string, string>>(),
+            It.IsAny<NotificationDispatchTargets>(),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequestCorrectionAsync_FromApproved_ShouldStillBeAllowed()
+    {
+        var submission = SubmittedSubmissionWithPool(PreBoardingSubmissionStatusEnum.Approved);
+        _preBoardingSubmissionRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(20)).ReturnsAsync(submission);
+
+        var response = await _service.RequestCorrectionAsync(20, "Found an issue after approval.");
+
+        response.Status.Should().Be(PreBoardingSubmissionStatusEnum.NeedsCorrection);
+    }
+
+    [Fact]
+    public async Task RequestCorrectionAsync_FromDraft_ShouldThrowInvalidStatusTransitionException()
+    {
+        var submission = SubmittedSubmissionWithPool(PreBoardingSubmissionStatusEnum.Draft);
+        _preBoardingSubmissionRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(20)).ReturnsAsync(submission);
+
+        var act = () => _service.RequestCorrectionAsync(20, "Some comment");
+
+        await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public async Task RequestCorrectionAsync_BlankComment_ShouldThrowValidationException()
+    {
+        var submission = SubmittedSubmissionWithPool(PreBoardingSubmissionStatusEnum.Submitted);
+        _preBoardingSubmissionRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(20)).ReturnsAsync(submission);
+
+        var act = () => _service.RequestCorrectionAsync(20, "   ");
+
+        await act.Should().ThrowAsync<ValidationException>();
+    }
+
+    [Fact]
+    public async Task SaveDraftAsync_WhenNeedsCorrection_ShouldNotThrowAndShouldSaveEdits()
+    {
+        var submission = DraftSubmission();
+        submission.Status = PreBoardingSubmissionStatusEnum.NeedsCorrection;
+        submission.CorrectionComment = "Please fix bank details.";
+        _finalSelectionPoolRepositoryMock.Setup(r => r.GetByCandidateProfileIdWithDetailsAsync(CandidateProfileId))
+            .ReturnsAsync(OwnedPool(submission));
+
+        var response = await _service.SaveDraftAsync(CompleteRequest());
+
+        response.BankAccountNumber.Should().Be("1234567890");
+    }
 }

@@ -104,6 +104,82 @@ namespace SylviaNG.Recruitment.Application.Services
             return submission.ToResponse();
         }
 
+        public async Task<PreBoardingSubmissionResponse> GetByFinalSelectionPoolIdForHrAsync(long finalSelectionPoolId)
+        {
+            var submission = await _preBoardingSubmissionRepository.GetByFinalSelectionPoolIdWithDetailsAsync(finalSelectionPoolId)
+                ?? throw new NotFoundException("PreBoardingSubmission", finalSelectionPoolId);
+
+            return submission.ToResponse();
+        }
+
+        public async Task<PreBoardingSubmissionResponse> ValidateAsync(long preBoardingSubmissionId)
+        {
+            var submission = await GetRequiredWithDetailsAsync(preBoardingSubmissionId);
+
+            if (submission.Status != PreBoardingSubmissionStatusEnum.Submitted)
+                throw new InvalidStatusTransitionException(nameof(PreBoardingSubmission), submission.Status, PreBoardingSubmissionStatusEnum.Approved);
+
+            submission.Status = PreBoardingSubmissionStatusEnum.Approved;
+            submission.CorrectionComment = null;
+            await _unitOfWork.SaveChangesAsync();
+
+            var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CandidateName"] = submission.FinalSelectionPool.JobApplication.CandidateName,
+                ["ValidatedAt"] = DateTime.UtcNow.ToString("dd MMM yyyy HH:mm"),
+            };
+
+            // Never throws - a missing EventTemplateMapping just logs a Skipped NotificationLog row.
+            await _notificationDispatchService.DispatchAsync(
+                RecruitmentEventEnum.PreBoardingApproved,
+                placeholders,
+                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, null, submission.FinalSelectionPool.JobApplicationId),
+                persistImmediately: true);
+
+            return submission.ToResponse();
+        }
+
+        public async Task<PreBoardingSubmissionResponse> RequestCorrectionAsync(long preBoardingSubmissionId, string comment)
+        {
+            if (string.IsNullOrWhiteSpace(comment))
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(nameof(comment), "A comment is required when requesting corrections."),
+                });
+
+            var submission = await GetRequiredWithDetailsAsync(preBoardingSubmissionId);
+
+            // AC5: HR can reopen even an already-Approved submission if something's found later -
+            // only Draft/NeedsCorrection (nothing submitted yet / already reopened) are illegal here.
+            if (submission.Status is not (PreBoardingSubmissionStatusEnum.Submitted or PreBoardingSubmissionStatusEnum.Approved))
+                throw new InvalidStatusTransitionException(nameof(PreBoardingSubmission), submission.Status, PreBoardingSubmissionStatusEnum.NeedsCorrection);
+
+            submission.Status = PreBoardingSubmissionStatusEnum.NeedsCorrection;
+            submission.CorrectionComment = comment;
+            await _unitOfWork.SaveChangesAsync();
+
+            var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CandidateName"] = submission.FinalSelectionPool.JobApplication.CandidateName,
+                ["Comment"] = comment,
+            };
+
+            // Never throws - a missing EventTemplateMapping just logs a Skipped NotificationLog row.
+            await _notificationDispatchService.DispatchAsync(
+                RecruitmentEventEnum.PreBoardingCorrectionRequested,
+                placeholders,
+                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, null, submission.FinalSelectionPool.JobApplicationId),
+                persistImmediately: true);
+
+            return submission.ToResponse();
+        }
+
+        private async Task<PreBoardingSubmission> GetRequiredWithDetailsAsync(long preBoardingSubmissionId)
+        {
+            return await _preBoardingSubmissionRepository.GetByIdWithDetailsAsync(preBoardingSubmissionId)
+                ?? throw new NotFoundException("PreBoardingSubmission", preBoardingSubmissionId);
+        }
+
         private async Task<(FinalSelectionPool? Pool, PreBoardingSubmission? Submission)> GetOwnedPoolAndSubmissionAsync(bool autoCreateDraft)
         {
             var candidateProfileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
@@ -129,9 +205,12 @@ namespace SylviaNG.Recruitment.Application.Services
             return (pool, submission);
         }
 
+        // AC5: NeedsCorrection re-opens the form for candidate edits exactly like Draft - this is
+        // the one check standing between HR's RequestCorrectionAsync and the candidate being able
+        // to save/resubmit again.
         private static void EnsureNotLocked(PreBoardingSubmission submission)
         {
-            if (submission.Status != PreBoardingSubmissionStatusEnum.Draft)
+            if (submission.Status is not (PreBoardingSubmissionStatusEnum.Draft or PreBoardingSubmissionStatusEnum.NeedsCorrection))
                 throw new InvalidStatusTransitionException(nameof(PreBoardingSubmission), submission.Status, "a draft edit");
         }
 
