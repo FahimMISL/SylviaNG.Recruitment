@@ -16,9 +16,11 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ITalentPoolCandidateRepository _talentPoolCandidateRepository;
+        private readonly IAutoShortlistRunRepository _autoShortlistRunRepository;
         private readonly ICurrentCandidateService _currentCandidateService;
         private readonly IFileStorageService _fileStorageService;
         private readonly ICoreGrpcClient _coreGrpcClient;
+        private readonly ICandidateProfilePdfGeneratorService _candidateProfilePdfGeneratorService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<CandidateProfileService> _logger;
 
@@ -26,18 +28,22 @@ namespace SylviaNG.Recruitment.Application.Services
             ICandidateProfileRepository candidateProfileRepository,
             IJobApplicationRepository jobApplicationRepository,
             ITalentPoolCandidateRepository talentPoolCandidateRepository,
+            IAutoShortlistRunRepository autoShortlistRunRepository,
             ICurrentCandidateService currentCandidateService,
             IFileStorageService fileStorageService,
             ICoreGrpcClient coreGrpcClient,
+            ICandidateProfilePdfGeneratorService candidateProfilePdfGeneratorService,
             IUnitOfWork unitOfWork,
             ILogger<CandidateProfileService> logger)
         {
             _candidateProfileRepository = candidateProfileRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _talentPoolCandidateRepository = talentPoolCandidateRepository;
+            _autoShortlistRunRepository = autoShortlistRunRepository;
             _currentCandidateService = currentCandidateService;
             _fileStorageService = fileStorageService;
             _coreGrpcClient = coreGrpcClient;
+            _candidateProfilePdfGeneratorService = candidateProfilePdfGeneratorService;
             _unitOfWork = unitOfWork;
             _logger = logger;
         }
@@ -82,6 +88,52 @@ namespace SylviaNG.Recruitment.Application.Services
             var response = entity.ToDetailResponse(applications, poolMemberships);
             (response.DepartmentName, response.DesignationName) = await ResolveOrgNamesAsync(entity);
             return response;
+        }
+
+        public async Task<CandidateProfileDownloadResponse> DownloadProfilePdfAsync(long candidateProfileId)
+        {
+            var profiles = await _candidateProfileRepository.GetByIdsWithDetailsAsync(new[] { candidateProfileId });
+            var entity = profiles.FirstOrDefault()
+                ?? throw new NotFoundException("CandidateProfile", candidateProfileId);
+
+            var screeningScore = await ResolveLatestScreeningScoreAsync(candidateProfileId, entity.Email);
+            var content = _candidateProfilePdfGeneratorService.Generate(entity, screeningScore);
+            var safeName = System.Text.RegularExpressions.Regex.Replace(entity.FullName, @"[^a-zA-Z0-9\-]+", "_").Trim('_');
+            if (string.IsNullOrEmpty(safeName))
+                safeName = "candidate";
+
+            return new CandidateProfileDownloadResponse
+            {
+                Content = content,
+                ContentType = "application/pdf",
+                FileName = $"{safeName}_{candidateProfileId}_Profile.pdf"
+            };
+        }
+
+        // US-103 AC2: no direct score field on CandidateProfile - AutoShortlistResult is keyed by
+        // JobApplicationId/JobPostingId, so this walks the candidate's most-recently-applied
+        // applications and returns the first scored one found (most recent application takes
+        // priority over an older one that happens to also be scored).
+        private async Task<int?> ResolveLatestScreeningScoreAsync(long candidateProfileId, string email)
+        {
+            var applications = await _jobApplicationRepository.GetByCandidateAsync(candidateProfileId, email);
+            var byRecency = applications.OrderByDescending(a => a.AppliedDate).ToList();
+
+            var scoresByJobPosting = new Dictionary<long, Dictionary<long, int>>();
+
+            foreach (var application in byRecency)
+            {
+                if (!scoresByJobPosting.TryGetValue(application.JobPostingId, out var scores))
+                {
+                    scores = await _autoShortlistRunRepository.GetLatestScoresByJobPostingIdAsync(application.JobPostingId);
+                    scoresByJobPosting[application.JobPostingId] = scores;
+                }
+
+                if (scores.TryGetValue(application.JobApplicationId, out var score))
+                    return score;
+            }
+
+            return null;
         }
 
         public async Task UpdateHrNotesAsync(long candidateProfileId, string? hrNotes)

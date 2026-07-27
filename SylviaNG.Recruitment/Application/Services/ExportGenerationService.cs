@@ -1,6 +1,7 @@
 using System.Text;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
+using SylviaNG.Recruitment.Application.Common.Utilities;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -25,13 +26,47 @@ namespace SylviaNG.Recruitment.Application.Services
 
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
+        private readonly ICvPdfGeneratorService _cvPdfGeneratorService;
 
         public ExportGenerationService(
             IJobApplicationRepository jobApplicationRepository,
-            ICandidateProfileRepository candidateProfileRepository)
+            ICandidateProfileRepository candidateProfileRepository,
+            ICvPdfGeneratorService cvPdfGeneratorService)
         {
             _jobApplicationRepository = jobApplicationRepository;
             _candidateProfileRepository = candidateProfileRepository;
+            _cvPdfGeneratorService = cvPdfGeneratorService;
+        }
+
+        public async Task<ExportFileResult> GenerateBulkCvZipAsync(
+            List<long> jobApplicationIds,
+            CancellationToken cancellationToken = default)
+        {
+            var applications = jobApplicationIds.Count == 0
+                ? new List<JobApplication>()
+                : _jobApplicationRepository.Query()
+                    .Where(a => jobApplicationIds.Contains(a.JobApplicationId))
+                    .ToList();
+
+            var profileIds = applications
+                .Where(a => a.CandidateProfileId.HasValue)
+                .Select(a => a.CandidateProfileId!.Value)
+                .Distinct()
+                .ToList();
+
+            var profilesById = profileIds.Count == 0
+                ? new Dictionary<long, CandidateProfile>()
+                : (await _candidateProfileRepository.GetByIdsWithDetailsAsync(profileIds)).ToDictionary(p => p.CandidateProfileId);
+
+            var items = applications
+                .Where(a => a.CandidateProfileId.HasValue && profilesById.ContainsKey(a.CandidateProfileId.Value))
+                .Select(a => (a.JobApplicationId, a.CandidateName, profilesById[a.CandidateProfileId!.Value]))
+                .ToList();
+
+            var content = await CvZipBuilder.BuildAsync(items, _cvPdfGeneratorService, cancellationToken);
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+
+            return new ExportFileResult(content, "application/zip", $"Candidate-CVs-{timestamp}.zip", items.Count);
         }
 
         public async Task<ExportFileResult> GenerateCandidateListExportAsync(

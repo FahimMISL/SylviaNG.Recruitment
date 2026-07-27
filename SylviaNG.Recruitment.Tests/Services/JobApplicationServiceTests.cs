@@ -22,6 +22,7 @@ public class JobApplicationServiceTests
     private readonly Mock<IJobPostingRepository> _jobPostingRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly Mock<IApplicationCvStorageService> _cvStorageServiceMock;
+    private readonly Mock<ICvPdfGeneratorService> _cvPdfGeneratorServiceMock;
     private readonly Mock<IApplicationStatusReasonRepository> _statusReasonRepositoryMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
@@ -37,6 +38,7 @@ public class JobApplicationServiceTests
         _jobPostingRepositoryMock = new Mock<IJobPostingRepository>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
         _cvStorageServiceMock = new Mock<IApplicationCvStorageService>();
+        _cvPdfGeneratorServiceMock = new Mock<ICvPdfGeneratorService>();
         _statusReasonRepositoryMock = new Mock<IApplicationStatusReasonRepository>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
@@ -57,6 +59,7 @@ public class JobApplicationServiceTests
             _jobPostingRepositoryMock.Object,
             _candidateProfileRepositoryMock.Object,
             _cvStorageServiceMock.Object,
+            _cvPdfGeneratorServiceMock.Object,
             _statusReasonRepositoryMock.Object,
             _currentUserServiceMock.Object,
             _currentCandidateServiceMock.Object,
@@ -1287,5 +1290,61 @@ public class JobApplicationServiceTests
         var act = () => _service.ResolveDuplicatesAsync(request);
 
         await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+    }
+
+    [Fact]
+    public async Task BulkDownloadCvsAsync_ApplicationWithProfile_ShouldReturnOneEntryZip()
+    {
+        var applications = new List<JobApplication>
+        {
+            new() { JobApplicationId = 1, CandidateProfileId = 100, CandidateName = "Jane Doe" }
+        };
+        _jobApplicationRepositoryMock.Setup(r => r.Query(It.IsAny<bool>())).Returns(applications.AsQueryable());
+
+        var profile = new CandidateProfile { CandidateProfileId = 100, FullName = "Jane Doe" };
+        _candidateProfileRepositoryMock.Setup(r => r.GetByIdsWithDetailsAsync(It.Is<IEnumerable<long>>(ids => ids.Contains(100))))
+            .ReturnsAsync(new List<CandidateProfile> { profile });
+        _cvPdfGeneratorServiceMock.Setup(g => g.Generate(profile)).Returns(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
+
+        var result = await _service.BulkDownloadCvsAsync(new JobApplicationCvBulkDownloadRequest { JobApplicationIds = new List<long> { 1 } });
+
+        result.ContentType.Should().Be("application/zip");
+        using var archive = new System.IO.Compression.ZipArchive(new MemoryStream(result.Content), System.IO.Compression.ZipArchiveMode.Read);
+        archive.Entries.Should().ContainSingle(e => e.Name == "Jane_Doe_1.pdf");
+    }
+
+    [Fact]
+    public async Task BulkDownloadCvsAsync_GuestApplicantWithNoProfile_ShouldSkipSilently()
+    {
+        var applications = new List<JobApplication>
+        {
+            new() { JobApplicationId = 2, CandidateProfileId = null, CandidateName = "Guest Applicant" }
+        };
+        _jobApplicationRepositoryMock.Setup(r => r.Query(It.IsAny<bool>())).Returns(applications.AsQueryable());
+
+        var result = await _service.BulkDownloadCvsAsync(new JobApplicationCvBulkDownloadRequest { JobApplicationIds = new List<long> { 2 } });
+
+        using var archive = new System.IO.Compression.ZipArchive(new MemoryStream(result.Content), System.IO.Compression.ZipArchiveMode.Read);
+        archive.Entries.Should().BeEmpty();
+        _cvPdfGeneratorServiceMock.Verify(g => g.Generate(It.IsAny<CandidateProfile>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkDownloadCvsAsync_NoIds_ShouldThrowValidationException()
+    {
+        var act = () => _service.BulkDownloadCvsAsync(new JobApplicationCvBulkDownloadRequest { JobApplicationIds = new List<long>() });
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+    }
+
+    [Fact]
+    public async Task BulkDownloadCvsAsync_ExceedsSyncMaxCount_ShouldThrowValidationException()
+    {
+        var ids = Enumerable.Range(1, JobApplicationService.BulkDownloadCvsSyncMaxCount + 1).Select(i => (long)i).ToList();
+
+        var act = () => _service.BulkDownloadCvsAsync(new JobApplicationCvBulkDownloadRequest { JobApplicationIds = ids });
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        _jobApplicationRepositoryMock.Verify(r => r.Query(It.IsAny<bool>()), Times.Never);
     }
 }

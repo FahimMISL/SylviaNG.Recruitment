@@ -31,6 +31,7 @@ using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateCertificationGetAll;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateDocumentGetAll;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateEducationGetAll;
+using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateProfileDownloadPdf;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateProfileGetById;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateProfileGetMe;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Queries.CandidateProfileGetPaged;
@@ -302,6 +303,18 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var result = await _mediator.Send(new CandidateProfileGetByIdQuery(candidateProfileId));
             return Ok(result);
+        }
+
+        /// <summary>
+        /// System-generated, branded profile summary PDF for interview panels (US-103). Synchronous,
+        /// no async queue.
+        /// </summary>
+        [HttpGet("{candidateProfileId:long}/download/pdf")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<IActionResult> DownloadPdf(long candidateProfileId)
+        {
+            var file = await _mediator.Send(new CandidateProfileDownloadPdfQuery(candidateProfileId));
+            return File(file.Content, file.ContentType, file.FileName);
         }
 
         /// <summary>

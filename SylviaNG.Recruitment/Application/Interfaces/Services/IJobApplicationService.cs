@@ -52,6 +52,14 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// <summary>Best-effort re-dispatch of a chosen event's notification across multiple applications (US-076).</summary>
         Task<JobApplicationBulkNotifyResponse> BulkNotifyAsync(JobApplicationBulkNotifyRequest request);
 
+        /// <summary>
+        /// US-101: synchronous ZIP of the selected applications' system-rendered CVs, one PDF per
+        /// application. Capped at BulkDownloadCvsSyncMaxCount - larger batches go through the
+        /// EP-13 F1 async export queue instead (IExportRequestService.RequestBulkCvZipExportAsync).
+        /// Applications with no linked CandidateProfile (guest applicants) are silently skipped.
+        /// </summary>
+        Task<JobApplicationCvBulkDownloadResponse> BulkDownloadCvsAsync(JobApplicationCvBulkDownloadRequest request);
+
         /// <summary>Every application the current authenticated candidate has submitted (US-040 AC1/AC2/AC3).</summary>
         Task<List<MyApplicationResponse>> GetMyApplicationsAsync();
 

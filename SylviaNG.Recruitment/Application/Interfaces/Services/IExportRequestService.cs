@@ -16,6 +16,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// only once the worker picks the row up) and queues a Pending row for the worker to render.</summary>
         Task<long> RequestCandidateListExportAsync(JobApplicationAttributeFilterRequest filter, ExportFormatEnum format);
 
+        /// <summary>US-101: queues a Pending row for a large bulk-CV-ZIP request - the selected ids
+        /// are already resolved (no filter to re-run), unlike RequestCandidateListExportAsync above.</summary>
+        Task<long> RequestBulkCvZipExportAsync(List<long> jobApplicationIds);
+
         Task<PagedResult<ExportRequestResponse>> GetPagedAsync(ExportRequestFilterRequest filter);
 
         /// <summary>Throws NotFoundException if unknown, ValidationException if not yet Completed.</summary>

@@ -165,6 +165,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
             services.AddScoped<ICvPdfGeneratorService, QuestPdfCvGenerator>();
 
+            // US-103: standardized candidate profile summary PDF, same QuestPDF pattern as above
+            services.AddScoped<ICandidateProfilePdfGeneratorService, QuestPdfCandidateProfileGenerator>();
+
             // Size/extension policy for the US-054 exam question bulk-import upload
             services.Configure<ExamQuestionImportSettings>(configuration.GetSection(ExamQuestionImportSettings.SectionName));
 

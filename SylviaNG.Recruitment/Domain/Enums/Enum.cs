@@ -242,19 +242,20 @@ public enum RecruitmentEventEnum
     ExportRequestFailed
 }
 
-/// <summary>EP-13 US-104: what kind of data an ExportRequest generates. Single value for now
-/// (F1 only builds the candidate list export) - left as an enum since F2/F3 of EP-13 add more
-/// export types onto the same queue.</summary>
+/// <summary>EP-13 US-104: what kind of data an ExportRequest generates. Left as an enum since
+/// F2 of EP-13 adds more export types onto the same queue - BulkCvZip (US-101) is the first.</summary>
 public enum ExportTypeEnum
 {
-    CandidateListExport
+    CandidateListExport,
+    BulkCvZip
 }
 
 /// <summary>EP-13 US-100/104: output file format for an ExportRequest.</summary>
 public enum ExportFormatEnum
 {
     Xlsx,
-    Csv
+    Csv,
+    Zip
 }
 
 /// <summary>EP-13 US-104: lifecycle of a queued ExportRequest, processed by ExportRequestWorker.</summary>

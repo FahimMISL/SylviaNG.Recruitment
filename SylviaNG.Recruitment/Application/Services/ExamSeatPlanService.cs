@@ -160,9 +160,9 @@ namespace SylviaNG.Recruitment.Application.Services
 
                 foreach (var enrollment in enrollments)
                 {
-                    var entryName = $"Admit-Card-{enrollment.JobApplicationId}.pdf";
+                    var entryName = BuildAdmitCardEntryName(enrollment.Exam.Title, enrollment.JobApplication.CandidateName);
                     while (!usedFileNames.Add(entryName))
-                        entryName = $"Admit-Card-{enrollment.JobApplicationId}-{enrollment.ExamEnrollmentId}.pdf";
+                        entryName = BuildAdmitCardEntryName(enrollment.Exam.Title, $"{enrollment.JobApplication.CandidateName}-{enrollment.ExamEnrollmentId}");
 
                     var entry = archive.CreateEntry(entryName, CompressionLevel.Fastest);
                     await using var entryStream = entry.Open();
@@ -173,6 +173,21 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var fileName = $"Admit-Cards-{examId}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
             return (zipStream.ToArray(), fileName);
+        }
+
+        /// <summary>US-102 AC3: `AdmitCard_ExamName_CandidateName.pdf`, sanitized (same regex idiom
+        /// CvFileNaming uses) since exam titles/candidate names can contain filesystem-unsafe characters.</summary>
+        private static string BuildAdmitCardEntryName(string examTitle, string candidateName)
+        {
+            var safeExamTitle = Sanitize(examTitle, "Exam");
+            var safeCandidateName = Sanitize(candidateName, "Candidate");
+            return $"AdmitCard_{safeExamTitle}_{safeCandidateName}.pdf";
+        }
+
+        private static string Sanitize(string value, string fallback)
+        {
+            var safe = System.Text.RegularExpressions.Regex.Replace(value, @"[^a-zA-Z0-9\-]+", "_").Trim('_');
+            return string.IsNullOrEmpty(safe) ? fallback : safe;
         }
 
         // US-060 AC4: reuses this service's existing ClosedXML wiring (see GenerateExcelAsync

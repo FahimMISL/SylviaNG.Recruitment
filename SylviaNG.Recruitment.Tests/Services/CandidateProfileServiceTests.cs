@@ -20,9 +20,11 @@ public class CandidateProfileServiceTests
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ITalentPoolCandidateRepository> _talentPoolCandidateRepositoryMock;
+    private readonly Mock<IAutoShortlistRunRepository> _autoShortlistRunRepositoryMock;
     private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
     private readonly Mock<IFileStorageService> _fileStorageServiceMock;
     private readonly Mock<ICoreGrpcClient> _coreGrpcClientMock;
+    private readonly Mock<ICandidateProfilePdfGeneratorService> _candidateProfilePdfGeneratorServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly CandidateProfileService _service;
 
@@ -31,9 +33,11 @@ public class CandidateProfileServiceTests
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _talentPoolCandidateRepositoryMock = new Mock<ITalentPoolCandidateRepository>();
+        _autoShortlistRunRepositoryMock = new Mock<IAutoShortlistRunRepository>();
         _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
         _fileStorageServiceMock = new Mock<IFileStorageService>();
         _coreGrpcClientMock = new Mock<ICoreGrpcClient>();
+        _candidateProfilePdfGeneratorServiceMock = new Mock<ICandidateProfilePdfGeneratorService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
 
         _talentPoolCandidateRepositoryMock.Setup(r => r.GetAllByCandidateProfileIdAsync(It.IsAny<long>()))
@@ -43,9 +47,11 @@ public class CandidateProfileServiceTests
             _candidateProfileRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object,
             _talentPoolCandidateRepositoryMock.Object,
+            _autoShortlistRunRepositoryMock.Object,
             _currentCandidateServiceMock.Object,
             _fileStorageServiceMock.Object,
             _coreGrpcClientMock.Object,
+            _candidateProfilePdfGeneratorServiceMock.Object,
             _unitOfWorkMock.Object,
             Mock.Of<ILogger<CandidateProfileService>>());
     }
@@ -457,5 +463,60 @@ public class CandidateProfileServiceTests
 
         // Assert
         result.HasPrepopulatedFieldEdits.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DownloadProfilePdfAsync_UnknownId_ShouldThrowNotFoundException()
+    {
+        _candidateProfileRepositoryMock.Setup(r => r.GetByIdsWithDetailsAsync(It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(new List<CandidateProfile>());
+
+        var act = () => _service.DownloadProfilePdfAsync(99);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task DownloadProfilePdfAsync_NoScoredApplications_ShouldGenerateWithNullScore()
+    {
+        var profile = new CandidateProfile { CandidateProfileId = 1, FullName = "Jane Doe", Email = "jane@example.com" };
+        _candidateProfileRepositoryMock.Setup(r => r.GetByIdsWithDetailsAsync(It.Is<IEnumerable<long>>(ids => ids.Contains(1))))
+            .ReturnsAsync(new List<CandidateProfile> { profile });
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "jane@example.com"))
+            .ReturnsAsync(new List<JobApplication>());
+        _candidateProfilePdfGeneratorServiceMock.Setup(g => g.Generate(profile, null))
+            .Returns(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
+
+        var result = await _service.DownloadProfilePdfAsync(1);
+
+        result.ContentType.Should().Be("application/pdf");
+        result.FileName.Should().Be("Jane_Doe_1_Profile.pdf");
+        _candidateProfilePdfGeneratorServiceMock.Verify(g => g.Generate(profile, null), Times.Once);
+    }
+
+    [Fact]
+    public async Task DownloadProfilePdfAsync_MostRecentApplicationScored_ShouldUseThatScore()
+    {
+        var profile = new CandidateProfile { CandidateProfileId = 1, FullName = "Jane Doe", Email = "jane@example.com" };
+        _candidateProfileRepositoryMock.Setup(r => r.GetByIdsWithDetailsAsync(It.Is<IEnumerable<long>>(ids => ids.Contains(1))))
+            .ReturnsAsync(new List<CandidateProfile> { profile });
+
+        var olderApplication = new JobApplication { JobApplicationId = 10, JobPostingId = 100, AppliedDate = new DateTime(2026, 1, 1) };
+        var recentApplication = new JobApplication { JobApplicationId = 20, JobPostingId = 200, AppliedDate = new DateTime(2026, 6, 1) };
+        _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "jane@example.com"))
+            .ReturnsAsync(new List<JobApplication> { olderApplication, recentApplication });
+
+        _autoShortlistRunRepositoryMock.Setup(r => r.GetLatestScoresByJobPostingIdAsync(200))
+            .ReturnsAsync(new Dictionary<long, int> { [20] = 85 });
+        _autoShortlistRunRepositoryMock.Setup(r => r.GetLatestScoresByJobPostingIdAsync(100))
+            .ReturnsAsync(new Dictionary<long, int> { [10] = 60 });
+
+        _candidateProfilePdfGeneratorServiceMock.Setup(g => g.Generate(profile, 85))
+            .Returns(System.Text.Encoding.UTF8.GetBytes("pdf-bytes"));
+
+        await _service.DownloadProfilePdfAsync(1);
+
+        _candidateProfilePdfGeneratorServiceMock.Verify(g => g.Generate(profile, 85), Times.Once);
+        _autoShortlistRunRepositoryMock.Verify(r => r.GetLatestScoresByJobPostingIdAsync(100), Times.Never);
     }
 }

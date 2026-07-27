@@ -172,6 +172,7 @@ public class ExamSeatPlanServiceTests
     public async Task GenerateAdmitCardZipAsync_ShouldReturnOnePdfEntryPerEnrollment()
     {
         var exam = InPersonExam();
+        exam.Title = "Software Engineer Exam";
         var enrollments = new List<ExamEnrollment>
         {
             EnrollmentFor(1, 1), EnrollmentFor(2, 1),
@@ -193,6 +194,54 @@ public class ExamSeatPlanServiceTests
         _admitCardPdfGeneratorServiceMock.Verify(
             g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()),
             Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task GenerateAdmitCardZipAsync_EntryNamesFollowUS102NamingConvention()
+    {
+        var exam = InPersonExam();
+        exam.Title = "Software Engineer Exam";
+        var enrollment = EnrollmentFor(1, 1);
+        enrollment.Exam = exam;
+        enrollment.JobApplication = new JobApplication { JobApplicationId = 1, CandidateName = "Jane O'Brien" };
+
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdWithDetailsAsync(1)).ReturnsAsync(new List<ExamEnrollment> { enrollment });
+        _admitCardPdfGeneratorServiceMock
+            .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
+            .Returns(Encoding.UTF8.GetBytes("pdf-bytes"));
+
+        var (content, _) = await _service.GenerateAdmitCardZipAsync(1);
+
+        using var zipStream = new MemoryStream(content);
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+        archive.Entries.Single().Name.Should().Be("AdmitCard_Software_Engineer_Exam_Jane_O_Brien.pdf");
+    }
+
+    [Fact]
+    public async Task GenerateAdmitCardZipAsync_IncludesEnrollmentsRegardlessOfNotificationDeliveryStatus()
+    {
+        // US-102 AC4: failed-delivery candidates are included as a fallback - GenerateAdmitCardZipAsync
+        // never filters by EmailNotificationStatus/SmsNotificationStatus, so every enrollment for the
+        // exam is always bundled.
+        var exam = InPersonExam();
+        exam.Title = "Software Engineer Exam";
+        var delivered = EnrollmentFor(1, 1);
+        delivered.Exam = exam;
+        delivered.EmailNotificationStatus = NotificationStatusEnum.Sent;
+        var failed = EnrollmentFor(2, 1);
+        failed.Exam = exam;
+        failed.EmailNotificationStatus = NotificationStatusEnum.Failed;
+
+        _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdWithDetailsAsync(1)).ReturnsAsync(new List<ExamEnrollment> { delivered, failed });
+        _admitCardPdfGeneratorServiceMock
+            .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
+            .Returns(Encoding.UTF8.GetBytes("pdf-bytes"));
+
+        var (content, _) = await _service.GenerateAdmitCardZipAsync(1);
+
+        using var zipStream = new MemoryStream(content);
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+        archive.Entries.Should().HaveCount(2);
     }
 
     [Fact]

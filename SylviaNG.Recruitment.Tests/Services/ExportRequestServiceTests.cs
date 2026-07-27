@@ -76,6 +76,37 @@ public class ExportRequestServiceTests
     }
 
     [Fact]
+    public async Task RequestBulkCvZipExportAsync_ValidIds_ShouldQueuePendingBulkCvZipRow()
+    {
+        _currentUserServiceMock.Setup(s => s.GetCurrentUserName()).Returns("abir");
+        _currentUserServiceMock.Setup(s => s.GetCurrentUserEmail()).Returns("abir@example.com");
+
+        ExportRequest? captured = null;
+        _exportRequestRepositoryMock.Setup(r => r.AddAsync(It.IsAny<ExportRequest>()))
+            .Callback<ExportRequest>(e => captured = e)
+            .Returns(Task.CompletedTask);
+
+        await _service.RequestBulkCvZipExportAsync(new List<long> { 5, 6, 6 });
+
+        captured.Should().NotBeNull();
+        captured!.ExportType.Should().Be(ExportTypeEnum.BulkCvZip);
+        captured.Format.Should().Be(ExportFormatEnum.Zip);
+        captured.Status.Should().Be(ExportRequestStatusEnum.Pending);
+        captured.JobApplicationIdsJson.Should().Be("[5,6]");
+        captured.RowCount.Should().Be(2);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequestBulkCvZipExportAsync_EmptyIds_ShouldThrowValidationException()
+    {
+        var act = () => _service.RequestBulkCvZipExportAsync(new List<long>());
+
+        await act.Should().ThrowAsync<ValidationException>();
+        _exportRequestRepositoryMock.Verify(r => r.AddAsync(It.IsAny<ExportRequest>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetForDownloadAsync_UnknownId_ShouldThrowNotFoundException()
     {
         _exportRequestRepositoryMock.Setup(r => r.GetByIdAsync(99)).ReturnsAsync((ExportRequest?)null);

@@ -64,6 +64,37 @@ namespace SylviaNG.Recruitment.Application.Services
             return entity.ExportRequestId;
         }
 
+        public async Task<long> RequestBulkCvZipExportAsync(List<long> jobApplicationIds)
+        {
+            var distinctIds = jobApplicationIds.Distinct().ToList();
+            if (distinctIds.Count == 0)
+            {
+                throw new ValidationException(new[]
+                {
+                    new ValidationFailure(nameof(jobApplicationIds), "Select at least one candidate.")
+                });
+            }
+
+            var now = DateTime.UtcNow;
+            var entity = new ExportRequest
+            {
+                ExportType = ExportTypeEnum.BulkCvZip,
+                Format = ExportFormatEnum.Zip,
+                JobApplicationIdsJson = JsonSerializer.Serialize(distinctIds),
+                Status = ExportRequestStatusEnum.Pending,
+                RequestedByUserName = _currentUserService.GetCurrentUserName(),
+                RequestedByEmail = _currentUserService.GetCurrentUserEmail(),
+                RequestedAt = now,
+                ExpiresAt = now.AddDays(RetentionDays),
+                RowCount = distinctIds.Count
+            };
+
+            await _exportRequestRepository.AddAsync(entity);
+            await _unitOfWork.SaveChangesAsync();
+
+            return entity.ExportRequestId;
+        }
+
         public async Task<PagedResult<ExportRequestResponse>> GetPagedAsync(ExportRequestFilterRequest filter)
         {
             var paged = await _exportRequestRepository.GetPagedAsync(filter.Page, filter.PageSize, filter.Status);
