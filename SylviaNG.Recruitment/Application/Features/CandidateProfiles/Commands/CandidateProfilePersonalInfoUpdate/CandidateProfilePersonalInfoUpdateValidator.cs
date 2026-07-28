@@ -19,9 +19,6 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.C
                 .LessThan(DateTime.UtcNow).WithMessage("DateOfBirth must be in the past.")
                 .When(x => x.Request.DateOfBirth.HasValue);
 
-            RuleFor(x => x.Request.Gender)
-                .MaximumLength(20).WithMessage("Gender must not exceed 20 characters.");
-
             RuleFor(x => x.Request.NationalId)
                 .MaximumLength(50).WithMessage("NationalId must not exceed 50 characters.");
 
@@ -30,12 +27,6 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.C
 
             RuleFor(x => x.Request.MotherName)
                 .MaximumLength(200).WithMessage("MotherName must not exceed 200 characters.");
-
-            RuleFor(x => x.Request.MaritalStatus)
-                .MaximumLength(20).WithMessage("MaritalStatus must not exceed 20 characters.");
-
-            RuleFor(x => x.Request.Religion)
-                .MaximumLength(50).WithMessage("Religion must not exceed 50 characters.");
 
             RuleFor(x => x.Request.Nationality)
                 .MaximumLength(100).WithMessage("Nationality must not exceed 100 characters.");
