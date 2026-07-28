@@ -43,6 +43,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.HasIndex(p => p.JobApplicationId);
 
+            // F1 reconciliation report reads the latest attempt per application by status -
+            // see PaymentReportService.
+            builder.HasIndex(p => new { p.JobApplicationId, p.PaymentStatus });
+
             builder.HasOne(p => p.JobApplication)
                 .WithMany(a => a.Payments)
                 .HasForeignKey(p => p.JobApplicationId)

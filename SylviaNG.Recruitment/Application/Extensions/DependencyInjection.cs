@@ -55,6 +55,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IAccountSettingsService, AccountSettingsService>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<IPaymentService, PaymentService>();
+            services.AddScoped<IPaymentReportService, PaymentReportService>();
             services.AddScoped<IApplicationSettingService, ApplicationSettingService>();
             services.AddScoped<IQuestionGroupService, QuestionGroupService>();
             services.AddScoped<IExamQuestionService, ExamQuestionService>();
@@ -79,6 +80,9 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<ICountryService, CountryService>();
             services.AddScoped<IEducationBoardService, EducationBoardService>();
             services.AddScoped<IDegreeService, DegreeService>();
+            services.AddScoped<IWaiverRuleService, WaiverRuleService>();
+            services.AddScoped<ISpecialCategoryService, SpecialCategoryService>();
+            services.AddScoped<IReferralSourceService, ReferralSourceService>();
             services.AddScoped<IGenderService, GenderService>();
             services.AddScoped<IMaritalStatusService, MaritalStatusService>();
             services.AddScoped<IReligionService, ReligionService>();

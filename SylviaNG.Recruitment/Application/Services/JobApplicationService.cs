@@ -27,6 +27,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ICurrentUserService _currentUserService;
         private readonly ICurrentCandidateService _currentCandidateService;
         private readonly IPaymentService _paymentService;
+        private readonly IWaiverRuleService _waiverRuleService;
         private readonly IApplicationSettingService _applicationSettingService;
         private readonly IResumeParsingService _resumeParsingService;
         private readonly INotificationDispatchService _notificationDispatchService;
@@ -69,6 +70,8 @@ namespace SylviaNG.Recruitment.Application.Services
 
         private static readonly ApplicationStatusEnum[] StatusesRequiringReason = { ApplicationStatusEnum.Rejected, ApplicationStatusEnum.Withdrawn };
 
+        private const string WaiverSystemActor = "system:fee-waiver";
+
         public JobApplicationService(
             IJobApplicationRepository jobApplicationRepository,
             IJobPostingRepository jobPostingRepository,
@@ -79,6 +82,7 @@ namespace SylviaNG.Recruitment.Application.Services
             ICurrentUserService currentUserService,
             ICurrentCandidateService currentCandidateService,
             IPaymentService paymentService,
+            IWaiverRuleService waiverRuleService,
             IApplicationSettingService applicationSettingService,
             IResumeParsingService resumeParsingService,
             INotificationDispatchService notificationDispatchService,
@@ -94,6 +98,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _currentUserService = currentUserService;
             _currentCandidateService = currentCandidateService;
             _paymentService = paymentService;
+            _waiverRuleService = waiverRuleService;
             _applicationSettingService = applicationSettingService;
             _resumeParsingService = resumeParsingService;
             _notificationDispatchService = notificationDispatchService;
@@ -221,16 +226,38 @@ namespace SylviaNG.Recruitment.Application.Services
             if (source != ApplicationSourceEnum.Admin)
                 await EnsureMinimumProfileCompletenessAsync(request.CandidateEmail);
 
-            // EP-17: HR applying on a candidate's behalf bypasses payment entirely - an admin
-            // manually submitting an application isn't going to complete an SSLCommerz checkout
-            // mid-admin-flow. Every other source is gated when the vacancy has a fee configured.
-            var requiresPayment = source != ApplicationSourceEnum.Admin && jobPosting.ApplicationFeeAmount is > 0;
+            var candidateProfileId = await ResolveCandidateProfileIdAsync(request.CandidateEmail);
+
+            // EP-17/US-127: a matching waiver rule skips payment the same way HR apply-on-behalf
+            // does. Resolved before the requiresPayment gate below so it can short-circuit a
+            // fee-bearing vacancy; Admin submissions never reach here, they already bypass payment.
+            WaiverRule? waiverRule = null;
+            if (source != ApplicationSourceEnum.Admin)
+            {
+                var candidateProfile = candidateProfileId.HasValue
+                    ? await _candidateProfileRepository.GetByIdAsync(candidateProfileId.Value)
+                    : null;
+                waiverRule = await _waiverRuleService.TryMatchAsync(
+                    candidateProfile?.IsInternal ?? false, request.SpecialCategoryId, request.ReferralSourceId);
+            }
+
+            // EP-17: HR applying on a candidate's behalf, or a matched fee-waiver rule, bypasses
+            // payment entirely. Every other source is gated when the vacancy has a fee configured.
+            var requiresPayment = source != ApplicationSourceEnum.Admin && waiverRule == null && jobPosting.ApplicationFeeAmount is > 0;
 
             var entity = request.ToEntity();
             entity.Source = source;
             entity.ApplicationStatus = requiresPayment ? ApplicationStatusEnum.AwaitingPayment : ApplicationStatusEnum.Applied;
             entity.AppliedDate = DateTime.UtcNow;
-            entity.CandidateProfileId = await ResolveCandidateProfileIdAsync(request.CandidateEmail);
+            entity.CandidateProfileId = candidateProfileId;
+            entity.SpecialCategoryId = request.SpecialCategoryId;
+            entity.ReferralSourceId = request.ReferralSourceId;
+
+            if (waiverRule != null)
+            {
+                entity.WaiverRuleId = waiverRule.WaiverRuleId;
+                entity.WaivedAt = DateTime.UtcNow;
+            }
 
             if (request.Resume != null)
             {
@@ -242,6 +269,20 @@ namespace SylviaNG.Recruitment.Application.Services
 
             await _jobApplicationRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
+
+            if (waiverRule != null)
+            {
+                entity.StatusHistory.Add(new ApplicationStatusHistory
+                {
+                    JobApplicationId = entity.JobApplicationId,
+                    FromStatus = null,
+                    ToStatus = entity.ApplicationStatus,
+                    ChangedByUserName = WaiverSystemActor,
+                    ChangedAt = DateTime.UtcNow,
+                    Note = $"Application fee waived by rule '{waiverRule.Name}'"
+                });
+                await _unitOfWork.SaveChangesAsync();
+            }
 
             if (source == ApplicationSourceEnum.Admin && !string.IsNullOrEmpty(request.CandidateEmail))
             {

@@ -18,5 +18,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public string? CandidateNationalId { get; set; }
         public string? CoverLetter { get; set; }
         public IFormFile? Resume { get; set; }
+
+        // EP-17/US-127: optional, candidate-declared at apply time - feeds fee-waiver rule
+        // matching and F1 reconciliation reporting (JobApplicationService.SubmitAsync).
+        public long? SpecialCategoryId { get; set; }
+        public long? ReferralSourceId { get; set; }
     }
 }

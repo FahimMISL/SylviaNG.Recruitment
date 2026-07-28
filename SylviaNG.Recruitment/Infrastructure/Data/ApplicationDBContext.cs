@@ -133,6 +133,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<FitmentData> FitmentDatas { get; set; }
         public DbSet<OfficeNote> OfficeNotes { get; set; }
         public DbSet<ExportRequest> ExportRequests { get; set; }
+        public DbSet<WaiverRule> WaiverRules { get; set; }
+        public DbSet<SpecialCategory> SpecialCategories { get; set; }
+        public DbSet<ReferralSource> ReferralSources { get; set; }
 
         #endregion
 

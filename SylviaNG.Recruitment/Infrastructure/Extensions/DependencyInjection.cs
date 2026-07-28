@@ -123,6 +123,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ICountryRepository, CountryRepository>();
             services.AddScoped<IEducationBoardRepository, EducationBoardRepository>();
             services.AddScoped<IDegreeRepository, DegreeRepository>();
+            services.AddScoped<IWaiverRuleRepository, WaiverRuleRepository>();
+            services.AddScoped<ISpecialCategoryRepository, SpecialCategoryRepository>();
+            services.AddScoped<IReferralSourceRepository, ReferralSourceRepository>();
             services.AddScoped<IGenderRepository, GenderRepository>();
             services.AddScoped<IMaritalStatusRepository, MaritalStatusRepository>();
             services.AddScoped<IReligionRepository, ReligionRepository>();
@@ -165,6 +168,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // Standardized CV PDF generation for CV Bank download/bulk-download
             QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
             services.AddScoped<ICvPdfGeneratorService, QuestPdfCvGenerator>();
+            services.AddScoped<IPaymentReportPdfGeneratorService, QuestPdfReconciliationReportGenerator>();
 
             // US-103: standardized candidate profile summary PDF, same QuestPDF pattern as above
             services.AddScoped<ICandidateProfilePdfGeneratorService, QuestPdfCandidateProfileGenerator>();

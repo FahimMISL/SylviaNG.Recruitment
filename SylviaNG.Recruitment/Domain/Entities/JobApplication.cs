@@ -33,9 +33,20 @@ public class JobApplication : Audit
     public bool IsActive { get; set; } = true;
     public ApplicationSourceEnum Source { get; set; } = ApplicationSourceEnum.External;
 
+    // EP-17/US-127: optionally declared at apply time, used for fee-waiver rule matching and F1
+    // reconciliation reporting. WaiverRuleId/WaivedAt are stamped by the system when a WaiverRule
+    // matches at submission - see JobApplicationService.SubmitAsync.
+    public long? SpecialCategoryId { get; set; }
+    public long? ReferralSourceId { get; set; }
+    public long? WaiverRuleId { get; set; }
+    public DateTime? WaivedAt { get; set; }
+
     // Navigation properties
     public JobPosting JobPosting { get; set; } = null!;
     public CandidateProfile? CandidateProfile { get; set; }
+    public SpecialCategory? SpecialCategory { get; set; }
+    public ReferralSource? ReferralSource { get; set; }
+    public WaiverRule? WaiverRule { get; set; }
     public ICollection<Interview> Interviews { get; set; } = new List<Interview>();
     public ICollection<ApplicationStatusHistory> StatusHistory { get; set; } = new List<ApplicationStatusHistory>();
     public ICollection<JobApplicationStageProgress> StageProgress { get; set; } = new List<JobApplicationStageProgress>();

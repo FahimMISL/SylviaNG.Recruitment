@@ -27,6 +27,7 @@ public class JobApplicationServiceTests
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
     private readonly Mock<IPaymentService> _paymentServiceMock;
+    private readonly Mock<IWaiverRuleService> _waiverRuleServiceMock;
     private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<IResumeParsingService> _resumeParsingServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
@@ -43,6 +44,7 @@ public class JobApplicationServiceTests
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
         _paymentServiceMock = new Mock<IPaymentService>();
+        _waiverRuleServiceMock = new Mock<IWaiverRuleService>();
         _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _resumeParsingServiceMock = new Mock<IResumeParsingService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
@@ -54,6 +56,12 @@ public class JobApplicationServiceTests
         // that never set up profile-completeness fixtures are unaffected (US-007 AC4).
         _applicationSettingServiceMock.Setup(s => s.GetMinimumProfileCompletenessPercentageAsync()).ReturnsAsync(0);
 
+        // No waiver rule matches by default, so existing SubmitAsync cases that never set up
+        // waiver fixtures keep their original requiresPayment behavior (EP-17/US-127).
+        _waiverRuleServiceMock
+            .Setup(s => s.TryMatchAsync(It.IsAny<bool>(), It.IsAny<long?>(), It.IsAny<long?>()))
+            .ReturnsAsync((WaiverRule?)null);
+
         _service = new JobApplicationService(
             _jobApplicationRepositoryMock.Object,
             _jobPostingRepositoryMock.Object,
@@ -64,6 +72,7 @@ public class JobApplicationServiceTests
             _currentUserServiceMock.Object,
             _currentCandidateServiceMock.Object,
             _paymentServiceMock.Object,
+            _waiverRuleServiceMock.Object,
             _applicationSettingServiceMock.Object,
             _resumeParsingServiceMock.Object,
             Mock.Of<INotificationDispatchService>(),
@@ -877,6 +886,50 @@ public class JobApplicationServiceTests
         result.PaymentRequired.Should().BeTrue();
         result.PaymentRedirectUrl.Should().Be("https://sandbox.sslcommerz.com/pay/abc");
         _paymentServiceMock.Verify(p => p.InitiateAsync(10), Times.Once);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_WithMatchingWaiverRule_ShouldBypassPaymentAndStampWaiverFields()
+    {
+        // Arrange: EP-17/US-127 - a matching waiver rule should skip payment the same way HR
+        // apply-on-behalf does, even though the vacancy has a fee configured.
+        var jobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer", Status = JobStatusEnum.Open, ApplicationFeeAmount = 500m, ApplicationFeeCurrency = "BDT" };
+        _jobPostingRepositoryMock
+            .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
+            .ReturnsAsync(jobPosting);
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByEmailAndJobPostingIdAsync("jane@example.com", 1))
+            .ReturnsAsync((JobApplication?)null);
+
+        var matchedRule = new WaiverRule { WaiverRuleId = 7, Name = "Internal Staff", CandidateTypeFilter = WaiverCandidateTypeEnum.Internal };
+        _waiverRuleServiceMock
+            .Setup(s => s.TryMatchAsync(It.IsAny<bool>(), It.IsAny<long?>(), It.IsAny<long?>()))
+            .ReturnsAsync(matchedRule);
+
+        JobApplication? savedEntity = null;
+        _jobApplicationRepositoryMock.Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
+            .Callback<JobApplication>(a =>
+            {
+                a.JobApplicationId = 10;
+                savedEntity = a;
+            });
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+
+        var request = CreateRequest(resume: null);
+
+        // Act
+        var result = await _service.SubmitAsync(request, ApplicationSourceEnum.External);
+
+        // Assert
+        savedEntity!.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
+        savedEntity.WaiverRuleId.Should().Be(7);
+        savedEntity.WaivedAt.Should().NotBeNull();
+        result.PaymentRequired.Should().BeFalse();
+        result.PaymentRedirectUrl.Should().BeNull();
+        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>()), Times.Never);
+        savedEntity.StatusHistory.Should().ContainSingle(h => h.ChangedByUserName == "system:fee-waiver" && h.ToStatus == ApplicationStatusEnum.Applied);
     }
 
     [Fact]

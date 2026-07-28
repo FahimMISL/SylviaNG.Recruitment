@@ -129,5 +129,16 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await BuildDashboardFilterQuery(jobPostingId, status, source, dateFrom, dateTo)
                 .ToListAsync();
         }
+
+        public async Task<int> CountWaivedInPeriodAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId, long? siteId)
+        {
+            return await _dbSet
+                .Where(a => a.WaiverRuleId != null)
+                .Where(a => a.AppliedDate != null && a.AppliedDate >= from && a.AppliedDate <= to)
+                .Where(a => jobPostingId == null || a.JobPostingId == jobPostingId)
+                .Where(a => departmentId == null || a.JobPosting.DepartmentId == departmentId)
+                .Where(a => siteId == null || a.JobPosting.SiteId == siteId)
+                .CountAsync();
+        }
     }
 }

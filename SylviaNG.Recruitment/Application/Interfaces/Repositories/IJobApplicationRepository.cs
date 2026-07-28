@@ -67,5 +67,9 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
             ApplicationSourceEnum? source,
             DateTime? dateFrom,
             DateTime? dateTo);
+
+        /// <summary>F1 reconciliation "Waived" bucket: applications with a matched WaiverRule,
+        /// submitted in [from, to], within the given vacancy/department/site scope.</summary>
+        Task<int> CountWaivedInPeriodAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId, long? siteId);
     }
 }

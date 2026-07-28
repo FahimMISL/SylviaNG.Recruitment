@@ -119,6 +119,14 @@ public enum PaymentStatusEnum
     Cancelled
 }
 
+/// <summary>EP-17/US-127: candidate-type criterion on a WaiverRule. Not the same as
+/// ApplicationSourceEnum (application channel) - this keys off CandidateProfile.IsInternal.</summary>
+public enum WaiverCandidateTypeEnum
+{
+    Internal,
+    External
+}
+
 public enum RecommendationStatusEnum
 {
     Pending,
