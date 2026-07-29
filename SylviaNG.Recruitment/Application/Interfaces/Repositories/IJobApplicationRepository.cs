@@ -16,6 +16,22 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// <summary>Every application by this candidate's email, across all postings (HR profile view, US-009 AC4).</summary>
         Task<List<JobApplication>> GetByCandidateEmailAsync(string email);
 
+        /// <summary>
+        /// Every application belonging to this candidate, across all postings - matches by
+        /// CandidateProfileId where it's set, falling back to email only for rows that predate
+        /// the FK or that a guest submitted before registering (CandidateProfileId still null).
+        /// The correct replacement for GetByCandidateEmailAsync everywhere the caller has a real
+        /// CandidateProfileId in hand.
+        /// </summary>
+        Task<List<JobApplication>> GetByCandidateAsync(long? candidateProfileId, string email);
+
+        /// <summary>
+        /// Bulk-links every unclaimed (CandidateProfileId still null) application matching this
+        /// email to the given profile - called once, at the moment a guest applicant registers
+        /// and a real CandidateProfile is provisioned for them (see CurrentCandidateService).
+        /// </summary>
+        Task LinkUnclaimedApplicationsByEmailAsync(string email, long candidateProfileId);
+
         /// <summary>Cross-job-posting ATS dashboard query with optional filters (US-035 AC1/AC2).</summary>
         Task<PagedResult<JobApplication>> GetPaginatedAllAsync(
             PagedRequest request,
@@ -49,6 +65,39 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
             long? jobPostingId,
             ApplicationStatusEnum? status,
             ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo);
+
+        /// <summary>F1 reconciliation "Waived" bucket: applications with a matched WaiverRule,
+        /// submitted in [from, to], within the given vacancy/department/site scope.</summary>
+        Task<int> CountWaivedInPeriodAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId, long? siteId);
+
+        /// <summary>EP-14 US-105 AC1: applications grouped by ApplicationStatus, dashboard summary.</summary>
+        Task<Dictionary<ApplicationStatusEnum, int>> GetCountsByStatusAsync();
+
+        /// <summary>EP-14 US-105 AC2: total applications with AppliedDate on/before the cutoff -
+        /// AppliedDate is monotonic/append-only, so this safely reconstructs a historical total
+        /// for the trend delta (unlike the mutable-state metrics, which have no history table).</summary>
+        Task<int> CountAppliedAsOfAsync(DateTime cutoff);
+
+        /// <summary>EP-14 US-109: every application matching the ATS/tracker scalar filters,
+        /// unpaginated entities (not just IDs) - feeds the in-memory sort/stale-filter path used
+        /// when the request sorts by a stage-derived column or filters StaleOnly, mirroring the
+        /// existing candidate-attribute-filter in-memory path for cases the generic SQL
+        /// sort/filter can't reach.</summary>
+        Task<List<JobApplication>> GetAllMatchingAsync(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo);
+
+        /// <summary>EP-14 US-106/US-107: every application matching the analytics scope filters
+        /// (JobPosting/Department/AppliedDate range), unpaginated, with JobPosting included - feeds
+        /// both the recruitment funnel and time-to-hire aggregation.</summary>
+        Task<List<JobApplication>> GetForAnalyticsScopeAsync(
+            long? jobPostingId,
+            long? departmentId,
             DateTime? dateFrom,
             DateTime? dateTo);
     }

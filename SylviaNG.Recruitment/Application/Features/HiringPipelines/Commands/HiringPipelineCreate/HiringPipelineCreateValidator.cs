@@ -30,6 +30,11 @@ namespace SylviaNG.Recruitment.Application.Features.HiringPipelines.Commands.Hir
                 stage.RuleFor(s => s.EstimatedDurationMinutes)
                     .GreaterThan(0).When(s => s.EstimatedDurationMinutes.HasValue)
                     .WithMessage("Estimated duration must be greater than 0 minutes.");
+
+                stage.RuleFor(s => s.PassMarks)
+                    .LessThanOrEqualTo(s => s.MaxMarks)
+                    .When(s => s.MaxMarks.HasValue && s.PassMarks.HasValue)
+                    .WithMessage("Pass marks must not exceed max marks.");
             });
         }
     }

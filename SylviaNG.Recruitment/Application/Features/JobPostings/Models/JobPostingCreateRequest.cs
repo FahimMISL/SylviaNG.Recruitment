@@ -31,5 +31,6 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
 
         // Every job opening must reference a hiring pipeline (see JobPostingCreateValidator).
         public long HiringPipelineId { get; set; }
+
     }
 }
