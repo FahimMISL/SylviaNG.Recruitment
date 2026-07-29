@@ -207,6 +207,15 @@ public enum InterviewResultEnum
     Failed
 }
 
+/// <summary>EP-14 US-110: a panelist's explicit hiring recommendation on their InterviewEvaluation,
+/// optionally declared alongside their scores/comments - not derived from WeightedScore.</summary>
+public enum EvaluationRecommendationEnum
+{
+    Recommended,
+    NotRecommended,
+    OnHold
+}
+
 /// <summary>EP-09: recruitment lifecycle event a NotificationTemplate can be mapped to via
 /// EventTemplateMapping. Extend this list as later EP-09 features need new trigger points.</summary>
 public enum RecruitmentEventEnum

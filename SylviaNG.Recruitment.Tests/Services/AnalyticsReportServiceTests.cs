@@ -14,6 +14,8 @@ public class AnalyticsReportServiceTests
     private readonly Mock<IApplicationStatusHistoryRepository> _applicationStatusHistoryRepositoryMock;
     private readonly Mock<IOfferLetterRepository> _offerLetterRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
+    private readonly Mock<IInterviewEvaluationRepository> _interviewEvaluationRepositoryMock;
+    private readonly Mock<IEmployeeRepository> _employeeRepositoryMock;
     private readonly AnalyticsReportService _service;
 
     public AnalyticsReportServiceTests()
@@ -22,22 +24,49 @@ public class AnalyticsReportServiceTests
         _applicationStatusHistoryRepositoryMock = new Mock<IApplicationStatusHistoryRepository>();
         _offerLetterRepositoryMock = new Mock<IOfferLetterRepository>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
+        _interviewEvaluationRepositoryMock = new Mock<IInterviewEvaluationRepository>();
+        _employeeRepositoryMock = new Mock<IEmployeeRepository>();
 
         _service = new AnalyticsReportService(
             _jobApplicationRepositoryMock.Object,
             _applicationStatusHistoryRepositoryMock.Object,
             _offerLetterRepositoryMock.Object,
-            _candidateProfileRepositoryMock.Object);
+            _candidateProfileRepositoryMock.Object,
+            _interviewEvaluationRepositoryMock.Object,
+            _employeeRepositoryMock.Object);
     }
 
-    private static JobApplication MakeApplication(long id, long jobPostingId = 1, string email = "candidate@example.com")
+    private static JobApplication MakeApplication(
+        long id, long jobPostingId = 1, string email = "candidate@example.com",
+        ApplicationStatusEnum status = ApplicationStatusEnum.Applied,
+        ApplicationSourceEnum source = ApplicationSourceEnum.External,
+        ReferralSource? referralSource = null)
     {
         return new JobApplication
         {
             JobApplicationId = id,
             JobPostingId = jobPostingId,
             CandidateEmail = email,
+            ApplicationStatus = status,
+            Source = source,
+            ReferralSource = referralSource,
             JobPosting = new JobPosting { JobPostingId = jobPostingId, PostingDate = new DateTime(2026, 1, 1) }
+        };
+    }
+
+    private static InterviewEvaluation MakeEvaluation(
+        long id, long employeeId, decimal score, decimal maxScore = 100, decimal weight = 1,
+        EvaluationRecommendationEnum? recommendation = null)
+    {
+        var criterion = new ScorecardCriterion { ScorecardCriterionId = 1, Weight = weight, MaxScore = maxScore, Name = "Overall" };
+        return new InterviewEvaluation
+        {
+            InterviewEvaluationId = id,
+            EmployeeId = employeeId,
+            Recommendation = recommendation,
+            SubmittedAt = new DateTime(2026, 1, 1),
+            Scorecard = new Scorecard { ScorecardId = 1, Criteria = new List<ScorecardCriterion> { criterion } },
+            Scores = new List<InterviewEvaluationScore> { new() { ScorecardCriterionId = 1, Score = score } }
         };
     }
 
@@ -311,5 +340,153 @@ public class AnalyticsReportServiceTests
 
         lines[0].Should().Be("Section,Label,Average Days,Sample Size");
         lines.Length.Should().Be(5); // header + 4 summary rows, no stage-breakdown rows
+    }
+
+    // ── GetCandidateSourceAnalyticsAsync (US-108) ──────────────────────────
+
+    [Fact]
+    public async Task GetCandidateSourceAnalyticsAsync_GroupsByReferralSourceName_FallsBackToApplicationSourceLabel()
+    {
+        var referral = new ReferralSource { ReferralSourceId = 1, Name = "Employee Referral" };
+        var applications = new List<JobApplication>
+        {
+            MakeApplication(1, referralSource: referral),
+            MakeApplication(2, source: ApplicationSourceEnum.External), // no ReferralSource -> falls back to "Career Portal"
+            MakeApplication(3, source: ApplicationSourceEnum.Internal), // falls back to "Internal"
+        };
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
+            .ReturnsAsync(applications);
+
+        var result = await _service.GetCandidateSourceAnalyticsAsync(new CandidateSourceAnalyticsRequest());
+
+        result.Segments.Should().ContainSingle(s => s.SourceLabel == "Employee Referral" && s.TotalApplications == 1);
+        result.Segments.Should().ContainSingle(s => s.SourceLabel == "Career Portal" && s.TotalApplications == 1);
+        result.Segments.Should().ContainSingle(s => s.SourceLabel == "Internal" && s.TotalApplications == 1);
+    }
+
+    [Fact]
+    public async Task GetCandidateSourceAnalyticsAsync_ComputesShortlistedHiredAndConversionRate()
+    {
+        var referral = new ReferralSource { ReferralSourceId = 1, Name = "BDJobs" };
+        var applications = new List<JobApplication>
+        {
+            MakeApplication(1, referralSource: referral, status: ApplicationStatusEnum.Applied),
+            MakeApplication(2, referralSource: referral, status: ApplicationStatusEnum.Shortlisted),
+            MakeApplication(3, referralSource: referral, status: ApplicationStatusEnum.Hired),
+            MakeApplication(4, referralSource: referral, status: ApplicationStatusEnum.Hired),
+        };
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
+            .ReturnsAsync(applications);
+
+        var result = await _service.GetCandidateSourceAnalyticsAsync(new CandidateSourceAnalyticsRequest());
+
+        var segment = result.Segments.Single(s => s.SourceLabel == "BDJobs");
+        segment.TotalApplications.Should().Be(4);
+        // Shortlisted+Hired both count as "reached Shortlisted or beyond" -> 3 of 4.
+        segment.ShortlistedCount.Should().Be(3);
+        segment.HiredCount.Should().Be(2);
+        segment.ConversionRatePercent.Should().BeApproximately(50.0, 0.1);
+    }
+
+    [Fact]
+    public async Task GetCandidateSourceAnalyticsAsync_EmploymentTypeFilter_ShouldExcludeNonMatchingVacancies()
+    {
+        var fullTimeApp = MakeApplication(1);
+        fullTimeApp.JobPosting.EmploymentType = EmploymentTypeEnum.FullTime;
+        var contractApp = MakeApplication(2);
+        contractApp.JobPosting.EmploymentType = EmploymentTypeEnum.Contract;
+
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
+            .ReturnsAsync(new List<JobApplication> { fullTimeApp, contractApp });
+
+        var result = await _service.GetCandidateSourceAnalyticsAsync(
+            new CandidateSourceAnalyticsRequest { EmploymentType = EmploymentTypeEnum.FullTime });
+
+        result.Segments.Sum(s => s.TotalApplications).Should().Be(1);
+    }
+
+    // ── GetInterviewAnalyticsAsync (US-110) ──────────────────────────
+
+    [Fact]
+    public async Task GetInterviewAnalyticsAsync_ComputesPerPanelistAverageScoreAndRecommendationCounts()
+    {
+        var evaluations = new List<InterviewEvaluation>
+        {
+            MakeEvaluation(1, employeeId: 10, score: 80, recommendation: EvaluationRecommendationEnum.Recommended),
+            MakeEvaluation(2, employeeId: 10, score: 60, recommendation: EvaluationRecommendationEnum.NotRecommended),
+            MakeEvaluation(3, employeeId: 20, score: 90, recommendation: EvaluationRecommendationEnum.OnHold),
+        };
+
+        _interviewEvaluationRepositoryMock
+            .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
+            .ReturnsAsync(evaluations);
+        _employeeRepositoryMock
+            .Setup(r => r.GetByIdAsync(10))
+            .ReturnsAsync(new Employee { EmployeeId = 10, EmployeeName = "Alice" });
+        _employeeRepositoryMock
+            .Setup(r => r.GetByIdAsync(20))
+            .ReturnsAsync(new Employee { EmployeeId = 20, EmployeeName = "Bob" });
+
+        var result = await _service.GetInterviewAnalyticsAsync(new InterviewAnalyticsRequest());
+
+        var alice = result.Panelists.Single(p => p.EmployeeId == 10);
+        alice.EmployeeName.Should().Be("Alice");
+        alice.InterviewsConducted.Should().Be(2);
+        alice.AverageScore.Should().Be(70.0m);
+        alice.RecommendedCount.Should().Be(1);
+        alice.NotRecommendedCount.Should().Be(1);
+        alice.OnHoldCount.Should().Be(0);
+
+        var bob = result.Panelists.Single(p => p.EmployeeId == 20);
+        bob.EmployeeName.Should().Be("Bob");
+        bob.OnHoldCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetInterviewAnalyticsAsync_MissingEmployeeRecord_ShouldFallBackToPlaceholderName()
+    {
+        var evaluations = new List<InterviewEvaluation> { MakeEvaluation(1, employeeId: 99, score: 50) };
+
+        _interviewEvaluationRepositoryMock
+            .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
+            .ReturnsAsync(evaluations);
+        _employeeRepositoryMock
+            .Setup(r => r.GetByIdAsync(99))
+            .ReturnsAsync((Employee?)null);
+
+        var result = await _service.GetInterviewAnalyticsAsync(new InterviewAnalyticsRequest());
+
+        result.Panelists.Single().EmployeeName.Should().Be("Employee 99");
+    }
+
+    [Fact]
+    public async Task GetInterviewAnalyticsAsync_ShouldBucketWeightedScoresIntoFiveHistogramBands()
+    {
+        var evaluations = new List<InterviewEvaluation>
+        {
+            MakeEvaluation(1, employeeId: 1, score: 10),  // 0-20 band
+            MakeEvaluation(2, employeeId: 1, score: 55),  // 41-60 band
+            MakeEvaluation(3, employeeId: 1, score: 95),  // 81-100 band
+        };
+
+        _interviewEvaluationRepositoryMock
+            .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
+            .ReturnsAsync(evaluations);
+        _employeeRepositoryMock
+            .Setup(r => r.GetByIdAsync(It.IsAny<long>()))
+            .ReturnsAsync(new Employee { EmployeeId = 1, EmployeeName = "Alice" });
+
+        var result = await _service.GetInterviewAnalyticsAsync(new InterviewAnalyticsRequest());
+
+        result.ScoreHistogram.Single(b => b.Band == "0-20").Count.Should().Be(1);
+        result.ScoreHistogram.Single(b => b.Band == "41-60").Count.Should().Be(1);
+        result.ScoreHistogram.Single(b => b.Band == "81-100").Count.Should().Be(1);
+        result.ScoreHistogram.Single(b => b.Band == "21-40").Count.Should().Be(0);
+        result.ScoreHistogram.Single(b => b.Band == "61-80").Count.Should().Be(0);
     }
 }

@@ -174,6 +174,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(a => a.JobPosting)
+                .Include(a => a.ReferralSource)
                 .Where(a => jobPostingId == null || a.JobPostingId == jobPostingId)
                 .Where(a => departmentId == null || a.JobPosting.DepartmentId == departmentId)
                 .Where(a => dateFrom == null || (a.AppliedDate != null && a.AppliedDate >= dateFrom))

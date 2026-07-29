@@ -1,3 +1,5 @@
+using SylviaNG.Recruitment.Domain.Enums;
+
 namespace SylviaNG.Recruitment.Application.Features.InterviewEvaluations.Models
 {
     public class InterviewEvaluationResponse
@@ -8,6 +10,7 @@ namespace SylviaNG.Recruitment.Application.Features.InterviewEvaluations.Models
         public long ScorecardId { get; set; }
         public string ScorecardName { get; set; } = string.Empty;
         public string? OverallComments { get; set; }
+        public EvaluationRecommendationEnum? Recommendation { get; set; }
         public DateTime SubmittedAt { get; set; }
         public string? SubmittedByUserName { get; set; }
         public List<InterviewEvaluationScoreResponse> Scores { get; set; } = new();

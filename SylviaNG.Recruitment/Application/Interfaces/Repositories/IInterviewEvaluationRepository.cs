@@ -13,5 +13,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>Single evaluation with Scores+ScorecardCriterion included, for edit/detail.</summary>
         Task<InterviewEvaluation?> GetByIdWithDetailsAsync(long interviewEvaluationId);
+
+        /// <summary>EP-14 US-110: every evaluation in scope, with Scores+ScorecardCriterion (for
+        /// WeightedScore) and Interview.JobApplication.JobPosting (for vacancy/department
+        /// filtering) included.</summary>
+        Task<List<InterviewEvaluation>> GetForAnalyticsScopeAsync(
+            long? jobPostingId, long? departmentId, DateTime? dateFrom, DateTime? dateTo);
     }
 }

@@ -61,6 +61,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 ScorecardId = request.ScorecardId,
                 EmployeeId = request.EmployeeId,
                 OverallComments = request.OverallComments,
+                Recommendation = request.Recommendation,
                 SubmittedAt = DateTime.UtcNow,
                 SubmittedByUserName = _currentUserService.GetCurrentUserName(),
                 Scores = request.Scores
@@ -87,6 +88,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 entity.Scores.Add(new InterviewEvaluationScore { ScorecardCriterionId = score.ScorecardCriterionId, Score = score.Score });
             }
             entity.OverallComments = request.OverallComments;
+            entity.Recommendation = request.Recommendation;
 
             _interviewEvaluationRepository.Update(entity);
             await _unitOfWork.SaveChangesAsync();
@@ -117,7 +119,7 @@ namespace SylviaNG.Recruitment.Application.Services
             using var workbook = new XLWorkbook();
             var sheet = workbook.Worksheets.Add("Interview Results");
 
-            var headers = new[] { "Candidate", "Panelist Employee ID", "Scorecard", "Criteria Scores", "Weighted Score (%)", "Overall Comments", "Submitted At", "Submitted By" };
+            var headers = new[] { "Candidate", "Panelist Employee ID", "Scorecard", "Criteria Scores", "Weighted Score (%)", "Recommendation", "Overall Comments", "Submitted At", "Submitted By" };
             for (var column = 0; column < headers.Length; column++)
                 sheet.Cell(1, column + 1).Value = headers[column];
             sheet.Row(1).Style.Font.Bold = true;
@@ -132,9 +134,10 @@ namespace SylviaNG.Recruitment.Application.Services
                 sheet.Cell(rowIndex, 3).Value = evaluation.ScorecardName;
                 sheet.Cell(rowIndex, 4).Value = criteriaScores;
                 sheet.Cell(rowIndex, 5).Value = evaluation.WeightedScore;
-                sheet.Cell(rowIndex, 6).Value = evaluation.OverallComments ?? string.Empty;
-                sheet.Cell(rowIndex, 7).Value = evaluation.SubmittedAt.ToString("yyyy-MM-dd HH:mm");
-                sheet.Cell(rowIndex, 8).Value = evaluation.SubmittedByUserName ?? string.Empty;
+                sheet.Cell(rowIndex, 6).Value = evaluation.Recommendation?.ToString() ?? string.Empty;
+                sheet.Cell(rowIndex, 7).Value = evaluation.OverallComments ?? string.Empty;
+                sheet.Cell(rowIndex, 8).Value = evaluation.SubmittedAt.ToString("yyyy-MM-dd HH:mm");
+                sheet.Cell(rowIndex, 9).Value = evaluation.SubmittedByUserName ?? string.Empty;
                 rowIndex++;
             }
 

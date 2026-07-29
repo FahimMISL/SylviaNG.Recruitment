@@ -9,5 +9,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task<byte[]> ExportRecruitmentFunnelCsvAsync(RecruitmentFunnelRequest request);
         Task<TimeToHireResponse> GetTimeToHireAsync(TimeToHireRequest request);
         Task<byte[]> ExportTimeToHireCsvAsync(TimeToHireRequest request);
+
+        Task<CandidateSourceAnalyticsResponse> GetCandidateSourceAnalyticsAsync(CandidateSourceAnalyticsRequest request);
+        Task<byte[]> ExportCandidateSourceAnalyticsExcelAsync(CandidateSourceAnalyticsRequest request);
+
+        Task<InterviewAnalyticsResponse> GetInterviewAnalyticsAsync(InterviewAnalyticsRequest request);
+        Task<byte[]> ExportInterviewAnalyticsExcelAsync(InterviewAnalyticsRequest request);
     }
 }

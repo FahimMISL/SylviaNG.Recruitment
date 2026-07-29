@@ -37,5 +37,22 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(e => e.Scores)
                 .FirstOrDefaultAsync(e => e.InterviewEvaluationId == interviewEvaluationId);
         }
+
+        public async Task<List<InterviewEvaluation>> GetForAnalyticsScopeAsync(
+            long? jobPostingId, long? departmentId, DateTime? dateFrom, DateTime? dateTo)
+        {
+            return await _dbSet
+                .Include(e => e.Scorecard)
+                    .ThenInclude(s => s.Criteria)
+                .Include(e => e.Scores)
+                .Include(e => e.Interview)
+                    .ThenInclude(i => i.JobApplication)
+                        .ThenInclude(a => a.JobPosting)
+                .Where(e => jobPostingId == null || e.Interview.JobApplication.JobPostingId == jobPostingId)
+                .Where(e => departmentId == null || e.Interview.JobApplication.JobPosting.DepartmentId == departmentId)
+                .Where(e => dateFrom == null || e.SubmittedAt >= dateFrom)
+                .Where(e => dateTo == null || e.SubmittedAt <= dateTo)
+                .ToListAsync();
+        }
     }
 }

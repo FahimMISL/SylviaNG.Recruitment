@@ -35,6 +35,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ScorecardId = entity.ScorecardId,
                 ScorecardName = entity.Scorecard.Name,
                 OverallComments = entity.OverallComments,
+                Recommendation = entity.Recommendation,
                 SubmittedAt = entity.SubmittedAt,
                 SubmittedByUserName = entity.SubmittedByUserName,
                 Scores = scoreResponses,
