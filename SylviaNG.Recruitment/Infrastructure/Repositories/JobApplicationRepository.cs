@@ -165,5 +165,20 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(a => a.JobPosting)
                 .ToListAsync();
         }
+
+        public async Task<List<JobApplication>> GetForAnalyticsScopeAsync(
+            long? jobPostingId,
+            long? departmentId,
+            DateTime? dateFrom,
+            DateTime? dateTo)
+        {
+            return await _dbSet
+                .Include(a => a.JobPosting)
+                .Where(a => jobPostingId == null || a.JobPostingId == jobPostingId)
+                .Where(a => departmentId == null || a.JobPosting.DepartmentId == departmentId)
+                .Where(a => dateFrom == null || (a.AppliedDate != null && a.AppliedDate >= dateFrom))
+                .Where(a => dateTo == null || (a.AppliedDate != null && a.AppliedDate <= dateTo))
+                .ToListAsync();
+        }
     }
 }

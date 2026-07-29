@@ -91,5 +91,14 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
             ApplicationSourceEnum? source,
             DateTime? dateFrom,
             DateTime? dateTo);
+
+        /// <summary>EP-14 US-106/US-107: every application matching the analytics scope filters
+        /// (JobPosting/Department/AppliedDate range), unpaginated, with JobPosting included - feeds
+        /// both the recruitment funnel and time-to-hire aggregation.</summary>
+        Task<List<JobApplication>> GetForAnalyticsScopeAsync(
+            long? jobPostingId,
+            long? departmentId,
+            DateTime? dateFrom,
+            DateTime? dateTo);
     }
 }

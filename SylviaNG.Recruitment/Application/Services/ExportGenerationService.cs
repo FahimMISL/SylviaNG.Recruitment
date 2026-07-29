@@ -1,4 +1,3 @@
-using System.Text;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using SylviaNG.Recruitment.Application.Common.Utilities;
@@ -6,6 +5,7 @@ using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -121,7 +121,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
             return format == ExportFormatEnum.Csv
-                ? new ExportFileResult(WriteCsv(Headers, rows), "text/csv", $"Candidate-List-Export-{timestamp}.csv", rows.Count)
+                ? new ExportFileResult(CsvWriter.Write(Headers, rows), "text/csv", $"Candidate-List-Export-{timestamp}.csv", rows.Count)
                 : new ExportFileResult(WriteXlsx(Headers, "Candidate List Export", rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Candidate-List-Export-{timestamp}.xlsx", rows.Count);
         }
 
@@ -151,7 +151,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
             return format == ExportFormatEnum.Csv
-                ? new ExportFileResult(WriteCsv(TrackerHeaders, rows), "text/csv", $"Job-Application-Tracker-{timestamp}.csv", rows.Count)
+                ? new ExportFileResult(CsvWriter.Write(TrackerHeaders, rows), "text/csv", $"Job-Application-Tracker-{timestamp}.csv", rows.Count)
                 : new ExportFileResult(WriteXlsx(TrackerHeaders, "Job Application Tracker", rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Job-Application-Tracker-{timestamp}.xlsx", rows.Count);
         }
 
@@ -219,23 +219,5 @@ namespace SylviaNG.Recruitment.Application.Services
             return stream.ToArray();
         }
 
-        private static byte[] WriteCsv(string[] headers, List<string[]> rows)
-        {
-            var builder = new StringBuilder();
-            builder.AppendLine(string.Join(",", headers.Select(EscapeCsvField)));
-
-            foreach (var row in rows)
-                builder.AppendLine(string.Join(",", row.Select(EscapeCsvField)));
-
-            return Encoding.UTF8.GetBytes(builder.ToString());
-        }
-
-        private static string EscapeCsvField(string value)
-        {
-            if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
-                return $"\"{value.Replace("\"", "\"\"")}\"";
-
-            return value;
-        }
     }
 }

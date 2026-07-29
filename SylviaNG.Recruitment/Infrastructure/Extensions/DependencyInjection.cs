@@ -100,6 +100,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ICandidateDocumentRepository, CandidateDocumentRepository>();
             services.AddScoped<IStaffProfileRepository, StaffProfileRepository>();
             services.AddScoped<IApplicationStatusReasonRepository, ApplicationStatusReasonRepository>();
+            services.AddScoped<IApplicationStatusHistoryRepository, ApplicationStatusHistoryRepository>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IApplicationSettingRepository, ApplicationSettingRepository>();
             services.AddScoped<IQuestionGroupRepository, QuestionGroupRepository>();

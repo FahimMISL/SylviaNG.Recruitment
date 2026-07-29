@@ -18,5 +18,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// "Offers Pending Acceptance" dashboard metric. Mutable point-in-time state (no history
         /// table), so this has no trend delta - see DashboardService for which metrics do.</summary>
         Task<int> CountPendingAcceptanceAsync();
+
+        /// <summary>EP-14 US-107: accepted offers (Status==Accepted, DecisionAt set) for the given
+        /// JobApplicationIds, with JobApplication.JobPosting included for PostingDate - the
+        /// time-to-hire end point (start point is JobPosting.PostingDate).</summary>
+        Task<List<OfferLetter>> GetAcceptedForApplicationsAsync(IEnumerable<long> jobApplicationIds);
     }
 }

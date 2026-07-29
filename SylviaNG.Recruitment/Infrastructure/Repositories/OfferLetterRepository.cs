@@ -67,5 +67,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 (o.Status == OfferLetterStatusEnum.Generated || o.Status == OfferLetterStatusEnum.Sent) &&
                 o.DecisionAt == null);
         }
+
+        public async Task<List<OfferLetter>> GetAcceptedForApplicationsAsync(IEnumerable<long> jobApplicationIds)
+        {
+            var ids = jobApplicationIds.ToList();
+
+            return await _dbSet
+                .Include(o => o.JobApplication)
+                    .ThenInclude(a => a.JobPosting)
+                .Where(o => ids.Contains(o.JobApplicationId))
+                .Where(o => o.Status == OfferLetterStatusEnum.Accepted && o.DecisionAt != null)
+                .ToListAsync();
+        }
     }
 }

@@ -55,6 +55,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IAccountSettingsService, AccountSettingsService>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<IDashboardWidgetConfigService, DashboardWidgetConfigService>();
+            services.AddScoped<IAnalyticsReportService, AnalyticsReportService>();
             services.AddScoped<IPaymentService, PaymentService>();
             services.AddScoped<IPaymentReportService, PaymentReportService>();
             services.AddScoped<IApplicationSettingService, ApplicationSettingService>();
