@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Audit;
 
 namespace SylviaNG.Recruitment.Domain.Entities;
@@ -15,6 +16,7 @@ public class InterviewEvaluation : Audit
     public long ScorecardId { get; set; }
     public long EmployeeId { get; set; }
     public string? OverallComments { get; set; }
+    public EvaluationRecommendationEnum? Recommendation { get; set; }
     public DateTime SubmittedAt { get; set; }
     public string? SubmittedByUserName { get; set; }
 

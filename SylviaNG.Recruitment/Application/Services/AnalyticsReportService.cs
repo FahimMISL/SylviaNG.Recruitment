@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using SylviaNG.Recruitment.Application.Features.Analytics.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -55,21 +56,47 @@ namespace SylviaNG.Recruitment.Application.Services
             ApplicationStatusEnum.Withdrawn
         };
 
+        // EP-14 US-108: fallback label when a JobApplication has no ReferralSourceId declared -
+        // the named channels in the AC (BDJobs/LinkedIn/Employee Referral/Agency) live in the
+        // admin-managed ReferralSource lookup, not in ApplicationSourceEnum (see feature doc).
+        private static readonly Dictionary<ApplicationSourceEnum, string> FallbackSourceLabels = new()
+        {
+            [ApplicationSourceEnum.External] = "Career Portal",
+            [ApplicationSourceEnum.Internal] = "Internal",
+            [ApplicationSourceEnum.Admin] = "Agency/Direct"
+        };
+
+        // EP-14 US-110 AC2: fixed 5-band score histogram over WeightedScore (0-100).
+        private static readonly (decimal Min, decimal Max, string Label)[] ScoreHistogramBands =
+        {
+            (0, 20, "0-20"),
+            (21, 40, "21-40"),
+            (41, 60, "41-60"),
+            (61, 80, "61-80"),
+            (81, 100, "81-100")
+        };
+
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IApplicationStatusHistoryRepository _applicationStatusHistoryRepository;
         private readonly IOfferLetterRepository _offerLetterRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
+        private readonly IInterviewEvaluationRepository _interviewEvaluationRepository;
+        private readonly IEmployeeRepository _employeeRepository;
 
         public AnalyticsReportService(
             IJobApplicationRepository jobApplicationRepository,
             IApplicationStatusHistoryRepository applicationStatusHistoryRepository,
             IOfferLetterRepository offerLetterRepository,
-            ICandidateProfileRepository candidateProfileRepository)
+            ICandidateProfileRepository candidateProfileRepository,
+            IInterviewEvaluationRepository interviewEvaluationRepository,
+            IEmployeeRepository employeeRepository)
         {
             _jobApplicationRepository = jobApplicationRepository;
             _applicationStatusHistoryRepository = applicationStatusHistoryRepository;
             _offerLetterRepository = offerLetterRepository;
             _candidateProfileRepository = candidateProfileRepository;
+            _interviewEvaluationRepository = interviewEvaluationRepository;
+            _employeeRepository = employeeRepository;
         }
 
         public async Task<RecruitmentFunnelResponse> GetRecruitmentFunnelAsync(RecruitmentFunnelRequest request)
@@ -286,6 +313,179 @@ namespace SylviaNG.Recruitment.Application.Services
             }));
 
             return CsvWriter.Write(headers, rows);
+        }
+
+        public async Task<CandidateSourceAnalyticsResponse> GetCandidateSourceAnalyticsAsync(CandidateSourceAnalyticsRequest request)
+        {
+            var applications = await _jobApplicationRepository.GetForAnalyticsScopeAsync(
+                request.JobPostingId, null, request.DateFrom, request.DateTo);
+
+            var scoped = request.EmploymentType == null
+                ? applications
+                : applications.Where(a => a.JobPosting.EmploymentType == request.EmploymentType.Value).ToList();
+
+            var shortlistedIndex = Array.IndexOf(FunnelOrder, ApplicationStatusEnum.Shortlisted);
+
+            var segments = scoped
+                .GroupBy(a => a.ReferralSource?.Name ?? FallbackSourceLabels.GetValueOrDefault(a.Source, a.Source.ToString()))
+                .Select(g =>
+                {
+                    var total = g.Count();
+                    var shortlisted = g.Count(a => Array.IndexOf(FunnelOrder, a.ApplicationStatus) >= shortlistedIndex);
+                    var hired = g.Count(a => a.ApplicationStatus == ApplicationStatusEnum.Hired);
+
+                    return new CandidateSourceSegmentResponse
+                    {
+                        SourceLabel = g.Key,
+                        TotalApplications = total,
+                        ShortlistedCount = shortlisted,
+                        HiredCount = hired,
+                        ConversionRatePercent = total > 0 ? Math.Round((double)hired / total * 100, 1) : 0
+                    };
+                })
+                .OrderByDescending(s => s.TotalApplications)
+                .ToList();
+
+            return new CandidateSourceAnalyticsResponse { Segments = segments };
+        }
+
+        public async Task<byte[]> ExportCandidateSourceAnalyticsExcelAsync(CandidateSourceAnalyticsRequest request)
+        {
+            var analytics = await GetCandidateSourceAnalyticsAsync(request);
+
+            using var workbook = new XLWorkbook();
+            var sheet = workbook.Worksheets.Add("Candidate Source Analytics");
+
+            var headers = new[] { "Source", "Total Applications", "Shortlisted", "Hired", "Conversion Rate (%)" };
+            for (var column = 0; column < headers.Length; column++)
+                sheet.Cell(1, column + 1).Value = headers[column];
+            sheet.Row(1).Style.Font.Bold = true;
+
+            var rowIndex = 2;
+            foreach (var segment in analytics.Segments)
+            {
+                sheet.Cell(rowIndex, 1).Value = segment.SourceLabel;
+                sheet.Cell(rowIndex, 2).Value = segment.TotalApplications;
+                sheet.Cell(rowIndex, 3).Value = segment.ShortlistedCount;
+                sheet.Cell(rowIndex, 4).Value = segment.HiredCount;
+                sheet.Cell(rowIndex, 5).Value = segment.ConversionRatePercent;
+                rowIndex++;
+            }
+
+            sheet.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        public async Task<InterviewAnalyticsResponse> GetInterviewAnalyticsAsync(InterviewAnalyticsRequest request)
+        {
+            var evaluations = await _interviewEvaluationRepository.GetForAnalyticsScopeAsync(
+                request.JobPostingId, request.DepartmentId, request.DateFrom, request.DateTo);
+
+            var scored = evaluations
+                .Select(e => new { Evaluation = e, WeightedScore = ComputeWeightedScore(e) })
+                .ToList();
+
+            var employeeIds = scored.Select(s => s.Evaluation.EmployeeId).Distinct().ToList();
+            var employeeNames = new Dictionary<long, string>();
+            foreach (var employeeId in employeeIds)
+            {
+                var employee = await _employeeRepository.GetByIdAsync(employeeId);
+                employeeNames[employeeId] = employee?.EmployeeName ?? $"Employee {employeeId}";
+            }
+
+            var panelists = scored
+                .GroupBy(s => s.Evaluation.EmployeeId)
+                .Select(g => new PanelistAnalyticsResponse
+                {
+                    EmployeeId = g.Key,
+                    EmployeeName = employeeNames.GetValueOrDefault(g.Key, $"Employee {g.Key}"),
+                    InterviewsConducted = g.Count(),
+                    AverageScore = Math.Round(g.Average(s => s.WeightedScore), 2),
+                    RecommendedCount = g.Count(s => s.Evaluation.Recommendation == EvaluationRecommendationEnum.Recommended),
+                    NotRecommendedCount = g.Count(s => s.Evaluation.Recommendation == EvaluationRecommendationEnum.NotRecommended),
+                    OnHoldCount = g.Count(s => s.Evaluation.Recommendation == EvaluationRecommendationEnum.OnHold)
+                })
+                .OrderByDescending(p => p.InterviewsConducted)
+                .ToList();
+
+            var histogram = ScoreHistogramBands
+                .Select(band => new ScoreHistogramBandResponse
+                {
+                    Band = band.Label,
+                    Count = scored.Count(s => s.WeightedScore >= band.Min && s.WeightedScore <= band.Max)
+                })
+                .ToList();
+
+            return new InterviewAnalyticsResponse { Panelists = panelists, ScoreHistogram = histogram };
+        }
+
+        public async Task<byte[]> ExportInterviewAnalyticsExcelAsync(InterviewAnalyticsRequest request)
+        {
+            var analytics = await GetInterviewAnalyticsAsync(request);
+
+            using var workbook = new XLWorkbook();
+
+            var panelistSheet = workbook.Worksheets.Add("Panelist Stats");
+            var panelistHeaders = new[] { "Panelist", "Interviews Conducted", "Average Score (%)", "Recommended", "Not Recommended", "On Hold" };
+            for (var column = 0; column < panelistHeaders.Length; column++)
+                panelistSheet.Cell(1, column + 1).Value = panelistHeaders[column];
+            panelistSheet.Row(1).Style.Font.Bold = true;
+
+            var rowIndex = 2;
+            foreach (var panelist in analytics.Panelists)
+            {
+                panelistSheet.Cell(rowIndex, 1).Value = panelist.EmployeeName;
+                panelistSheet.Cell(rowIndex, 2).Value = panelist.InterviewsConducted;
+                panelistSheet.Cell(rowIndex, 3).Value = panelist.AverageScore;
+                panelistSheet.Cell(rowIndex, 4).Value = panelist.RecommendedCount;
+                panelistSheet.Cell(rowIndex, 5).Value = panelist.NotRecommendedCount;
+                panelistSheet.Cell(rowIndex, 6).Value = panelist.OnHoldCount;
+                rowIndex++;
+            }
+
+            panelistSheet.Columns().AdjustToContents();
+
+            var histogramSheet = workbook.Worksheets.Add("Score Histogram");
+            histogramSheet.Cell(1, 1).Value = "Band";
+            histogramSheet.Cell(1, 2).Value = "Count";
+            histogramSheet.Row(1).Style.Font.Bold = true;
+
+            var histogramRow = 2;
+            foreach (var band in analytics.ScoreHistogram)
+            {
+                histogramSheet.Cell(histogramRow, 1).Value = band.Band;
+                histogramSheet.Cell(histogramRow, 2).Value = band.Count;
+                histogramRow++;
+            }
+
+            histogramSheet.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        /// <summary>Mirrors InterviewEvaluationMapper's DeriveWeightedScore formula (Σ(Score/MaxScore
+        /// × Weight) / Σ(Weight) × 100) - duplicated here since that one operates on the response
+        /// DTO shape, not the entity, and this runs across many evaluations at once.</summary>
+        private static decimal ComputeWeightedScore(InterviewEvaluation evaluation)
+        {
+            var criteriaById = evaluation.Scorecard.Criteria.ToDictionary(c => c.ScorecardCriterionId);
+            var totalWeight = evaluation.Scores.Sum(s => criteriaById.GetValueOrDefault(s.ScorecardCriterionId)?.Weight ?? 0);
+            if (totalWeight <= 0) return 0;
+
+            var weightedSum = evaluation.Scores
+                .Where(s => (criteriaById.GetValueOrDefault(s.ScorecardCriterionId)?.MaxScore ?? 0) > 0)
+                .Sum(s =>
+                {
+                    var criterion = criteriaById[s.ScorecardCriterionId];
+                    return (s.Score / criterion.MaxScore) * criterion.Weight;
+                });
+
+            return Math.Round(weightedSum / totalWeight * 100, 2);
         }
 
         private async Task<List<JobApplication>> ScopeApplicationsAsync(

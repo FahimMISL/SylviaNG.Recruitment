@@ -5,7 +5,8 @@ using SylviaNG.Recruitment.Application.Interfaces.Services;
 
 namespace SylviaNG.Recruitment.Controllers
 {
-    /// <summary>EP-14 US-106/US-107: recruitment funnel + time-to-hire analytics reports.</summary>
+    /// <summary>EP-14 US-106/US-107/US-108/US-110: recruitment funnel, time-to-hire, candidate
+    /// source, and interview performance analytics reports.</summary>
     [ApiController]
     [Route("recruitment/analytics")]
     [Authorize(Roles = "Admin,HR")]
@@ -44,6 +45,36 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var csvBytes = await _analyticsReportService.ExportTimeToHireCsvAsync(request);
             return File(csvBytes, "text/csv", $"Time-To-Hire-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+        }
+
+        [HttpGet("candidate-source")]
+        public async Task<ActionResult<CandidateSourceAnalyticsResponse>> GetCandidateSourceAnalytics([FromQuery] CandidateSourceAnalyticsRequest request)
+        {
+            var result = await _analyticsReportService.GetCandidateSourceAnalyticsAsync(request);
+            return Ok(result);
+        }
+
+        [HttpGet("candidate-source/export")]
+        public async Task<IActionResult> ExportCandidateSourceAnalytics([FromQuery] CandidateSourceAnalyticsRequest request)
+        {
+            var excelBytes = await _analyticsReportService.ExportCandidateSourceAnalyticsExcelAsync(request);
+            return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"Candidate-Source-Analytics-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
+        }
+
+        [HttpGet("interview-performance")]
+        public async Task<ActionResult<InterviewAnalyticsResponse>> GetInterviewAnalytics([FromQuery] InterviewAnalyticsRequest request)
+        {
+            var result = await _analyticsReportService.GetInterviewAnalyticsAsync(request);
+            return Ok(result);
+        }
+
+        [HttpGet("interview-performance/export")]
+        public async Task<IActionResult> ExportInterviewAnalytics([FromQuery] InterviewAnalyticsRequest request)
+        {
+            var excelBytes = await _analyticsReportService.ExportInterviewAnalyticsExcelAsync(request);
+            return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"Interview-Analytics-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
         }
     }
 }
