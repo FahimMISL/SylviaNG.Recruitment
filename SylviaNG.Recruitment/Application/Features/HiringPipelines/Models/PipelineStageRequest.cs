@@ -11,6 +11,8 @@ namespace SylviaNG.Recruitment.Application.Features.HiringPipelines.Models
         public long? DepartmentId { get; set; }
         public int? EstimatedDurationMinutes { get; set; }
         public int? SlaDays { get; set; }
+        public int? MaxMarks { get; set; }
+        public int? PassMarks { get; set; }
         public string? ColorBadge { get; set; }
         public string? EmailTemplate { get; set; }
         public bool NotifyCandidateOnEnter { get; set; } = true;

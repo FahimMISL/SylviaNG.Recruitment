@@ -41,6 +41,11 @@ public class AuthLoginSmokeTests : IClassFixture<WebApplicationFactory<Program>>
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Jwt:Local:SigningKey"] = TestSigningKey,
+                    // This suite proves the dual Keycloak/Local JWT wiring returns a usable token -
+                    // EP-09 Feature 2's Candidate OTP gate is a separate concern layered on top of
+                    // that (see IAuthService.VerifyOtpAsync), so it's disabled here rather than
+                    // conflated into this smoke test.
+                    ["CandidateLoginOtp:Enabled"] = "false",
                 });
             });
 
