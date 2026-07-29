@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Commands.ExportRequestCreate;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Commands.ExportRequestCreateBulkCvZip;
+using SylviaNG.Recruitment.Application.Features.ExportRequests.Commands.ExportRequestCreateJobApplicationTracker;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Models;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Queries.ExportRequestDownload;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Queries.ExportRequestGetPaged;
@@ -38,6 +39,14 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult<long>> RequestBulkCvZipExport([FromBody] JobApplicationCvBulkDownloadRequest request)
         {
             var id = await _mediator.Send(new ExportRequestCreateBulkCvZipCommand(request.JobApplicationIds));
+            return Ok(id);
+        }
+
+        /// <summary>EP-14 US-109 AC5: queues a job-application-tracker export.</summary>
+        [HttpPost("job-application-tracker")]
+        public async Task<ActionResult<long>> RequestJobApplicationTrackerExport([FromBody] ExportRequestCreateRequest request)
+        {
+            var id = await _mediator.Send(new ExportRequestCreateJobApplicationTrackerCommand(request));
             return Ok(id);
         }
 

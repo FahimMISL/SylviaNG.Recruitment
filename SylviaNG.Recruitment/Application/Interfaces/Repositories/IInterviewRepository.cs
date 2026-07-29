@@ -38,5 +38,9 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// <summary>Whether any interview (any job application) references this round config -
         /// blocks deleting/replacing a round config already in use (US-070 AC4).</summary>
         Task<bool> ExistsForRoundConfigAsync(long roundConfigId);
+
+        /// <summary>EP-14 US-105 AC1: count of Scheduled/Rescheduled interviews starting on/after
+        /// "now" - the "Upcoming Interviews" dashboard metric.</summary>
+        Task<int> CountUpcomingAsync(DateTime now);
     }
 }

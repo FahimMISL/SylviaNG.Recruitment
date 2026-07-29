@@ -13,5 +13,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         // FinalSelectionPool entity exists yet, see JoiningBooklet.cs).
         Task<List<OfferLetter>> GetAcceptedOrderedAsync();
         Task<List<OfferLetter>> GetByIdsWithDetailsAsync(List<long> offerLetterIds);
+
+        /// <summary>EP-14 US-105 AC1: offers generated/sent but not yet accepted/declined - the
+        /// "Offers Pending Acceptance" dashboard metric. Mutable point-in-time state (no history
+        /// table), so this has no trend delta - see DashboardService for which metrics do.</summary>
+        Task<int> CountPendingAcceptanceAsync();
     }
 }

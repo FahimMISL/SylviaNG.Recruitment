@@ -203,6 +203,36 @@ public class JobApplicationStageProgressServiceTests
     }
 
     [Fact]
+    public async Task UpdateStageAsync_SetStatusToInProgress_ShouldStampStageEnteredAt()
+    {
+        // Arrange (EP-14 US-109: "Days in Current Stage" needs a real stage-entry timestamp)
+        var row = new JobApplicationStageProgress { JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.Pending };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress> { row });
+
+        // Act
+        await _service.UpdateStageAsync(1, 101, new PipelineStageProgressUpdateRequest { Status = StageProgressStatusEnum.InProgress });
+
+        // Assert
+        row.Status.Should().Be(StageProgressStatusEnum.InProgress);
+        row.StageEnteredAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UpdateStageAsync_AlreadyInProgressPatchedAgainWithInProgress_ShouldNotBumpStageEnteredAt()
+    {
+        // Arrange
+        var originalStageEnteredAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var row = new JobApplicationStageProgress { JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.InProgress, StageEnteredAt = originalStageEnteredAt };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress> { row });
+
+        // Act
+        await _service.UpdateStageAsync(1, 101, new PipelineStageProgressUpdateRequest { Status = StageProgressStatusEnum.InProgress, Notes = "still working" });
+
+        // Assert
+        row.StageEnteredAt.Should().Be(originalStageEnteredAt);
+    }
+
+    [Fact]
     public async Task UpdateStageAsync_UnknownStageRow_ShouldThrowNotFoundException()
     {
         // Arrange
@@ -305,9 +335,34 @@ public class JobApplicationStageProgressServiceTests
         // Assert: a row that already existed before this call (a real, non-zero id) must go
         // through Update() to be marked Modified - unlike a row freshly added in this same call.
         existingTargetRow.Status.Should().Be(StageProgressStatusEnum.InProgress);
+        existingTargetRow.StageEnteredAt.Should().NotBeNull();
         _stageProgressRepositoryMock.Verify(r => r.Update(existingTargetRow), Times.Once);
         _stageProgressRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplicationStageProgress>()), Times.Never);
         _stageProgressRepositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<JobApplicationStageProgress>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_TargetStageAlreadyInProgress_ShouldNotBumpStageEnteredAt()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithStages());
+        var originalStageEnteredAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var existingTargetRow = new JobApplicationStageProgress
+        {
+            JobApplicationStageProgressId = 2,
+            JobApplicationId = 1,
+            PipelineStageId = 102,
+            Status = StageProgressStatusEnum.InProgress,
+            StageEnteredAt = originalStageEnteredAt,
+        };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress> { existingTargetRow });
+
+        // Act
+        await _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 102);
+
+        // Assert
+        existingTargetRow.StageEnteredAt.Should().Be(originalStageEnteredAt);
     }
 
     [Fact]

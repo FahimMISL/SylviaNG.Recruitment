@@ -19,6 +19,7 @@ namespace SylviaNG.Recruitment.Tests.Services;
 public class JobApplicationServiceTests
 {
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
+    private readonly Mock<IJobApplicationStageProgressRepository> _jobApplicationStageProgressRepositoryMock;
     private readonly Mock<IJobPostingRepository> _jobPostingRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly Mock<IApplicationCvStorageService> _cvStorageServiceMock;
@@ -36,6 +37,7 @@ public class JobApplicationServiceTests
     public JobApplicationServiceTests()
     {
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
+        _jobApplicationStageProgressRepositoryMock = new Mock<IJobApplicationStageProgressRepository>();
         _jobPostingRepositoryMock = new Mock<IJobPostingRepository>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
         _cvStorageServiceMock = new Mock<IApplicationCvStorageService>();
@@ -56,6 +58,14 @@ public class JobApplicationServiceTests
         // that never set up profile-completeness fixtures are unaffected (US-007 AC4).
         _applicationSettingServiceMock.Setup(s => s.GetMinimumProfileCompletenessPercentageAsync()).ReturnsAsync(0);
 
+        // EP-14 US-109: AttachStageProgressInfoAsync's default fixtures - no in-flight stage rows,
+        // no global stale-days fallback, so existing GetDashboardPagedAsync tests that don't set up
+        // stage-progress fixtures see the tracker columns simply stay unset (null/false).
+        _jobApplicationStageProgressRepositoryMock
+            .Setup(r => r.GetCurrentByJobApplicationIdsAsync(It.IsAny<List<long>>()))
+            .ReturnsAsync(new Dictionary<long, JobApplicationStageProgress>());
+        _applicationSettingServiceMock.Setup(s => s.GetDefaultStaleDaysThresholdAsync()).ReturnsAsync((int?)null);
+
         // No waiver rule matches by default, so existing SubmitAsync cases that never set up
         // waiver fixtures keep their original requiresPayment behavior (EP-17/US-127).
         _waiverRuleServiceMock
@@ -64,6 +74,7 @@ public class JobApplicationServiceTests
 
         _service = new JobApplicationService(
             _jobApplicationRepositoryMock.Object,
+            _jobApplicationStageProgressRepositoryMock.Object,
             _jobPostingRepositoryMock.Object,
             _candidateProfileRepositoryMock.Object,
             _cvStorageServiceMock.Object,
@@ -818,6 +829,106 @@ public class JobApplicationServiceTests
         result.TotalCount.Should().Be(1);
         result.Data.Should().ContainSingle(d => d.JobApplicationId == 1);
         _candidateProfileRepositoryMock.Verify(r => r.GetByEmailsAsync(It.IsAny<IEnumerable<string>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetDashboardPagedAsync_ShouldAttachCurrentStageAndComputeDaysInStageAndStaleness()
+    {
+        // Arrange (EP-14 US-109 AC1/AC2)
+        var filter = new JobApplicationAttributeFilterRequest { JobPostingId = 1 };
+        var pagedResult = new PagedResult<JobApplication>
+        {
+            Data = new List<JobApplication> { new() { JobApplicationId = 1, JobPostingId = 1, CandidateName = "Jane" } },
+            TotalCount = 1,
+            PageNumber = 1,
+            PageSize = 10
+        };
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetPaginatedAllAsync(It.IsAny<PagedRequest>(), 1, null, null, null, null))
+            .ReturnsAsync(pagedResult);
+
+        var currentStage = new JobApplicationStageProgress
+        {
+            StageName = "Technical Interview",
+            Status = StageProgressStatusEnum.InProgress,
+            StageEnteredAt = DateTime.UtcNow.AddDays(-10),
+            SlaDaysSnapshot = 5,
+            LastUpdatedByUserName = "abir"
+        };
+        _jobApplicationStageProgressRepositoryMock
+            .Setup(r => r.GetCurrentByJobApplicationIdsAsync(It.Is<List<long>>(ids => ids.Contains(1))))
+            .ReturnsAsync(new Dictionary<long, JobApplicationStageProgress> { [1] = currentStage });
+
+        // Act
+        var result = await _service.GetDashboardPagedAsync(new PagedRequest { Page = 1, PageSize = 10 }, filter);
+
+        // Assert
+        var row = result.Data.Should().ContainSingle().Subject;
+        row.CurrentStageName.Should().Be("Technical Interview");
+        row.AssignedHrUserName.Should().Be("abir");
+        row.DaysInCurrentStage.Should().Be(10);
+        row.IsStale.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetDashboardPagedAsync_StaleOnlyFilter_ShouldRouteThroughInMemoryPathAndExcludeNonStaleRows()
+    {
+        // Arrange
+        var filter = new JobApplicationAttributeFilterRequest { StaleOnly = true };
+        var applications = new List<JobApplication>
+        {
+            new() { JobApplicationId = 1, JobPostingId = 1, CandidateName = "Stale Candidate" },
+            new() { JobApplicationId = 2, JobPostingId = 1, CandidateName = "Fresh Candidate" }
+        };
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetAllMatchingAsync(null, null, null, null, null))
+            .ReturnsAsync(applications);
+
+        _jobApplicationStageProgressRepositoryMock
+            .Setup(r => r.GetCurrentByJobApplicationIdsAsync(It.IsAny<List<long>>()))
+            .ReturnsAsync(new Dictionary<long, JobApplicationStageProgress>
+            {
+                [1] = new() { Status = StageProgressStatusEnum.InProgress, StageEnteredAt = DateTime.UtcNow.AddDays(-10), SlaDaysSnapshot = 5 },
+                [2] = new() { Status = StageProgressStatusEnum.InProgress, StageEnteredAt = DateTime.UtcNow.AddDays(-1), SlaDaysSnapshot = 5 }
+            });
+
+        // Act
+        var result = await _service.GetDashboardPagedAsync(new PagedRequest { Page = 1, PageSize = 10 }, filter);
+
+        // Assert
+        result.Data.Should().ContainSingle(r => r.JobApplicationId == 1);
+        _jobApplicationRepositoryMock.Verify(r => r.GetPaginatedAllAsync(It.IsAny<PagedRequest>(), It.IsAny<long?>(), It.IsAny<ApplicationStatusEnum?>(), It.IsAny<ApplicationSourceEnum?>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetDashboardPagedAsync_SortByDaysInCurrentStage_ShouldRouteThroughInMemoryPathAndSort()
+    {
+        // Arrange (EP-14 US-109 AC3: stage-derived columns aren't native JobApplication columns,
+        // so PaginationExtensions' generic SQL sorter can't reach them)
+        var applications = new List<JobApplication>
+        {
+            new() { JobApplicationId = 1, JobPostingId = 1, CandidateName = "Shorter Wait" },
+            new() { JobApplicationId = 2, JobPostingId = 1, CandidateName = "Longer Wait" }
+        };
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetAllMatchingAsync(null, null, null, null, null))
+            .ReturnsAsync(applications);
+
+        _jobApplicationStageProgressRepositoryMock
+            .Setup(r => r.GetCurrentByJobApplicationIdsAsync(It.IsAny<List<long>>()))
+            .ReturnsAsync(new Dictionary<long, JobApplicationStageProgress>
+            {
+                [1] = new() { Status = StageProgressStatusEnum.InProgress, StageEnteredAt = DateTime.UtcNow.AddDays(-2) },
+                [2] = new() { Status = StageProgressStatusEnum.InProgress, StageEnteredAt = DateTime.UtcNow.AddDays(-20) }
+            });
+
+        // Act
+        var result = await _service.GetDashboardPagedAsync(
+            new PagedRequest { Page = 1, PageSize = 10, SortBy = "DaysInCurrentStage", SortDirection = "desc" },
+            new JobApplicationAttributeFilterRequest());
+
+        // Assert
+        result.Data.Select(r => r.JobApplicationId).Should().ContainInOrder(2L, 1L);
     }
 
     [Fact]

@@ -27,6 +27,11 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         /// semantics as Skills.</summary>
         public List<string>? Tags { get; set; }
 
+        /// <summary>EP-14 US-109 AC2: when true, only rows currently flagged stale (DaysInCurrentStage
+        /// exceeding the applicable threshold) are returned - routes through the same in-memory
+        /// path as the candidate-attribute filters, since staleness isn't a native JobApplication column.</summary>
+        public bool? StaleOnly { get; set; }
+
         public bool HasCandidateAttributeFilters =>
             MinEducationLevel.HasValue
             || MinExperienceYears.HasValue

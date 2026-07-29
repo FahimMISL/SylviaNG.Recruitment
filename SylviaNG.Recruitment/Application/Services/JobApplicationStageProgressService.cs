@@ -103,6 +103,9 @@ namespace SylviaNG.Recruitment.Application.Services
                 var progress = await EnsureProgressRowAsync(jobApplicationId, pipelineStageId);
                 var alreadyPersisted = progress.JobApplicationStageProgressId != 0;
 
+                if (progress.Status != StageProgressStatusEnum.InProgress)
+                    progress.StageEnteredAt = DateTime.UtcNow;
+
                 progress.Status = StageProgressStatusEnum.InProgress;
                 progress.LastUpdatedByUserName = userName;
 

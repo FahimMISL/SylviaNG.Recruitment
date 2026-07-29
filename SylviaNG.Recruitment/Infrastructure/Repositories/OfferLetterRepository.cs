@@ -60,5 +60,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(o => offerLetterIds.Contains(o.OfferLetterId))
                 .ToListAsync();
         }
+
+        public async Task<int> CountPendingAcceptanceAsync()
+        {
+            return await _dbSet.CountAsync(o =>
+                (o.Status == OfferLetterStatusEnum.Generated || o.Status == OfferLetterStatusEnum.Sent) &&
+                o.DecisionAt == null);
+        }
     }
 }

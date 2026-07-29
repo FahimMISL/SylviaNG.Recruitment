@@ -136,6 +136,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<WaiverRule> WaiverRules { get; set; }
         public DbSet<SpecialCategory> SpecialCategories { get; set; }
         public DbSet<ReferralSource> ReferralSources { get; set; }
+        public DbSet<DashboardWidgetConfig> DashboardWidgetConfigs { get; set; }
 
         #endregion
 

@@ -19,6 +19,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private static readonly HashSet<string> ExtractableResumeExtensions = new(StringComparer.OrdinalIgnoreCase) { ".pdf", ".docx" };
 
         private readonly IJobApplicationRepository _jobApplicationRepository;
+        private readonly IJobApplicationStageProgressRepository _jobApplicationStageProgressRepository;
         private readonly IJobPostingRepository _jobPostingRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IApplicationCvStorageService _applicationCvStorageService;
@@ -74,6 +75,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public JobApplicationService(
             IJobApplicationRepository jobApplicationRepository,
+            IJobApplicationStageProgressRepository jobApplicationStageProgressRepository,
             IJobPostingRepository jobPostingRepository,
             ICandidateProfileRepository candidateProfileRepository,
             IApplicationCvStorageService applicationCvStorageService,
@@ -90,6 +92,7 @@ namespace SylviaNG.Recruitment.Application.Services
             ILogger<JobApplicationService> logger)
         {
             _jobApplicationRepository = jobApplicationRepository;
+            _jobApplicationStageProgressRepository = jobApplicationStageProgressRepository;
             _jobPostingRepository = jobPostingRepository;
             _candidateProfileRepository = candidateProfileRepository;
             _applicationCvStorageService = applicationCvStorageService;
@@ -383,44 +386,141 @@ namespace SylviaNG.Recruitment.Application.Services
 
         // ── ATS Dashboard / Status Update (US-035 / US-036) ───────────────
 
+        // EP-14 US-109 AC3: these tracker columns come from a joined stage-progress row, not a
+        // native JobApplication property, so PaginationExtensions' generic reflection-based
+        // ApplySorting can't translate them to SQL. Sorting by one of these routes through the
+        // same in-memory path already established for candidate-attribute filters below.
+        private static readonly HashSet<string> StageDerivedSortKeys = new(StringComparer.OrdinalIgnoreCase)
+        {
+            nameof(JobApplicationDashboardResponse.CurrentStageName),
+            nameof(JobApplicationDashboardResponse.DaysInCurrentStage),
+            nameof(JobApplicationDashboardResponse.IsStale),
+            nameof(JobApplicationDashboardResponse.AssignedHrUserName),
+            nameof(JobApplicationDashboardResponse.LastUpdatedAt)
+        };
+
         public async Task<PagedResult<JobApplicationDashboardResponse>> GetDashboardPagedAsync(
             PagedRequest request,
             JobApplicationAttributeFilterRequest filter)
         {
             ValidateAttributeFilterRequest(filter);
 
-            if (!filter.HasCandidateAttributeFilters)
+            var needsInMemoryPath = filter.HasCandidateAttributeFilters
+                || filter.StaleOnly == true
+                || (!string.IsNullOrEmpty(request.SortBy) && StageDerivedSortKeys.Contains(request.SortBy));
+
+            if (!needsInMemoryPath)
             {
                 var pagedResult = await _jobApplicationRepository.GetPaginatedAllAsync(
                     request, filter.JobPostingId, filter.Status, filter.Source, filter.DateFrom, filter.DateTo);
 
+                var pageResponses = pagedResult.Data.Select(e => e.ToDashboardResponse()).ToList();
+                await AttachStageProgressInfoAsync(pageResponses);
+
                 return new PagedResult<JobApplicationDashboardResponse>
                 {
-                    Data = pagedResult.Data.Select(e => e.ToDashboardResponse()).ToList(),
+                    Data = pageResponses,
                     TotalCount = pagedResult.TotalCount,
                     PageNumber = pagedResult.PageNumber,
                     PageSize = pagedResult.PageSize
                 };
             }
 
-            // Candidate-attribute filters require an in-memory join (email->profile, no FK), so
-            // pagination happens after filtering here rather than in SQL - same tradeoff already
-            // accepted by ShortlistFilterEvaluationService for single-vacancy datasets. Sorting is
-            // fixed to AppliedDate desc on this path (column sort isn't supported alongside
-            // candidate-attribute filters).
-            var matched = await GetAttributeFilteredApplicationsAsync(filter);
-            var page = matched
+            // Candidate-attribute filters, StaleOnly, and stage-derived sort keys all require an
+            // in-memory pass (email->profile join has no FK; staleness/stage aren't native
+            // JobApplication columns) - pagination happens after filtering/sorting here rather
+            // than in SQL, same tradeoff already accepted by the candidate-attribute path.
+            var matched = filter.HasCandidateAttributeFilters
+                ? await GetAttributeFilteredApplicationsAsync(filter)
+                : await _jobApplicationRepository.GetAllMatchingAsync(filter.JobPostingId, filter.Status, filter.Source, filter.DateFrom, filter.DateTo);
+
+            var allResponses = matched.Select(e => e.ToDashboardResponse()).ToList();
+            await AttachStageProgressInfoAsync(allResponses);
+
+            if (filter.StaleOnly == true)
+                allResponses = allResponses.Where(r => r.IsStale).ToList();
+
+            allResponses = ApplyStageDerivedSort(allResponses, request.SortBy, request.SortDirection);
+
+            var page = allResponses
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .ToList();
 
             return new PagedResult<JobApplicationDashboardResponse>
             {
-                Data = page.Select(e => e.ToDashboardResponse()).ToList(),
-                TotalCount = matched.Count,
+                Data = page,
+                TotalCount = allResponses.Count,
                 PageNumber = request.Page,
                 PageSize = request.PageSize
             };
+        }
+
+        /// <summary>Batch-fills the stage-derived tracker columns (Stage/DaysInCurrentStage/
+        /// IsStale/AssignedHR/LastUpdated) on an already-mapped response page, one query for the
+        /// whole batch rather than per-row.</summary>
+        private async Task AttachStageProgressInfoAsync(List<JobApplicationDashboardResponse> responses)
+        {
+            if (responses.Count == 0)
+                return;
+
+            var ids = responses.Select(r => r.JobApplicationId).ToList();
+            var currentByAppId = await _jobApplicationStageProgressRepository.GetCurrentByJobApplicationIdsAsync(ids);
+            var defaultStaleDaysThreshold = await _applicationSettingService.GetDefaultStaleDaysThresholdAsync();
+            var now = DateTime.UtcNow;
+
+            foreach (var response in responses)
+            {
+                if (!currentByAppId.TryGetValue(response.JobApplicationId, out var current))
+                    continue;
+
+                response.CurrentStageName = current.StageName;
+                response.AssignedHrUserName = current.LastUpdatedByUserName;
+                // Audit.UpdatedAt is never actually stamped anywhere in this codebase (confirmed -
+                // no interceptor, no manual stamp on this entity), so it's always null and useless
+                // here. StageEnteredAt is the one real timestamp this row carries.
+                response.LastUpdatedAt = current.StageEnteredAt;
+
+                if (current.StageEnteredAt.HasValue)
+                {
+                    var daysInStage = (int)(now - current.StageEnteredAt.Value).TotalDays;
+                    response.DaysInCurrentStage = daysInStage;
+
+                    var threshold = current.SlaDaysSnapshot ?? defaultStaleDaysThreshold;
+                    response.IsStale = threshold.HasValue && daysInStage > threshold.Value;
+                }
+            }
+        }
+
+        private static List<JobApplicationDashboardResponse> ApplyStageDerivedSort(
+            List<JobApplicationDashboardResponse> responses, string? sortBy, string? sortDirection)
+        {
+            var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+
+            if (string.IsNullOrEmpty(sortBy) || !StageDerivedSortKeys.Contains(sortBy))
+                return responses.OrderByDescending(r => r.AppliedDate).ToList();
+
+            IOrderedEnumerable<JobApplicationDashboardResponse> ordered = sortBy.ToLowerInvariant() switch
+            {
+                "currentstagename" => descending
+                    ? responses.OrderByDescending(r => r.CurrentStageName)
+                    : responses.OrderBy(r => r.CurrentStageName),
+                "daysincurrentstage" => descending
+                    ? responses.OrderByDescending(r => r.DaysInCurrentStage)
+                    : responses.OrderBy(r => r.DaysInCurrentStage),
+                "isstale" => descending
+                    ? responses.OrderByDescending(r => r.IsStale)
+                    : responses.OrderBy(r => r.IsStale),
+                "assignedhrusername" => descending
+                    ? responses.OrderByDescending(r => r.AssignedHrUserName)
+                    : responses.OrderBy(r => r.AssignedHrUserName),
+                "lastupdatedat" => descending
+                    ? responses.OrderByDescending(r => r.LastUpdatedAt)
+                    : responses.OrderBy(r => r.LastUpdatedAt),
+                _ => responses.OrderByDescending(r => r.AppliedDate)
+            };
+
+            return ordered.ToList();
         }
 
         public async Task<JobApplicationDetailResponse> GetDetailAsync(long jobApplicationId)
@@ -434,6 +534,17 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task<List<long>> GetDashboardMatchingIdsAsync(JobApplicationAttributeFilterRequest filter)
         {
             ValidateAttributeFilterRequest(filter);
+
+            if (filter.StaleOnly == true)
+            {
+                var matchedForStale = filter.HasCandidateAttributeFilters
+                    ? await GetAttributeFilteredApplicationsAsync(filter)
+                    : await _jobApplicationRepository.GetAllMatchingAsync(filter.JobPostingId, filter.Status, filter.Source, filter.DateFrom, filter.DateTo);
+
+                var responses = matchedForStale.Select(e => e.ToDashboardResponse()).ToList();
+                await AttachStageProgressInfoAsync(responses);
+                return responses.Where(r => r.IsStale).Select(r => r.JobApplicationId).ToList();
+            }
 
             if (!filter.HasCandidateAttributeFilters)
                 return await _jobApplicationRepository.GetAllMatchingIdsAsync(filter.JobPostingId, filter.Status, filter.Source, filter.DateFrom, filter.DateTo);

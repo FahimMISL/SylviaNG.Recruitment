@@ -15,5 +15,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
 
         /// <summary>EP-09 Feature 2: mailbox for the AdminHr leg of dispatched notifications - null if unset.</summary>
         Task<string?> GetHrNotificationEmailAsync();
+
+        /// <summary>EP-14 US-109 AC2: fallback stale-days threshold used when a stage has no SlaDays configured - null if unset.</summary>
+        Task<int?> GetDefaultStaleDaysThresholdAsync();
     }
 }

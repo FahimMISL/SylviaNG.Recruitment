@@ -255,7 +255,10 @@ public enum RecruitmentEventEnum
 public enum ExportTypeEnum
 {
     CandidateListExport,
-    BulkCvZip
+    BulkCvZip,
+
+    /// <summary>EP-14 US-109 AC5.</summary>
+    JobApplicationTrackerExport
 }
 
 /// <summary>EP-13 US-100/104: output file format for an ExportRequest.</summary>

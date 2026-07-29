@@ -24,17 +24,29 @@ namespace SylviaNG.Recruitment.Application.Services
             "Source", "Gender", "Date of Birth", "Highest Education", "Total Experience (Years)", "Skills"
         };
 
+        // EP-14 US-109 AC1/AC5: tracker export columns.
+        private static readonly string[] TrackerHeaders =
+        {
+            "Vacancy", "Candidate Name", "Stage", "Status", "Last Updated", "Days in Current Stage", "Stale", "Assigned HR"
+        };
+
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
+        private readonly IJobApplicationStageProgressRepository _jobApplicationStageProgressRepository;
+        private readonly IApplicationSettingService _applicationSettingService;
         private readonly ICvPdfGeneratorService _cvPdfGeneratorService;
 
         public ExportGenerationService(
             IJobApplicationRepository jobApplicationRepository,
             ICandidateProfileRepository candidateProfileRepository,
+            IJobApplicationStageProgressRepository jobApplicationStageProgressRepository,
+            IApplicationSettingService applicationSettingService,
             ICvPdfGeneratorService cvPdfGeneratorService)
         {
             _jobApplicationRepository = jobApplicationRepository;
             _candidateProfileRepository = candidateProfileRepository;
+            _jobApplicationStageProgressRepository = jobApplicationStageProgressRepository;
+            _applicationSettingService = applicationSettingService;
             _cvPdfGeneratorService = cvPdfGeneratorService;
         }
 
@@ -109,8 +121,60 @@ namespace SylviaNG.Recruitment.Application.Services
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
             return format == ExportFormatEnum.Csv
-                ? new ExportFileResult(WriteCsv(rows), "text/csv", $"Candidate-List-Export-{timestamp}.csv", rows.Count)
-                : new ExportFileResult(WriteXlsx(rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Candidate-List-Export-{timestamp}.xlsx", rows.Count);
+                ? new ExportFileResult(WriteCsv(Headers, rows), "text/csv", $"Candidate-List-Export-{timestamp}.csv", rows.Count)
+                : new ExportFileResult(WriteXlsx(Headers, "Candidate List Export", rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Candidate-List-Export-{timestamp}.xlsx", rows.Count);
+        }
+
+        public async Task<ExportFileResult> GenerateJobApplicationTrackerExportAsync(
+            List<long> jobApplicationIds,
+            ExportFormatEnum format,
+            CancellationToken cancellationToken = default)
+        {
+            var applications = jobApplicationIds.Count == 0
+                ? new List<JobApplication>()
+                : _jobApplicationRepository.Query()
+                    .Include(a => a.JobPosting)
+                    .Where(a => jobApplicationIds.Contains(a.JobApplicationId))
+                    .ToList()
+                    .OrderByDescending(a => a.AppliedDate)
+                    .ToList();
+
+            var currentByAppId = await _jobApplicationStageProgressRepository.GetCurrentByJobApplicationIdsAsync(
+                applications.Select(a => a.JobApplicationId).ToList());
+            var defaultStaleDaysThreshold = await _applicationSettingService.GetDefaultStaleDaysThresholdAsync();
+            var now = DateTime.UtcNow;
+
+            var rows = applications
+                .Select(a => BuildTrackerRow(a, currentByAppId.GetValueOrDefault(a.JobApplicationId), defaultStaleDaysThreshold, now))
+                .ToList();
+
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+
+            return format == ExportFormatEnum.Csv
+                ? new ExportFileResult(WriteCsv(TrackerHeaders, rows), "text/csv", $"Job-Application-Tracker-{timestamp}.csv", rows.Count)
+                : new ExportFileResult(WriteXlsx(TrackerHeaders, "Job Application Tracker", rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Job-Application-Tracker-{timestamp}.xlsx", rows.Count);
+        }
+
+        private static string[] BuildTrackerRow(
+            JobApplication application, JobApplicationStageProgress? currentStage, int? defaultStaleDaysThreshold, DateTime now)
+        {
+            int? daysInStage = currentStage?.StageEnteredAt.HasValue == true
+                ? (int)(now - currentStage.StageEnteredAt!.Value).TotalDays
+                : null;
+            var threshold = currentStage?.SlaDaysSnapshot ?? defaultStaleDaysThreshold;
+            var isStale = daysInStage.HasValue && threshold.HasValue && daysInStage.Value > threshold.Value;
+
+            return new[]
+            {
+                application.JobPosting?.Title ?? string.Empty,
+                application.CandidateName,
+                currentStage?.StageName ?? string.Empty,
+                application.ApplicationStatus.ToString(),
+                currentStage?.StageEnteredAt.HasValue == true ? currentStage.StageEnteredAt!.Value.ToString("yyyy-MM-dd HH:mm") : string.Empty,
+                daysInStage?.ToString() ?? string.Empty,
+                isStale ? "Yes" : "No",
+                currentStage?.LastUpdatedByUserName ?? string.Empty
+            };
         }
 
         private static string[] BuildRow(JobApplication application, CandidateProfile? profile)
@@ -135,17 +199,17 @@ namespace SylviaNG.Recruitment.Application.Services
             };
         }
 
-        private static byte[] WriteXlsx(List<string[]> rows)
+        private static byte[] WriteXlsx(string[] headers, string sheetName, List<string[]> rows)
         {
             using var workbook = new XLWorkbook();
-            var sheet = workbook.Worksheets.Add("Candidate List Export");
+            var sheet = workbook.Worksheets.Add(sheetName);
 
-            for (var column = 0; column < Headers.Length; column++)
-                sheet.Cell(1, column + 1).Value = Headers[column];
+            for (var column = 0; column < headers.Length; column++)
+                sheet.Cell(1, column + 1).Value = headers[column];
             sheet.Row(1).Style.Font.Bold = true;
 
             for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
-                for (var column = 0; column < Headers.Length; column++)
+                for (var column = 0; column < headers.Length; column++)
                     sheet.Cell(rowIndex + 2, column + 1).Value = rows[rowIndex][column];
 
             sheet.Columns().AdjustToContents();
@@ -155,10 +219,10 @@ namespace SylviaNG.Recruitment.Application.Services
             return stream.ToArray();
         }
 
-        private static byte[] WriteCsv(List<string[]> rows)
+        private static byte[] WriteCsv(string[] headers, List<string[]> rows)
         {
             var builder = new StringBuilder();
-            builder.AppendLine(string.Join(",", Headers.Select(EscapeCsvField)));
+            builder.AppendLine(string.Join(",", headers.Select(EscapeCsvField)));
 
             foreach (var row in rows)
                 builder.AppendLine(string.Join(",", row.Select(EscapeCsvField)));

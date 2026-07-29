@@ -88,6 +88,7 @@ namespace SylviaNG.Recruitment.Infrastructure.BackgroundServices
                     var file = entity.ExportType switch
                     {
                         ExportTypeEnum.BulkCvZip => await exportGenerationService.GenerateBulkCvZipAsync(jobApplicationIds, stoppingToken),
+                        ExportTypeEnum.JobApplicationTrackerExport => await exportGenerationService.GenerateJobApplicationTrackerExportAsync(jobApplicationIds, entity.Format, stoppingToken),
                         _ => await exportGenerationService.GenerateCandidateListExportAsync(jobApplicationIds, entity.Format, stoppingToken)
                     };
 

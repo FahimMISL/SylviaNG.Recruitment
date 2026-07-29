@@ -20,6 +20,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// are already resolved (no filter to re-run), unlike RequestCandidateListExportAsync above.</summary>
         Task<long> RequestBulkCvZipExportAsync(List<long> jobApplicationIds);
 
+        /// <summary>EP-14 US-109 AC5: queues a Pending row for a job-application-tracker export,
+        /// same matched-ids-now/render-later shape as RequestCandidateListExportAsync.</summary>
+        Task<long> RequestJobApplicationTrackerExportAsync(JobApplicationAttributeFilterRequest filter, ExportFormatEnum format);
+
         Task<PagedResult<ExportRequestResponse>> GetPagedAsync(ExportRequestFilterRequest filter);
 
         /// <summary>Throws NotFoundException if unknown, ValidationException if not yet Completed.</summary>

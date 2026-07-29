@@ -131,5 +131,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet.AnyAsync(i => i.InterviewRoundConfigId == roundConfigId);
         }
+
+        public async Task<int> CountUpcomingAsync(DateTime now)
+        {
+            return await _dbSet.CountAsync(i =>
+                (i.Status == InterviewStatusEnum.Scheduled || i.Status == InterviewStatusEnum.Rescheduled) &&
+                i.ScheduledStartAt >= now);
+        }
     }
 }

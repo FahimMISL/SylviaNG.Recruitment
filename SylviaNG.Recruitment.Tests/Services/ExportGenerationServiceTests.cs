@@ -15,6 +15,8 @@ public class ExportGenerationServiceTests
 {
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
+    private readonly Mock<IJobApplicationStageProgressRepository> _jobApplicationStageProgressRepositoryMock;
+    private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<ICvPdfGeneratorService> _cvPdfGeneratorServiceMock;
     private readonly ExportGenerationService _service;
 
@@ -22,8 +24,21 @@ public class ExportGenerationServiceTests
     {
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
+        _jobApplicationStageProgressRepositoryMock = new Mock<IJobApplicationStageProgressRepository>();
+        _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _cvPdfGeneratorServiceMock = new Mock<ICvPdfGeneratorService>();
-        _service = new ExportGenerationService(_jobApplicationRepositoryMock.Object, _candidateProfileRepositoryMock.Object, _cvPdfGeneratorServiceMock.Object);
+
+        _jobApplicationStageProgressRepositoryMock
+            .Setup(r => r.GetCurrentByJobApplicationIdsAsync(It.IsAny<List<long>>()))
+            .ReturnsAsync(new Dictionary<long, JobApplicationStageProgress>());
+        _applicationSettingServiceMock.Setup(s => s.GetDefaultStaleDaysThresholdAsync()).ReturnsAsync((int?)null);
+
+        _service = new ExportGenerationService(
+            _jobApplicationRepositoryMock.Object,
+            _candidateProfileRepositoryMock.Object,
+            _jobApplicationStageProgressRepositoryMock.Object,
+            _applicationSettingServiceMock.Object,
+            _cvPdfGeneratorServiceMock.Object);
     }
 
     private static JobPosting Posting() => new() { JobPostingId = 1, Title = "Software Engineer" };
@@ -67,6 +82,59 @@ public class ExportGenerationServiceTests
         sheet.Cell(2, 1).GetString().Should().Be("Guest Applicant");
         sheet.Cell(2, 2).GetString().Should().Be("guest@example.com");
         sheet.Cell(2, 4).GetString().Should().Be("Software Engineer");
+    }
+
+    [Fact]
+    public async Task GenerateJobApplicationTrackerExportAsync_EmptyIds_ShouldReturnZeroRowsWithoutQuerying()
+    {
+        var result = await _service.GenerateJobApplicationTrackerExportAsync(new List<long>(), ExportFormatEnum.Xlsx);
+
+        result.RowCount.Should().Be(0);
+        _jobApplicationRepositoryMock.Verify(r => r.Query(It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GenerateJobApplicationTrackerExportAsync_ShouldIncludeStageDaysAndStaleColumns()
+    {
+        // Arrange (EP-14 US-109 AC1/AC5)
+        var applications = new List<JobApplication>
+        {
+            new()
+            {
+                JobApplicationId = 30,
+                CandidateName = "Tracked Candidate",
+                JobPosting = Posting(),
+                ApplicationStatus = ApplicationStatusEnum.InterviewScheduled,
+                AppliedDate = new DateTime(2026, 7, 1)
+            }
+        };
+        _jobApplicationRepositoryMock.Setup(r => r.Query(It.IsAny<bool>())).Returns(applications.AsQueryable());
+
+        var currentStage = new JobApplicationStageProgress
+        {
+            StageName = "Technical Interview",
+            StageEnteredAt = DateTime.UtcNow.AddDays(-8),
+            SlaDaysSnapshot = 3,
+            LastUpdatedByUserName = "abir"
+        };
+        _jobApplicationStageProgressRepositoryMock
+            .Setup(r => r.GetCurrentByJobApplicationIdsAsync(It.Is<List<long>>(ids => ids.Contains(30))))
+            .ReturnsAsync(new Dictionary<long, JobApplicationStageProgress> { [30] = currentStage });
+
+        // Act
+        var result = await _service.GenerateJobApplicationTrackerExportAsync(new List<long> { 30 }, ExportFormatEnum.Xlsx);
+
+        // Assert
+        result.RowCount.Should().Be(1);
+        using var workbook = new XLWorkbook(new MemoryStream(result.Content));
+        var sheet = workbook.Worksheet(1);
+        sheet.Cell(1, 1).GetString().Should().Be("Vacancy");
+        sheet.Cell(2, 1).GetString().Should().Be("Software Engineer");
+        sheet.Cell(2, 2).GetString().Should().Be("Tracked Candidate");
+        sheet.Cell(2, 3).GetString().Should().Be("Technical Interview");
+        sheet.Cell(2, 6).GetString().Should().Be("8");
+        sheet.Cell(2, 7).GetString().Should().Be("Yes");
+        sheet.Cell(2, 8).GetString().Should().Be("abir");
     }
 
     [Fact]

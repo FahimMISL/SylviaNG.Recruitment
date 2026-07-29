@@ -19,5 +19,12 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task<ExportFileResult> GenerateBulkCvZipAsync(
             List<long> jobApplicationIds,
             CancellationToken cancellationToken = default);
+
+        /// <summary>EP-14 US-109 AC5: one row per matched application, tracker columns
+        /// (Vacancy/Candidate/Stage/Status/LastUpdated/DaysInStage/Stale/AssignedHR).</summary>
+        Task<ExportFileResult> GenerateJobApplicationTrackerExportAsync(
+            List<long> jobApplicationIds,
+            Domain.Enums.ExportFormatEnum format,
+            CancellationToken cancellationToken = default);
     }
 }

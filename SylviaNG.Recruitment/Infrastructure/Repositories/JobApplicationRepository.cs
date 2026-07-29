@@ -140,5 +140,30 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(a => siteId == null || a.JobPosting.SiteId == siteId)
                 .CountAsync();
         }
+
+        public async Task<Dictionary<ApplicationStatusEnum, int>> GetCountsByStatusAsync()
+        {
+            return await _dbSet
+                .GroupBy(a => a.ApplicationStatus)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.Status, g => g.Count);
+        }
+
+        public async Task<int> CountAppliedAsOfAsync(DateTime cutoff)
+        {
+            return await _dbSet.CountAsync(a => a.AppliedDate != null && a.AppliedDate <= cutoff);
+        }
+
+        public async Task<List<JobApplication>> GetAllMatchingAsync(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo)
+        {
+            return await BuildDashboardFilterQuery(jobPostingId, status, source, dateFrom, dateTo)
+                .Include(a => a.JobPosting)
+                .ToListAsync();
+        }
     }
 }

@@ -22,7 +22,8 @@ namespace SylviaNG.Recruitment.Application.Services
             return new ApplicationSettingResponse
             {
                 MinimumProfileCompletenessPercentage = entity.MinimumProfileCompletenessPercentage,
-                HrNotificationEmail = entity.HrNotificationEmail
+                HrNotificationEmail = entity.HrNotificationEmail,
+                DefaultStaleDaysThreshold = entity.DefaultStaleDaysThreshold
             };
         }
 
@@ -38,9 +39,20 @@ namespace SylviaNG.Recruitment.Application.Services
                 });
             }
 
+            if (request.DefaultStaleDaysThreshold is < 1)
+            {
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.DefaultStaleDaysThreshold),
+                        "DefaultStaleDaysThreshold must be at least 1 when set.")
+                });
+            }
+
             var entity = await _applicationSettingRepository.GetSingletonAsync();
             entity.MinimumProfileCompletenessPercentage = request.MinimumProfileCompletenessPercentage;
             entity.HrNotificationEmail = string.IsNullOrWhiteSpace(request.HrNotificationEmail) ? null : request.HrNotificationEmail.Trim();
+            entity.DefaultStaleDaysThreshold = request.DefaultStaleDaysThreshold;
             _applicationSettingRepository.Update(entity);
             await _unitOfWork.SaveChangesAsync();
         }
@@ -55,6 +67,12 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await _applicationSettingRepository.GetSingletonAsync();
             return entity.HrNotificationEmail;
+        }
+
+        public async Task<int?> GetDefaultStaleDaysThresholdAsync()
+        {
+            var entity = await _applicationSettingRepository.GetSingletonAsync();
+            return entity.DefaultStaleDaysThreshold;
         }
     }
 }

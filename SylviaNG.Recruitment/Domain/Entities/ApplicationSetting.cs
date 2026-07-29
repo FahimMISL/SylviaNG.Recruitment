@@ -23,4 +23,11 @@ public class ApplicationSetting : Audit
     /// in the system today.
     /// </summary>
     public string? HrNotificationEmail { get; set; }
+
+    /// <summary>
+    /// EP-14 US-109 AC2: fallback "days in current stage" threshold used to highlight stale
+    /// tracker rows when the application's current PipelineStage has no SlaDays configured.
+    /// Null = no fallback threshold (only stage-specific SlaDays highlight, if any).
+    /// </summary>
+    public int? DefaultStaleDaysThreshold { get; set; }
 }

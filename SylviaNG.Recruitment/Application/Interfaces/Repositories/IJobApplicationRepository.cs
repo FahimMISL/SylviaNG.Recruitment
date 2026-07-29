@@ -71,5 +71,25 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// <summary>F1 reconciliation "Waived" bucket: applications with a matched WaiverRule,
         /// submitted in [from, to], within the given vacancy/department/site scope.</summary>
         Task<int> CountWaivedInPeriodAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId, long? siteId);
+
+        /// <summary>EP-14 US-105 AC1: applications grouped by ApplicationStatus, dashboard summary.</summary>
+        Task<Dictionary<ApplicationStatusEnum, int>> GetCountsByStatusAsync();
+
+        /// <summary>EP-14 US-105 AC2: total applications with AppliedDate on/before the cutoff -
+        /// AppliedDate is monotonic/append-only, so this safely reconstructs a historical total
+        /// for the trend delta (unlike the mutable-state metrics, which have no history table).</summary>
+        Task<int> CountAppliedAsOfAsync(DateTime cutoff);
+
+        /// <summary>EP-14 US-109: every application matching the ATS/tracker scalar filters,
+        /// unpaginated entities (not just IDs) - feeds the in-memory sort/stale-filter path used
+        /// when the request sorts by a stage-derived column or filters StaleOnly, mirroring the
+        /// existing candidate-attribute-filter in-memory path for cases the generic SQL
+        /// sort/filter can't reach.</summary>
+        Task<List<JobApplication>> GetAllMatchingAsync(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo);
     }
 }

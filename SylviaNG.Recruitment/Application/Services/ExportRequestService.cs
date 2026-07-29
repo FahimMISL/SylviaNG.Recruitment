@@ -64,6 +64,31 @@ namespace SylviaNG.Recruitment.Application.Services
             return entity.ExportRequestId;
         }
 
+        public async Task<long> RequestJobApplicationTrackerExportAsync(JobApplicationAttributeFilterRequest filter, ExportFormatEnum format)
+        {
+            var matchedIds = await _jobApplicationService.GetDashboardMatchingIdsAsync(filter);
+
+            var now = DateTime.UtcNow;
+            var entity = new ExportRequest
+            {
+                ExportType = ExportTypeEnum.JobApplicationTrackerExport,
+                Format = format,
+                FilterJson = JsonSerializer.Serialize(filter),
+                JobApplicationIdsJson = JsonSerializer.Serialize(matchedIds),
+                Status = ExportRequestStatusEnum.Pending,
+                RequestedByUserName = _currentUserService.GetCurrentUserName(),
+                RequestedByEmail = _currentUserService.GetCurrentUserEmail(),
+                RequestedAt = now,
+                ExpiresAt = now.AddDays(RetentionDays),
+                RowCount = matchedIds.Count
+            };
+
+            await _exportRequestRepository.AddAsync(entity);
+            await _unitOfWork.SaveChangesAsync();
+
+            return entity.ExportRequestId;
+        }
+
         public async Task<long> RequestBulkCvZipExportAsync(List<long> jobApplicationIds)
         {
             var distinctIds = jobApplicationIds.Distinct().ToList();
