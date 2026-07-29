@@ -23,6 +23,15 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public int? MinAge { get; set; }
         public int? MaxAge { get; set; }
 
+        /// <summary>HR-only candidate tags (US-041 AC3) - matches ANY of the given tags, same
+        /// semantics as Skills.</summary>
+        public List<string>? Tags { get; set; }
+
+        /// <summary>EP-14 US-109 AC2: when true, only rows currently flagged stale (DaysInCurrentStage
+        /// exceeding the applicable threshold) are returned - routes through the same in-memory
+        /// path as the candidate-attribute filters, since staleness isn't a native JobApplication column.</summary>
+        public bool? StaleOnly { get; set; }
+
         public bool HasCandidateAttributeFilters =>
             MinEducationLevel.HasValue
             || MinExperienceYears.HasValue
@@ -30,6 +39,7 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
             || (Skills != null && Skills.Count > 0)
             || !string.IsNullOrWhiteSpace(Location)
             || MinAge.HasValue
-            || MaxAge.HasValue;
+            || MaxAge.HasValue
+            || (Tags != null && Tags.Count > 0);
     }
 }

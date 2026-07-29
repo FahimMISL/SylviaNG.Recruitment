@@ -43,6 +43,25 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<JobApplication>> GetByCandidateAsync(long? candidateProfileId, string email)
+        {
+            return await _dbSet
+                .Include(a => a.JobPosting)
+                .Include(a => a.Interviews)
+                .Where(a =>
+                    (candidateProfileId != null && a.CandidateProfileId == candidateProfileId) ||
+                    (a.CandidateProfileId == null && a.CandidateEmail == email))
+                .OrderByDescending(a => a.AppliedDate)
+                .ToListAsync();
+        }
+
+        public async Task LinkUnclaimedApplicationsByEmailAsync(string email, long candidateProfileId)
+        {
+            await _dbSet
+                .Where(a => a.CandidateProfileId == null && a.CandidateEmail == email)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.CandidateProfileId, candidateProfileId));
+        }
+
         public async Task<PagedResult<JobApplication>> GetPaginatedAllAsync(
             PagedRequest request,
             long? jobPostingId,
@@ -108,6 +127,57 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             DateTime? dateTo)
         {
             return await BuildDashboardFilterQuery(jobPostingId, status, source, dateFrom, dateTo)
+                .ToListAsync();
+        }
+
+        public async Task<int> CountWaivedInPeriodAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId, long? siteId)
+        {
+            return await _dbSet
+                .Where(a => a.WaiverRuleId != null)
+                .Where(a => a.AppliedDate != null && a.AppliedDate >= from && a.AppliedDate <= to)
+                .Where(a => jobPostingId == null || a.JobPostingId == jobPostingId)
+                .Where(a => departmentId == null || a.JobPosting.DepartmentId == departmentId)
+                .Where(a => siteId == null || a.JobPosting.SiteId == siteId)
+                .CountAsync();
+        }
+
+        public async Task<Dictionary<ApplicationStatusEnum, int>> GetCountsByStatusAsync()
+        {
+            return await _dbSet
+                .GroupBy(a => a.ApplicationStatus)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.Status, g => g.Count);
+        }
+
+        public async Task<int> CountAppliedAsOfAsync(DateTime cutoff)
+        {
+            return await _dbSet.CountAsync(a => a.AppliedDate != null && a.AppliedDate <= cutoff);
+        }
+
+        public async Task<List<JobApplication>> GetAllMatchingAsync(
+            long? jobPostingId,
+            ApplicationStatusEnum? status,
+            ApplicationSourceEnum? source,
+            DateTime? dateFrom,
+            DateTime? dateTo)
+        {
+            return await BuildDashboardFilterQuery(jobPostingId, status, source, dateFrom, dateTo)
+                .Include(a => a.JobPosting)
+                .ToListAsync();
+        }
+
+        public async Task<List<JobApplication>> GetForAnalyticsScopeAsync(
+            long? jobPostingId,
+            long? departmentId,
+            DateTime? dateFrom,
+            DateTime? dateTo)
+        {
+            return await _dbSet
+                .Include(a => a.JobPosting)
+                .Where(a => jobPostingId == null || a.JobPostingId == jobPostingId)
+                .Where(a => departmentId == null || a.JobPosting.DepartmentId == departmentId)
+                .Where(a => dateFrom == null || (a.AppliedDate != null && a.AppliedDate >= dateFrom))
+                .Where(a => dateTo == null || (a.AppliedDate != null && a.AppliedDate <= dateTo))
                 .ToListAsync();
         }
     }

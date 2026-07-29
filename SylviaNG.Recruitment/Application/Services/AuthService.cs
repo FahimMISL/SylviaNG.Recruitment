@@ -1,13 +1,19 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.Auth.Models;
+using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.SharedKernel.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -35,20 +41,37 @@ namespace SylviaNG.Recruitment.Application.Services
         // the response's single Role field reports the strongest one.
         private static readonly UserRoleEnum[] RolePriority = { UserRoleEnum.Admin, UserRoleEnum.HR, UserRoleEnum.Candidate };
 
+        private const string OtpCachePrefix = "candidate-login-otp:";
+
         private readonly IConfiguration _configuration;
         private readonly IKeycloakClient _keycloakClient;
         private readonly KeycloakSettings _keycloakSettings;
+        private readonly OtpSettings _otpSettings;
+        private readonly ICandidateLoginOtpRepository _candidateLoginOtpRepository;
+        private readonly INotificationDispatchService _notificationDispatchService;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             IConfiguration configuration,
             IKeycloakClient keycloakClient,
             IOptions<KeycloakSettings> keycloakSettings,
+            IOptions<OtpSettings> otpSettings,
+            ICandidateLoginOtpRepository candidateLoginOtpRepository,
+            INotificationDispatchService notificationDispatchService,
+            IMemoryCache memoryCache,
+            IUnitOfWork unitOfWork,
             ILogger<AuthService> logger)
         {
             _configuration = configuration;
             _keycloakClient = keycloakClient;
             _keycloakSettings = keycloakSettings.Value;
+            _otpSettings = otpSettings.Value;
+            _candidateLoginOtpRepository = candidateLoginOtpRepository;
+            _notificationDispatchService = notificationDispatchService;
+            _memoryCache = memoryCache;
+            _unitOfWork = unitOfWork;
             _logger = logger;
         }
 
@@ -57,13 +80,176 @@ namespace SylviaNG.Recruitment.Application.Services
             try
             {
                 var tokenResult = await _keycloakClient.TokenAsync(request.Username, request.Password);
-                return BuildResponseFromKeycloakToken(tokenResult);
+                var response = BuildResponseFromKeycloakToken(tokenResult);
+
+                // EP-09 Feature 2: OTP gate applies only to real Keycloak-authenticated Candidate
+                // logins - never to the offline fallback accounts below (dev-only safety net, not
+                // real candidates), and it's a no-op whenever the toggle is off or the role isn't
+                // Candidate, so Admin/HR behavior is unchanged.
+                if (_otpSettings.Enabled && response.Role == UserRoleEnum.Candidate.ToString())
+                {
+                    if (string.IsNullOrEmpty(tokenResult.RefreshToken))
+                    {
+                        _logger.LogWarning("Candidate login for {Username} qualified for the OTP gate but Keycloak returned no refresh token - skipping the gate for this login.", response.Username);
+                        return response;
+                    }
+
+                    return await BeginOtpChallengeAsync(response, tokenResult.RefreshToken);
+                }
+
+                return response;
             }
             catch (KeycloakUnavailableException ex)
             {
                 _logger.LogWarning(ex, "Keycloak unreachable — falling back to the offline hardcoded accounts.");
                 return LoginWithFallbackAccounts(request);
             }
+        }
+
+        private async Task<LoginResponse> BeginOtpChallengeAsync(LoginResponse candidateResponse, string refreshToken)
+        {
+            var challengeId = Guid.NewGuid();
+            var code = GenerateOtpCode();
+
+            var otp = new CandidateLoginOtp
+            {
+                ChallengeId = challengeId,
+                Username = candidateResponse.Username,
+                OtpCodeHash = HashOtpCode(code),
+                ExpiresAtUtc = DateTime.UtcNow.AddMinutes(_otpSettings.ExpiryMinutes)
+            };
+
+            await _candidateLoginOtpRepository.AddAsync(otp);
+            await _unitOfWork.SaveChangesAsync();
+
+            _memoryCache.Set(OtpCachePrefix + challengeId, refreshToken, TimeSpan.FromMinutes(_otpSettings.ExpiryMinutes));
+
+            try
+            {
+                await _notificationDispatchService.DispatchAsync(
+                    RecruitmentEventEnum.AccountCreatedOtp,
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["CandidateName"] = candidateResponse.DisplayName,
+                        ["OtpCode"] = code,
+                        ["ExpiryMinutes"] = _otpSettings.ExpiryMinutes.ToString()
+                    },
+                    new NotificationDispatchTargets(candidateResponse.Username, null));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching OTP email for challenge {ChallengeId}.", challengeId);
+            }
+
+            return new LoginResponse
+            {
+                Username = candidateResponse.Username,
+                DisplayName = candidateResponse.DisplayName,
+                Role = candidateResponse.Role,
+                RequiresOtp = true,
+                ChallengeId = challengeId.ToString()
+            };
+        }
+
+        public async Task<LoginResponse> VerifyOtpAsync(VerifyOtpRequest request)
+        {
+            if (!Guid.TryParse(request.ChallengeId, out var challengeId))
+                throw new OtpVerificationException();
+
+            var otp = await _candidateLoginOtpRepository.GetByChallengeIdAsync(challengeId)
+                ?? throw new OtpVerificationException();
+
+            if (otp.Locked || otp.ConsumedAtUtc.HasValue || otp.ExpiresAtUtc < DateTime.UtcNow)
+                throw new OtpVerificationException();
+
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(HashOtpCode(request.Code)),
+                    Encoding.UTF8.GetBytes(otp.OtpCodeHash)))
+            {
+                otp.AttemptCount++;
+                if (otp.AttemptCount >= _otpSettings.MaxAttempts)
+                    otp.Locked = true;
+
+                _candidateLoginOtpRepository.Update(otp);
+                await _unitOfWork.SaveChangesAsync();
+                throw new OtpVerificationException();
+            }
+
+            var cacheKey = OtpCachePrefix + challengeId;
+            if (!_memoryCache.TryGetValue(cacheKey, out string? refreshToken) || string.IsNullOrEmpty(refreshToken))
+            {
+                // Cache entry gone (e.g. app pool recycled mid-challenge) - the candidate must
+                // start over rather than being handed a stale/nonexistent session.
+                otp.Locked = true;
+                _candidateLoginOtpRepository.Update(otp);
+                await _unitOfWork.SaveChangesAsync();
+                throw new OtpVerificationException("This login session has expired. Please log in again.");
+            }
+
+            otp.ConsumedAtUtc = DateTime.UtcNow;
+            _candidateLoginOtpRepository.Update(otp);
+            await _unitOfWork.SaveChangesAsync();
+            _memoryCache.Remove(cacheKey);
+
+            var tokenResult = await _keycloakClient.RefreshTokenAsync(refreshToken);
+            return BuildResponseFromKeycloakToken(tokenResult);
+        }
+
+        public async Task ResendOtpAsync(ResendOtpRequest request)
+        {
+            if (!Guid.TryParse(request.ChallengeId, out var challengeId))
+                throw new OtpVerificationException();
+
+            var otp = await _candidateLoginOtpRepository.GetByChallengeIdAsync(challengeId)
+                ?? throw new OtpVerificationException();
+
+            var cacheKey = OtpCachePrefix + challengeId;
+            if (otp.Locked || otp.ConsumedAtUtc.HasValue || !_memoryCache.TryGetValue(cacheKey, out string? refreshToken) || string.IsNullOrEmpty(refreshToken))
+                throw new OtpVerificationException("This login session has expired. Please log in again.");
+
+            var code = GenerateOtpCode();
+            otp.OtpCodeHash = HashOtpCode(code);
+            otp.ExpiresAtUtc = DateTime.UtcNow.AddMinutes(_otpSettings.ExpiryMinutes);
+            otp.AttemptCount = 0;
+            _candidateLoginOtpRepository.Update(otp);
+            await _unitOfWork.SaveChangesAsync();
+
+            _memoryCache.Set(cacheKey, refreshToken, TimeSpan.FromMinutes(_otpSettings.ExpiryMinutes));
+
+            try
+            {
+                await _notificationDispatchService.DispatchAsync(
+                    RecruitmentEventEnum.AccountCreatedOtp,
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["CandidateName"] = otp.Username,
+                        ["OtpCode"] = code,
+                        ["ExpiryMinutes"] = _otpSettings.ExpiryMinutes.ToString()
+                    },
+                    new NotificationDispatchTargets(otp.Username, null));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching resend-OTP email for challenge {ChallengeId}.", challengeId);
+            }
+        }
+
+        private static string GenerateOtpCode()
+        {
+            return RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+        }
+
+        private string HashOtpCode(string code)
+        {
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_otpSettings.Pepper ?? string.Empty));
+            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(code));
+            return Convert.ToHexString(hash);
+        }
+
+        public async Task<LoginResponse> RefreshAsync(string refreshToken)
+        {
+            var tokenResult = await _keycloakClient.RefreshTokenAsync(refreshToken);
+            return BuildResponseFromKeycloakToken(tokenResult);
         }
 
         public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
@@ -101,6 +287,7 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 Token = tokenResult.AccessToken,
                 ExpiresAtUtc = DateTime.UtcNow.AddSeconds(tokenResult.ExpiresInSeconds),
+                RefreshToken = tokenResult.RefreshToken,
                 Username = username,
                 DisplayName = displayName,
                 Role = role

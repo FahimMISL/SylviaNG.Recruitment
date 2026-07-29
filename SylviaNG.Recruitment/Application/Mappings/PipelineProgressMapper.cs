@@ -32,6 +32,11 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 if (request.Status.Value == StageProgressStatusEnum.Completed && entity.Status != StageProgressStatusEnum.Completed)
                     entity.CompletedAt = DateTime.UtcNow;
 
+                // Same non-bump semantics for StageEnteredAt on the transition into InProgress
+                // (US-109 "Days in Current Stage").
+                if (request.Status.Value == StageProgressStatusEnum.InProgress && entity.Status != StageProgressStatusEnum.InProgress)
+                    entity.StageEnteredAt = DateTime.UtcNow;
+
                 entity.Status = request.Status.Value;
             }
 
@@ -50,7 +55,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 StageName = stage.Name,
                 StageType = stage.StageType,
                 DisplayOrder = stage.DisplayOrder,
-                Status = StageProgressStatusEnum.Pending
+                Status = StageProgressStatusEnum.Pending,
+                RequiresManualApproval = stage.ManualApprovalRequired,
+                SlaDaysSnapshot = stage.SlaDays
             };
         }
     }
