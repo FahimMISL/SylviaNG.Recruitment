@@ -109,6 +109,9 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IOfficeNoteService, OfficeNoteService>();
             services.AddScoped<IExportRequestService, ExportRequestService>();
             services.AddScoped<IExportGenerationService, ExportGenerationService>();
+            services.AddScoped<IUserAccountService, UserAccountService>();
+            services.AddScoped<IRoleService, RoleService>();
+            services.AddScoped<IPermissionService, PermissionService>();
 
             // Provide access to HttpContext for request metadata enrichment
             services.AddHttpContextAccessor();

@@ -1,0 +1,40 @@
+using Microsoft.EntityFrameworkCore;
+using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Domain.Entities;
+using SylviaNG.Recruitment.Infrastructure.Data;
+using SylviaNG.Recruitment.SharedKernel.Generic;
+
+namespace SylviaNG.Recruitment.Infrastructure.Repositories
+{
+    public class UserAccountRepository : Repository<UserAccount>, IUserAccountRepository
+    {
+        public UserAccountRepository(ApplicationDBContext dbContext) : base(dbContext) { }
+
+        public async Task<bool> ExistsByEmailAsync(string email, long? excludeId = null)
+        {
+            return await _dbSet.AnyAsync(u => u.Email == email && (!excludeId.HasValue || u.UserAccountId != excludeId.Value));
+        }
+
+        public async Task<UserAccount?> GetByIdWithRolesAsync(long userAccountId)
+        {
+            return await _dbSet
+                .Include(u => u.RoleAssignments).ThenInclude(a => a.Role).ThenInclude(r => r.Permissions)
+                .FirstOrDefaultAsync(u => u.UserAccountId == userAccountId);
+        }
+
+        public async Task<List<UserAccount>> GetAllWithRolesAsync()
+        {
+            return await _dbSet
+                .Include(u => u.RoleAssignments).ThenInclude(a => a.Role).ThenInclude(r => r.Permissions)
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+        }
+
+        public async Task<UserAccount?> GetByKeycloakUserIdWithRolesAsync(string keycloakUserId)
+        {
+            return await _dbSet
+                .Include(u => u.RoleAssignments).ThenInclude(a => a.Role).ThenInclude(r => r.Permissions)
+                .FirstOrDefaultAsync(u => u.KeycloakUserId == keycloakUserId);
+        }
+    }
+}

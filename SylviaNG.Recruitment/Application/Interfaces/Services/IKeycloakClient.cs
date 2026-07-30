@@ -42,5 +42,25 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// Sets a realm user's password (non-temporary) via the Admin REST API.
         /// </summary>
         Task ResetPasswordAsync(string keycloakUserId, string newPassword);
+
+        /// <summary>
+        /// Creates a realm role via the Admin REST API (EP-15/US-112 custom role creation).
+        /// No-ops without throwing if the role already exists, since role names are unique in
+        /// Keycloak and re-creating a same-named role on retry shouldn't be an error.
+        /// </summary>
+        Task CreateRealmRoleAsync(string roleName);
+
+        /// <summary>
+        /// Lists all realm roles via the Admin REST API, for the "assign role" pickers in the
+        /// user/role management UI (EP-15/US-111/112).
+        /// </summary>
+        Task<List<string>> GetRealmRolesAsync();
+
+        /// <summary>
+        /// Assigns one or more realm roles to an existing user (EP-15/US-111 multi-role assign).
+        /// Additive - does not remove roles the user already has. Unlike the private single-role
+        /// assignment CreateUserAsync does internally, this targets an already-existing user id.
+        /// </summary>
+        Task AssignRealmRolesAsync(string keycloakUserId, IEnumerable<string> realmRoles);
     }
 }

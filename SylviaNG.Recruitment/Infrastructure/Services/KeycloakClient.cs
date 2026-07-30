@@ -212,6 +212,61 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             }
         }
 
+        public async Task CreateRealmRoleAsync(string roleName)
+        {
+            var adminToken = await AdminTokenAsync();
+
+            var payload = new { name = roleName };
+            using var request = new HttpRequestMessage(HttpMethod.Post, AdminRolesEndpoint)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+            var response = await SendAsync(request);
+
+            // Role names are unique in Keycloak - a 409 just means it already exists, which is
+            // fine for a "create this custom role" call that might be retried.
+            if (response.StatusCode == HttpStatusCode.Conflict)
+                return;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Keycloak realm role creation failed ({Status}): {Body}", (int)response.StatusCode, body);
+                throw new KeycloakUnavailableException($"Keycloak realm role creation returned {(int)response.StatusCode}.");
+            }
+        }
+
+        public async Task<List<string>> GetRealmRolesAsync()
+        {
+            var adminToken = await AdminTokenAsync();
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, AdminRolesEndpoint);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+            var response = await SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+                throw new KeycloakUnavailableException($"Keycloak realm role listing returned {(int)response.StatusCode}.");
+
+            var body = await response.Content.ReadAsStringAsync();
+            using var json = JsonDocument.Parse(body);
+            return json.RootElement.EnumerateArray()
+                .Select(r => r.GetProperty("name").GetString())
+                .Where(name => !string.IsNullOrEmpty(name))
+                .Select(name => name!)
+                .ToList();
+        }
+
+        public async Task AssignRealmRolesAsync(string keycloakUserId, IEnumerable<string> realmRoles)
+        {
+            var adminToken = await AdminTokenAsync();
+
+            foreach (var realmRole in realmRoles)
+            {
+                await AssignRealmRoleAsync(adminToken, keycloakUserId, realmRole);
+            }
+        }
+
         private async Task<string> AdminTokenAsync()
         {
             var form = new Dictionary<string, string>

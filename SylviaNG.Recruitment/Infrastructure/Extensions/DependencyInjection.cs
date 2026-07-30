@@ -150,6 +150,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IExportRequestRepository, ExportRequestRepository>();
             services.AddScoped<ICompanyBrandingRepository, CompanyBrandingRepository>();
             services.AddScoped<IDashboardWidgetConfigRepository, DashboardWidgetConfigRepository>();
+            services.AddScoped<IUserAccountRepository, UserAccountRepository>();
+            services.AddScoped<IRoleRepository, RoleRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();

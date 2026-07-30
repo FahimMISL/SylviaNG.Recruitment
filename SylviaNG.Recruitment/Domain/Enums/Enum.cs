@@ -40,7 +40,30 @@ public enum UserRoleEnum
 {
     Admin,
     HR,
-    Candidate
+    Candidate,
+    SuperAdmin
+}
+
+/// <summary>Resource modules the access-control permission matrix (EP-15/US-112) grants against.
+/// No Requisitions module - this system doesn't have a separate requisition entity.</summary>
+public enum AccessControlModuleEnum
+{
+    JobPostings,
+    Applications,
+    Interviews,
+    Assessments,
+    Reports,
+    Admin
+}
+
+/// <summary>Actions the access-control permission matrix (EP-15/US-112) grants per module.</summary>
+public enum PermissionActionEnum
+{
+    View,
+    Create,
+    Edit,
+    Delete,
+    Approve
 }
 
 public enum CircularTypeEnum

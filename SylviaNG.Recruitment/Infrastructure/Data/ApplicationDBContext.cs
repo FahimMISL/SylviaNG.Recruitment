@@ -137,6 +137,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<SpecialCategory> SpecialCategories { get; set; }
         public DbSet<ReferralSource> ReferralSources { get; set; }
         public DbSet<DashboardWidgetConfig> DashboardWidgetConfigs { get; set; }
+        public DbSet<UserAccount> UserAccounts { get; set; }
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<RolePermission> RolePermissions { get; set; }
+        public DbSet<UserRoleAssignment> UserRoleAssignments { get; set; }
 
         #endregion
 
