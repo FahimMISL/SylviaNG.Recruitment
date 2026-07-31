@@ -13,14 +13,16 @@ namespace SylviaNG.Recruitment.Tests.Services;
 public class JobPostingServiceTests
 {
     private readonly Mock<IJobPostingRepository> _repositoryMock;
+    private readonly Mock<IUserAccountRepository> _userAccountRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly JobPostingService _service;
 
     public JobPostingServiceTests()
     {
         _repositoryMock = new Mock<IJobPostingRepository>();
+        _userAccountRepositoryMock = new Mock<IUserAccountRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _service = new JobPostingService(_repositoryMock.Object, _unitOfWorkMock.Object);
+        _service = new JobPostingService(_repositoryMock.Object, _userAccountRepositoryMock.Object, _unitOfWorkMock.Object);
     }
 
     [Fact]
@@ -86,6 +88,22 @@ public class JobPostingServiceTests
         createdEntity.Should().NotBeNull();
         createdEntity!.JobPostingCode.Should().Be($"JOB-{DateTime.UtcNow:yyyy}-000123");
         _repositoryMock.Verify(r => r.Update(It.Is<JobPosting>(j => j.JobPostingId == 123)), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetMyPostingsAsync_WithNoResolvableUserAccount_ShouldReturnEmptyList()
+    {
+        // Arrange: no IHttpContextAccessor was passed to the service in this test fixture
+        // (defaults to null), matching a request with no resolvable local UserAccount -
+        // GetMyPostingsAsync should degrade to an empty list rather than throw.
+
+        // Act
+        var result = await _service.GetMyPostingsAsync();
+
+        // Assert
+        result.Should().BeEmpty();
+        _userAccountRepositoryMock.Verify(r => r.GetIdByKeycloakUserIdAsync(It.IsAny<string>()), Times.Never);
+        _repositoryMock.Verify(r => r.GetByCreatedByAsync(It.IsAny<long>()), Times.Never);
     }
 
     [Fact]

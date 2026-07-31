@@ -11,6 +11,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task DeleteAsync(long jobPostingId);
         Task<JobPostingResponse> GetByIdAsync(long jobPostingId);
         Task<List<JobPostingResponse>> GetAllAsync();
+
+        /// <summary>EP-15/US-113: postings created by the current user - additive "My Postings" view,
+        /// does not restrict the existing full-access endpoints above.</summary>
+        Task<List<JobPostingResponse>> GetMyPostingsAsync();
         Task<PagedResult<JobPostingResponse>> GetPaginatedAsync(PagedRequest request);
         Task<List<JobPostingLookupResponse>> GetActiveBySiteIdAsync(long siteId);
 

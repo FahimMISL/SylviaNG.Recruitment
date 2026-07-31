@@ -14,6 +14,7 @@ namespace SylviaNG.Recruitment.Application.Services
     public class JobPostingService : IJobPostingService
     {
         private readonly IJobPostingRepository _jobPostingRepository;
+        private readonly IUserAccountRepository _userAccountRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IHttpContextAccessor? _httpContextAccessor;
 
@@ -29,10 +30,12 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public JobPostingService(
             IJobPostingRepository jobPostingRepository,
+            IUserAccountRepository userAccountRepository,
             IUnitOfWork _unitOfWork,
             IHttpContextAccessor? httpContextAccessor = null)
         {
             _jobPostingRepository = jobPostingRepository;
+            _userAccountRepository = userAccountRepository;
             this._unitOfWork = _unitOfWork;
             _httpContextAccessor = httpContextAccessor;
         }
@@ -44,6 +47,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("JobPosting", "Title", request.Title);
 
             var entity = request.ToEntity();
+            entity.CreatedBy = await TryGetCurrentUserAccountIdAsync();
             await _jobPostingRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 
@@ -68,10 +72,20 @@ namespace SylviaNG.Recruitment.Application.Services
 
             entity.ApplyUpdate(request);
             entity.UpdatedAt = DateTime.UtcNow;
-            entity.UpdatedBy = TryGetCurrentUserId();
+            entity.UpdatedBy = await TryGetCurrentUserAccountIdAsync();
 
             _jobPostingRepository.Update(entity);
             await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task<List<JobPostingResponse>> GetMyPostingsAsync()
+        {
+            var userAccountId = await TryGetCurrentUserAccountIdAsync();
+            if (userAccountId is null)
+                return new List<JobPostingResponse>();
+
+            var entities = await _jobPostingRepository.GetByCreatedByAsync(userAccountId.Value);
+            return entities.Select(e => e.ToResponse()).ToList();
         }
 
         private static void EnsureLegalStatusTransition(JobStatusEnum currentStatus, JobStatusEnum requestedStatus)
@@ -83,13 +97,20 @@ namespace SylviaNG.Recruitment.Application.Services
             }
         }
 
-        private long? TryGetCurrentUserId()
+        /// <summary>
+        /// Resolves the current request's local UserAccountId via the Keycloak subject claim.
+        /// Best-effort: returns null for the hardcoded-auth scheme (no matching UserAccount row)
+        /// or any Keycloak user who predates EP-15's UserAccount table (invited before this
+        /// feature existed) - CreatedBy/UpdatedBy simply stay unset for those, same as today.
+        /// </summary>
+        private async Task<long?> TryGetCurrentUserAccountIdAsync()
         {
-            // Best-effort: the current hardcoded-auth JWT does not carry a numeric user-id claim,
-            // only username/role, so this will typically remain null.
             var user = _httpContextAccessor?.HttpContext?.User;
-            var idClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user?.FindFirst("sub")?.Value;
-            return long.TryParse(idClaim, out var userId) ? userId : null;
+            var keycloakUserId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user?.FindFirst("sub")?.Value;
+            if (string.IsNullOrEmpty(keycloakUserId))
+                return null;
+
+            return await _userAccountRepository.GetIdByKeycloakUserIdAsync(keycloakUserId);
         }
 
         public async Task DeleteAsync(long jobPostingId)

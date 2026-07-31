@@ -61,7 +61,41 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             using var json = JsonDocument.Parse(body);
             var accessToken = json.RootElement.GetProperty("access_token").GetString()!;
             var expiresIn = json.RootElement.GetProperty("expires_in").GetInt32();
-            return new KeycloakTokenResult(accessToken, expiresIn);
+            var refreshToken = json.RootElement.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null;
+            return new KeycloakTokenResult(accessToken, expiresIn, refreshToken);
+        }
+
+        public async Task<KeycloakTokenResult> RefreshTokenAsync(string refreshToken)
+        {
+            var form = new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = _settings.ClientId,
+                ["client_secret"] = _settings.ClientSecret ?? string.Empty,
+                ["refresh_token"] = refreshToken
+            };
+
+            var response = await PostFormAsync(TokenEndpoint, form);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // invalid_grant here means the refresh token expired, was revoked, or was
+                // already rotated away by an earlier refresh - all end with a real re-login.
+                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest)
+                {
+                    _logger.LogWarning("Keycloak refresh-token request rejected: {Body}", body);
+                    throw new InvalidCredentialsException();
+                }
+
+                throw new KeycloakUnavailableException($"Keycloak token endpoint returned {(int)response.StatusCode}.");
+            }
+
+            using var json = JsonDocument.Parse(body);
+            var accessToken = json.RootElement.GetProperty("access_token").GetString()!;
+            var expiresIn = json.RootElement.GetProperty("expires_in").GetInt32();
+            var newRefreshToken = json.RootElement.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null;
+            return new KeycloakTokenResult(accessToken, expiresIn, newRefreshToken);
         }
 
         public async Task CreateUserAsync(string username, string email, string firstName, string lastName, string password, string realmRole, bool requireEmailVerification)
@@ -175,6 +209,61 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 var body = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Keycloak password reset failed ({Status}): {Body}", (int)response.StatusCode, body);
                 throw new KeycloakUnavailableException($"Keycloak password reset returned {(int)response.StatusCode}.");
+            }
+        }
+
+        public async Task CreateRealmRoleAsync(string roleName)
+        {
+            var adminToken = await AdminTokenAsync();
+
+            var payload = new { name = roleName };
+            using var request = new HttpRequestMessage(HttpMethod.Post, AdminRolesEndpoint)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+            var response = await SendAsync(request);
+
+            // Role names are unique in Keycloak - a 409 just means it already exists, which is
+            // fine for a "create this custom role" call that might be retried.
+            if (response.StatusCode == HttpStatusCode.Conflict)
+                return;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Keycloak realm role creation failed ({Status}): {Body}", (int)response.StatusCode, body);
+                throw new KeycloakUnavailableException($"Keycloak realm role creation returned {(int)response.StatusCode}.");
+            }
+        }
+
+        public async Task<List<string>> GetRealmRolesAsync()
+        {
+            var adminToken = await AdminTokenAsync();
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, AdminRolesEndpoint);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+            var response = await SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+                throw new KeycloakUnavailableException($"Keycloak realm role listing returned {(int)response.StatusCode}.");
+
+            var body = await response.Content.ReadAsStringAsync();
+            using var json = JsonDocument.Parse(body);
+            return json.RootElement.EnumerateArray()
+                .Select(r => r.GetProperty("name").GetString())
+                .Where(name => !string.IsNullOrEmpty(name))
+                .Select(name => name!)
+                .ToList();
+        }
+
+        public async Task AssignRealmRolesAsync(string keycloakUserId, IEnumerable<string> realmRoles)
+        {
+            var adminToken = await AdminTokenAsync();
+
+            foreach (var realmRole in realmRoles)
+            {
+                await AssignRealmRoleAsync(adminToken, keycloakUserId, realmRole);
             }
         }
 
