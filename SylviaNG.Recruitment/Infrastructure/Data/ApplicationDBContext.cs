@@ -141,6 +141,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<Role> Roles { get; set; }
         public DbSet<RolePermission> RolePermissions { get; set; }
         public DbSet<UserRoleAssignment> UserRoleAssignments { get; set; }
+        public DbSet<ImpersonationSession> ImpersonationSessions { get; set; }
+        public DbSet<ImpersonationLog> ImpersonationLogs { get; set; }
+        public DbSet<ProfileFieldConfig> ProfileFieldConfigs { get; set; }
 
         #endregion
 

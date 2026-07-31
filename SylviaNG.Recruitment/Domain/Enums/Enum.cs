@@ -66,6 +66,37 @@ public enum PermissionActionEnum
     Approve
 }
 
+/// <summary>EP-15/US-116: configurable candidate profile fields. Name/Email/CV are the core set
+/// and are never members of this enum - they're always mandatory, enforced in
+/// ProfileFieldConfigService rather than by omission alone (defense in depth).</summary>
+public enum CandidateProfileFieldEnum
+{
+    PhoneNumber,
+    DateOfBirth,
+    Gender,
+    MaritalStatus,
+    Religion,
+    BloodGroup,
+    PresentAddress,
+    PermanentAddress,
+    Photo,
+    Signature,
+    NidNumber,
+    EducationDetails,
+    WorkExperience,
+    Skills,
+    Certifications
+}
+
+/// <summary>EP-15/US-116: how a ProfileFieldConfig-governed field is presented on the candidate
+/// profile/apply form.</summary>
+public enum ProfileFieldVisibilityEnum
+{
+    Mandatory,
+    Optional,
+    Hidden
+}
+
 public enum CircularTypeEnum
 {
     InternalOnly,

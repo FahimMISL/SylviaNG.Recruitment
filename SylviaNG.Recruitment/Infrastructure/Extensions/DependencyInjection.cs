@@ -152,6 +152,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IDashboardWidgetConfigRepository, DashboardWidgetConfigRepository>();
             services.AddScoped<IUserAccountRepository, UserAccountRepository>();
             services.AddScoped<IRoleRepository, RoleRepository>();
+            services.AddScoped<IImpersonationSessionRepository, ImpersonationSessionRepository>();
+            services.AddScoped<IProfileFieldConfigRepository, ProfileFieldConfigRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
