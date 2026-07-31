@@ -23,9 +23,12 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// Get a job application by ID.
+        /// Get a job application by ID. Admin/HR only - a candidate's own applications are
+        /// exposed exclusively via GetMyApplications/GetById never took a candidate-ownership
+        /// check (EP-15/US-114 gap fix: was reachable by any authenticated user for any id).
         /// </summary>
         [HttpGet("{jobApplicationId}")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult<JobApplicationResponse>> GetById(long jobApplicationId)
         {
             var result = await _jobApplicationService.GetByIdAsync(jobApplicationId);
@@ -36,6 +39,7 @@ namespace SylviaNG.Recruitment.Controllers
         /// Get paginated job applications for a specific job posting.
         /// </summary>
         [HttpGet("job-posting/{jobPostingId}/paged")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult<PagedResult<JobApplicationResponse>>> GetPagedByJobPosting(long jobPostingId, [FromQuery] PagedRequest request)
         {
             var result = await _jobApplicationService.GetPaginatedByJobPostingAsync(jobPostingId, request);
@@ -53,9 +57,11 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// Update an existing job application.
+        /// Update an existing job application. Admin/HR only (EP-15/US-114 gap fix: previously
+        /// reachable by any authenticated user for any application id, no ownership check).
         /// </summary>
         [HttpPut("{jobApplicationId}")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult> Update(long jobApplicationId, [FromBody] JobApplicationUpdateRequest request)
         {
             await _jobApplicationService.UpdateAsync(jobApplicationId, request);
@@ -63,9 +69,11 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// Delete a job application.
+        /// Delete a job application. Admin/HR only (EP-15/US-114 gap fix: previously reachable by
+        /// any authenticated user for any application id, no ownership check).
         /// </summary>
         [HttpDelete("{jobApplicationId}")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult> Delete(long jobApplicationId)
         {
             await _jobApplicationService.DeleteAsync(jobApplicationId);

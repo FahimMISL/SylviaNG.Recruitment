@@ -74,5 +74,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet.CountAsync(j => j.Status == status);
         }
+
+        public async Task<List<JobPosting>> GetByCreatedByAsync(long userAccountId)
+        {
+            return await _dbSet
+                .Include(j => j.Applications)
+                .Include(j => j.HiringPipeline)
+                .Where(j => j.CreatedBy == userAccountId)
+                .ToListAsync();
+        }
     }
 }

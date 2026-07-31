@@ -34,5 +34,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>Count of postings with the given status, for dashboard summary stats.</summary>
         Task<int> CountByStatusAsync(JobStatusEnum status);
+
+        /// <summary>EP-15/US-113: postings created by the given local UserAccountId, for the "My Postings" view.</summary>
+        Task<List<JobPosting>> GetByCreatedByAsync(long userAccountId);
     }
 }

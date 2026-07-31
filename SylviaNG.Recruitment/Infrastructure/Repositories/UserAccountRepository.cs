@@ -36,5 +36,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(u => u.RoleAssignments).ThenInclude(a => a.Role).ThenInclude(r => r.Permissions)
                 .FirstOrDefaultAsync(u => u.KeycloakUserId == keycloakUserId);
         }
+
+        public async Task<long?> GetIdByKeycloakUserIdAsync(string keycloakUserId)
+        {
+            return await _dbSet
+                .Where(u => u.KeycloakUserId == keycloakUserId)
+                .Select(u => (long?)u.UserAccountId)
+                .FirstOrDefaultAsync();
+        }
     }
 }

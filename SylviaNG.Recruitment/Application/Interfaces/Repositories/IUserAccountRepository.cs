@@ -9,5 +9,9 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         Task<UserAccount?> GetByIdWithRolesAsync(long userAccountId);
         Task<List<UserAccount>> GetAllWithRolesAsync();
         Task<UserAccount?> GetByKeycloakUserIdWithRolesAsync(string keycloakUserId);
+
+        /// <summary>Lightweight lookup for resolving the current request's local UserAccountId
+        /// (e.g. to stamp JobPosting.CreatedBy) without loading the full role/permission graph.</summary>
+        Task<long?> GetIdByKeycloakUserIdAsync(string keycloakUserId);
     }
 }
