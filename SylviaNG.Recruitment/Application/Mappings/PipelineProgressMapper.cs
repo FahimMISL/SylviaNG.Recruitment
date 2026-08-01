@@ -6,7 +6,11 @@ namespace SylviaNG.Recruitment.Application.Mappings
 {
     public static class PipelineProgressMapper
     {
-        public static PipelineStageProgressResponse ToResponse(this JobApplicationStageProgress entity)
+        /// <summary>liveStage is the current PipelineStage config for this row's PipelineStageId
+        /// (from the live pipeline, not the progress row itself) - pass null if it's gone missing
+        /// (pipeline edited since this row was created); Description/PassingCriteria/
+        /// RequiredDocuments/EstimatedDurationMinutes just come back null in that case.</summary>
+        public static PipelineStageProgressResponse ToResponse(this JobApplicationStageProgress entity, PipelineStage? liveStage = null)
         {
             return new PipelineStageProgressResponse
             {
@@ -14,10 +18,15 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 StageName = entity.StageName,
                 StageType = entity.StageType,
                 DisplayOrder = entity.DisplayOrder,
+                StageDescription = liveStage?.Description,
+                PassingCriteria = liveStage?.PassingCriteria,
+                RequiredDocuments = liveStage?.RequiredDocuments,
+                EstimatedDurationMinutes = liveStage?.EstimatedDurationMinutes,
                 Status = entity.Status,
                 ScheduledDate = entity.ScheduledDate,
                 MeetingLink = entity.MeetingLink,
                 Notes = entity.Notes,
+                Score = entity.Score,
                 CompletedAt = entity.CompletedAt,
                 LastUpdatedByUserName = entity.LastUpdatedByUserName
             };
@@ -32,12 +41,18 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 if (request.Status.Value == StageProgressStatusEnum.Completed && entity.Status != StageProgressStatusEnum.Completed)
                     entity.CompletedAt = DateTime.UtcNow;
 
+                // Same non-bump semantics for StageEnteredAt on the transition into InProgress
+                // (US-109 "Days in Current Stage").
+                if (request.Status.Value == StageProgressStatusEnum.InProgress && entity.Status != StageProgressStatusEnum.InProgress)
+                    entity.StageEnteredAt = DateTime.UtcNow;
+
                 entity.Status = request.Status.Value;
             }
 
             if (request.ScheduledDate.HasValue) entity.ScheduledDate = request.ScheduledDate.Value;
             if (request.MeetingLink != null) entity.MeetingLink = request.MeetingLink;
             if (request.Notes != null) entity.Notes = request.Notes;
+            if (request.Score.HasValue) entity.Score = request.Score.Value;
         }
 
         /// <summary>Snapshots a pipeline's stage definition into a fresh Pending progress row (US-042).</summary>
@@ -50,7 +65,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 StageName = stage.Name,
                 StageType = stage.StageType,
                 DisplayOrder = stage.DisplayOrder,
-                Status = StageProgressStatusEnum.Pending
+                Status = StageProgressStatusEnum.Pending,
+                RequiresManualApproval = stage.ManualApprovalRequired,
+                SlaDaysSnapshot = stage.SlaDays
             };
         }
     }

@@ -1,13 +1,15 @@
 using FluentAssertions;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.Auth.Models;
+using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
+using SylviaNG.Recruitment.SharedKernel.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -20,16 +22,6 @@ public class AuthServiceTests
 
     public AuthServiceTests()
     {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Jwt:Local:SigningKey"] = "unit-test-signing-key-unit-test-signing-key-32b",
-                ["Jwt:Local:Issuer"] = "sylviang-recruitment-local-auth-tests",
-                ["Jwt:Local:Audience"] = "sylviang-recruitment-api-tests",
-                ["Jwt:Local:ExpiryMinutes"] = "60"
-            })
-            .Build();
-
         _keycloakClientMock = new Mock<IKeycloakClient>();
 
         var settings = Options.Create(new KeycloakSettings
@@ -39,7 +31,17 @@ public class AuthServiceTests
             RequireEmailVerification = true
         });
 
-        _service = new AuthService(configuration, _keycloakClientMock.Object, settings, NullLogger<AuthService>.Instance);
+        var otpSettings = Options.Create(new OtpSettings { Enabled = false });
+
+        _service = new AuthService(
+            _keycloakClientMock.Object,
+            settings,
+            otpSettings,
+            Mock.Of<ICandidateLoginOtpRepository>(),
+            Mock.Of<INotificationDispatchService>(),
+            Mock.Of<IMemoryCache>(),
+            Mock.Of<IUnitOfWork>(),
+            NullLogger<AuthService>.Instance);
     }
 
     private static string BuildKeycloakStyleToken(string username, string displayName, params string[] realmRoles)
@@ -62,7 +64,7 @@ public class AuthServiceTests
     {
         var keycloakToken = BuildKeycloakStyleToken("abir", "Abir Hasan", "offline_access", "HR");
         _keycloakClientMock.Setup(k => k.TokenAsync("abir", "abir123"))
-            .ReturnsAsync(new KeycloakTokenResult(keycloakToken, 300));
+            .ReturnsAsync(new KeycloakTokenResult(keycloakToken, 300, "refresh-token-stub"));
 
         var result = await _service.LoginAsync(new LoginRequest { Username = "abir", Password = "abir123" });
 
@@ -78,7 +80,7 @@ public class AuthServiceTests
     {
         var keycloakToken = BuildKeycloakStyleToken("root", "Root", "Candidate", "Admin", "HR");
         _keycloakClientMock.Setup(k => k.TokenAsync("root", "pw"))
-            .ReturnsAsync(new KeycloakTokenResult(keycloakToken, 300));
+            .ReturnsAsync(new KeycloakTokenResult(keycloakToken, 300, "refresh-token-stub"));
 
         var result = await _service.LoginAsync(new LoginRequest { Username = "root", Password = "pw" });
 
@@ -86,47 +88,27 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task LoginAsync_WhenKeycloakRejectsCredentials_ShouldPropagateWithoutFallback()
+    public async Task LoginAsync_WhenKeycloakRejectsCredentials_ShouldPropagate()
     {
         _keycloakClientMock.Setup(k => k.TokenAsync("admin", "wrong-password"))
             .ThrowsAsync(new InvalidCredentialsException());
 
-        // "admin" exists in the fallback list but with a different password; a Keycloak
-        // rejection must NOT be rescued by the offline fallback.
         var act = () => _service.LoginAsync(new LoginRequest { Username = "admin", Password = "wrong-password" });
 
         await act.Should().ThrowAsync<InvalidCredentialsException>();
     }
 
-    // ---- Offline fallback (Keycloak unreachable) ----
-
-    [Theory]
-    [InlineData("admin", "admin123", "Admin")]
-    [InlineData("abir", "abir123", "HR")]
-    [InlineData("sadia", "sadia123", "Candidate")]
-    public async Task LoginAsync_WhenKeycloakUnreachable_ShouldFallBackToHardcodedAccounts(
-        string username, string password, string expectedRole)
-    {
-        _keycloakClientMock.Setup(k => k.TokenAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ThrowsAsync(new KeycloakUnavailableException("down"));
-
-        var result = await _service.LoginAsync(new LoginRequest { Username = username, Password = password });
-
-        result.Token.Should().NotBeNullOrWhiteSpace();
-        result.Role.Should().Be(expectedRole);
-        result.Username.Should().Be(username);
-        result.ExpiresAtUtc.Should().BeAfter(DateTime.UtcNow);
-    }
-
     [Fact]
-    public async Task LoginAsync_WhenKeycloakUnreachableAndUnknownUser_ShouldThrowInvalidCredentialsException()
+    public async Task LoginAsync_WhenKeycloakUnreachable_ShouldPropagate()
     {
+        // No offline fallback - a Keycloak outage surfaces as a 503 (see
+        // GlobalExceptionHandlerMiddleware) rather than silently accepting known credentials.
         _keycloakClientMock.Setup(k => k.TokenAsync(It.IsAny<string>(), It.IsAny<string>()))
             .ThrowsAsync(new KeycloakUnavailableException("down"));
 
-        var act = () => _service.LoginAsync(new LoginRequest { Username = "nobody", Password = "whatever" });
+        var act = () => _service.LoginAsync(new LoginRequest { Username = "admin", Password = "admin123" });
 
-        await act.Should().ThrowAsync<InvalidCredentialsException>();
+        await act.Should().ThrowAsync<KeycloakUnavailableException>();
     }
 
     // ---- Registration ----

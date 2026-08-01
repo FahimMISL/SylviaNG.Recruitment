@@ -1,5 +1,6 @@
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Domain.Entities;
+using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Application.Mappings
 {
@@ -17,9 +18,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             // JobPostingService.CreateAsync once the entity has its identity (JobPostingId).
             return new JobPosting
             {
-                SiteId = request.SiteId,
                 DepartmentId = request.DepartmentId,
-                DesignationId = request.DesignationId,
                 Title = request.Title,
                 Description = request.Description,
                 Requirements = request.Requirements,
@@ -27,6 +26,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 EmploymentType = request.EmploymentType,
                 MinSalary = request.MinSalary,
                 MaxSalary = request.MaxSalary,
+                SalaryCurrency = request.SalaryCurrency,
                 PostingDate = request.PostingDate,
                 ClosingDate = request.ClosingDate,
                 IsActive = true,
@@ -46,7 +46,6 @@ namespace SylviaNG.Recruitment.Application.Mappings
         public static void ApplyUpdate(this JobPosting entity, JobPostingUpdateRequest request)
         {
             if (request.DepartmentId.HasValue) entity.DepartmentId = request.DepartmentId;
-            if (request.DesignationId.HasValue) entity.DesignationId = request.DesignationId;
             if (request.Title != null) entity.Title = request.Title;
             if (request.Description != null) entity.Description = request.Description;
             if (request.Requirements != null) entity.Requirements = request.Requirements;
@@ -55,6 +54,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             if (request.Status.HasValue) entity.Status = request.Status.Value;
             if (request.MinSalary.HasValue) entity.MinSalary = request.MinSalary;
             if (request.MaxSalary.HasValue) entity.MaxSalary = request.MaxSalary;
+            if (request.SalaryCurrency != null) entity.SalaryCurrency = request.SalaryCurrency;
             if (request.PostingDate.HasValue) entity.PostingDate = request.PostingDate;
             if (request.ClosingDate.HasValue) entity.ClosingDate = request.ClosingDate;
             if (request.IsActive.HasValue) entity.IsActive = request.IsActive.Value;
@@ -76,9 +76,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
             {
                 JobPostingId = entity.JobPostingId,
                 JobPostingCode = entity.JobPostingCode,
-                SiteId = entity.SiteId,
                 DepartmentId = entity.DepartmentId,
-                DesignationId = entity.DesignationId,
+                DepartmentName = entity.Department?.Name,
                 Title = entity.Title,
                 Description = entity.Description,
                 Requirements = entity.Requirements,
@@ -87,6 +86,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Status = entity.Status,
                 MinSalary = entity.MinSalary,
                 MaxSalary = entity.MaxSalary,
+                SalaryCurrency = entity.SalaryCurrency,
                 PostingDate = entity.PostingDate,
                 ClosingDate = entity.ClosingDate,
                 IsActive = entity.IsActive,
@@ -124,8 +124,10 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateName = request.CandidateName,
                 CandidateEmail = request.CandidateEmail,
                 CandidatePhone = request.CandidatePhone,
+                CandidateNationalId = request.CandidateNationalId,
                 ResumeUrl = request.ResumeUrl,
                 CoverLetter = request.CoverLetter,
+                Source = request.Source,
                 IsActive = true
             };
         }
@@ -153,7 +155,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ApplicationStatus = entity.ApplicationStatus,
                 AppliedDate = entity.AppliedDate,
                 IsActive = entity.IsActive,
-                Source = entity.Source
+                Source = entity.Source,
+                PaymentRequired = entity.ApplicationStatus == ApplicationStatusEnum.AwaitingPayment
             };
         }
 
@@ -205,8 +208,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ApplicationStatus = entity.ApplicationStatus,
                 CanWithdraw = canWithdraw,
                 Interviews = entity.Interviews
-                    .Where(i => i.IsActive)
-                    .OrderBy(i => i.ScheduledDate)
+                    .Where(i => i.Status != InterviewStatusEnum.Cancelled)
+                    .OrderBy(i => i.ScheduledStartAt)
                     .Select(i => i.ToMyApplicationInterviewResponse())
                     .ToList()
             };
@@ -217,10 +220,12 @@ namespace SylviaNG.Recruitment.Application.Mappings
             return new MyApplicationInterviewResponse
             {
                 InterviewId = entity.InterviewId,
-                ScheduledDate = entity.ScheduledDate,
-                Location = entity.Location,
+                ScheduledDate = entity.ScheduledStartAt,
+                Location = entity.InterviewType == InterviewTypeEnum.InPerson
+                    ? $"{entity.InterviewVenue?.VenueName} - {entity.InterviewRoom?.RoomName}"
+                    : null,
                 MeetingLink = entity.MeetingLink,
-                Round = entity.Round
+                Round = entity.Round.ToString()
             };
         }
 
@@ -262,8 +267,27 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateName = request.CandidateName,
                 CandidateEmail = request.CandidateEmail,
                 CandidatePhone = request.CandidatePhone,
+                CandidateNationalId = request.CandidateNationalId,
                 CoverLetter = request.CoverLetter,
                 IsActive = true
+            };
+        }
+
+        // ── Duplicate Detection (US-038) ──────────────────────────────────
+
+        public static JobApplicationDuplicateItemResponse ToDuplicateItemResponse(this JobApplication entity)
+        {
+            return new JobApplicationDuplicateItemResponse
+            {
+                JobApplicationId = entity.JobApplicationId,
+                CandidateName = entity.CandidateName,
+                CandidateEmail = entity.CandidateEmail,
+                CandidatePhone = entity.CandidatePhone,
+                CandidateNationalId = entity.CandidateNationalId,
+                Source = entity.Source,
+                ApplicationStatus = entity.ApplicationStatus,
+                AppliedDate = entity.AppliedDate,
+                ResumeUrl = entity.ResumeUrl
             };
         }
     }

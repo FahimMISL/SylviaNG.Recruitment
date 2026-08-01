@@ -81,3 +81,5 @@ node_modules/
 
 # Visual Studio language service cache
 *.lscache
+
+**/verifyobj/

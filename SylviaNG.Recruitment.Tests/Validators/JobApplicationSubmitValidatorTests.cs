@@ -39,6 +39,7 @@ public class JobApplicationSubmitValidatorTests
         string candidateName = "Jane Doe",
         string candidateEmail = "jane@example.com",
         string? candidatePhone = "+880123456789",
+        string? candidateNationalId = "1234567890",
         string? coverLetter = "I am interested in this role.",
         IFormFile? resume = null,
         ApplicationSourceEnum source = ApplicationSourceEnum.External)
@@ -49,6 +50,7 @@ public class JobApplicationSubmitValidatorTests
             CandidateName = candidateName,
             CandidateEmail = candidateEmail,
             CandidatePhone = candidatePhone,
+            CandidateNationalId = candidateNationalId,
             CoverLetter = coverLetter,
             Resume = resume ?? CreateFormFile()
         }, source);
@@ -110,10 +112,27 @@ public class JobApplicationSubmitValidatorTests
     }
 
     [Fact]
-    public void Validate_WithMissingResume_ShouldHaveError()
+    public void Validate_WithMissingResumeAndExternalSource_ShouldHaveNoErrors()
     {
-        // Arrange
+        // Arrange - a Candidate submission with no file attached falls back to whatever resume
+        // already exists on their profile (JobApplicationService.SubmitAsync), so it's no longer
+        // a validation error at this layer.
         var command = CreateCommand(resume: null!);
+        command.Request.Resume = null;
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_WithMissingResumeAndAdminSource_ShouldHaveError()
+    {
+        // Arrange - Admin apply-on-behalf has no candidate session/profile to fall back to, so
+        // Resume stays required for that source.
+        var command = CreateCommand(resume: null!, source: ApplicationSourceEnum.Admin);
         command.Request.Resume = null;
 
         // Act
@@ -168,6 +187,20 @@ public class JobApplicationSubmitValidatorTests
     }
 
     [Fact]
+    public void Validate_WithOverlongNationalId_ShouldHaveError()
+    {
+        // Arrange
+        var command = CreateCommand(candidateNationalId: new string('1', 51));
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle(e => e.PropertyName == "Request.CandidateNationalId");
+    }
+
+    [Fact]
     public void Validate_WithOverlongCoverLetter_ShouldHaveError()
     {
         // Arrange
@@ -179,5 +212,47 @@ public class JobApplicationSubmitValidatorTests
         // Assert
         result.IsValid.Should().BeFalse();
         result.Errors.Should().ContainSingle(e => e.PropertyName == "Request.CoverLetter");
+    }
+
+    // ── US-005 AC3: internal candidates must attach a PDF specifically ────
+
+    [Fact]
+    public void Validate_WithInternalSourceAndPdfResume_ShouldHaveNoErrors()
+    {
+        // Arrange
+        var command = CreateCommand(resume: CreateFormFile(fileName: "resume.pdf"), source: ApplicationSourceEnum.Internal);
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_WithInternalSourceAndDocxResume_ShouldHaveError()
+    {
+        // Arrange
+        var command = CreateCommand(resume: CreateFormFile(fileName: "resume.docx"), source: ApplicationSourceEnum.Internal);
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Request.Resume" && e.ErrorMessage.Contains("PDF"));
+    }
+
+    [Fact]
+    public void Validate_WithExternalSourceAndDocxResume_ShouldHaveNoErrors()
+    {
+        // Arrange
+        var command = CreateCommand(resume: CreateFormFile(fileName: "resume.docx"), source: ApplicationSourceEnum.External);
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
     }
 }

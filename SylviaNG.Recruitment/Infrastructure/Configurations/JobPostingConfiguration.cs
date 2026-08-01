@@ -39,6 +39,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(j => j.MaxSalary)
                 .HasColumnType("decimal(18,2)");
 
+            builder.Property(j => j.SalaryCurrency)
+                .HasMaxLength(10);
+
             // EP-02: Job Vacancy Configuration fields
             builder.Property(j => j.JobPostingCode)
                 .IsRequired()
@@ -65,11 +68,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasMaxLength(10);
 
             // Indexes
-            builder.HasIndex(j => j.SiteId);
             builder.HasIndex(j => j.Status);
-            builder.HasIndex(j => new { j.SiteId, j.Title }).IsUnique();
+            builder.HasIndex(j => j.Title).IsUnique();
             builder.HasIndex(j => j.JobPostingCode).IsUnique();
             builder.HasIndex(j => j.HiringPipelineId);
+            builder.HasIndex(j => j.DepartmentId);
 
             // Relationships
             builder.HasMany(j => j.Applications)
@@ -85,9 +88,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 new
                 {
                     JobPostingId = 1L,
-                    SiteId = 1L,
                     DepartmentId = 1L,
-                    DesignationId = 1L,
                     Title = "Senior Software Engineer",
                     Description = "We are looking for a Senior Software Engineer to join our team.",
                     Requirements = "5+ years of experience in .NET, C#, and SQL Server.",
@@ -114,9 +115,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 new
                 {
                     JobPostingId = 2L,
-                    SiteId = 1L,
-                    DepartmentId = 2L,
-                    DesignationId = 2L,
+                    DepartmentId = 1L,
                     Title = "UI/UX Designer",
                     Description = "Looking for a creative UI/UX Designer.",
                     Requirements = "3+ years of experience in Figma and Adobe XD.",

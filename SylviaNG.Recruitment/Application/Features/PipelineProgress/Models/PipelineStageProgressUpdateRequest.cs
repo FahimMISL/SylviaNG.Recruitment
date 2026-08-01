@@ -14,5 +14,6 @@ namespace SylviaNG.Recruitment.Application.Features.PipelineProgress.Models
         public DateTime? ScheduledDate { get; set; }
         public string? MeetingLink { get; set; }
         public string? Notes { get; set; }
+        public decimal? Score { get; set; }
     }
 }
