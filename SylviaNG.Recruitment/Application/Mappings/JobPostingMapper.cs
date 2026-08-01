@@ -18,9 +18,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             // JobPostingService.CreateAsync once the entity has its identity (JobPostingId).
             return new JobPosting
             {
-                SiteId = request.SiteId,
                 DepartmentId = request.DepartmentId,
-                DesignationId = request.DesignationId,
                 Title = request.Title,
                 Description = request.Description,
                 Requirements = request.Requirements,
@@ -28,6 +26,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 EmploymentType = request.EmploymentType,
                 MinSalary = request.MinSalary,
                 MaxSalary = request.MaxSalary,
+                SalaryCurrency = request.SalaryCurrency,
                 PostingDate = request.PostingDate,
                 ClosingDate = request.ClosingDate,
                 IsActive = true,
@@ -47,7 +46,6 @@ namespace SylviaNG.Recruitment.Application.Mappings
         public static void ApplyUpdate(this JobPosting entity, JobPostingUpdateRequest request)
         {
             if (request.DepartmentId.HasValue) entity.DepartmentId = request.DepartmentId;
-            if (request.DesignationId.HasValue) entity.DesignationId = request.DesignationId;
             if (request.Title != null) entity.Title = request.Title;
             if (request.Description != null) entity.Description = request.Description;
             if (request.Requirements != null) entity.Requirements = request.Requirements;
@@ -56,6 +54,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
             if (request.Status.HasValue) entity.Status = request.Status.Value;
             if (request.MinSalary.HasValue) entity.MinSalary = request.MinSalary;
             if (request.MaxSalary.HasValue) entity.MaxSalary = request.MaxSalary;
+            if (request.SalaryCurrency != null) entity.SalaryCurrency = request.SalaryCurrency;
             if (request.PostingDate.HasValue) entity.PostingDate = request.PostingDate;
             if (request.ClosingDate.HasValue) entity.ClosingDate = request.ClosingDate;
             if (request.IsActive.HasValue) entity.IsActive = request.IsActive.Value;
@@ -77,9 +76,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
             {
                 JobPostingId = entity.JobPostingId,
                 JobPostingCode = entity.JobPostingCode,
-                SiteId = entity.SiteId,
                 DepartmentId = entity.DepartmentId,
-                DesignationId = entity.DesignationId,
+                DepartmentName = entity.Department?.Name,
                 Title = entity.Title,
                 Description = entity.Description,
                 Requirements = entity.Requirements,
@@ -88,6 +86,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Status = entity.Status,
                 MinSalary = entity.MinSalary,
                 MaxSalary = entity.MaxSalary,
+                SalaryCurrency = entity.SalaryCurrency,
                 PostingDate = entity.PostingDate,
                 ClosingDate = entity.ClosingDate,
                 IsActive = entity.IsActive,

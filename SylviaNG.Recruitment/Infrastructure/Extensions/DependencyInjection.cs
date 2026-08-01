@@ -128,6 +128,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ISpecialCategoryRepository, SpecialCategoryRepository>();
             services.AddScoped<IReferralSourceRepository, ReferralSourceRepository>();
             services.AddScoped<IGenderRepository, GenderRepository>();
+            services.AddScoped<IDepartmentRepository, DepartmentRepository>();
             services.AddScoped<IMaritalStatusRepository, MaritalStatusRepository>();
             services.AddScoped<IReligionRepository, ReligionRepository>();
             services.AddScoped<IBloodGroupRepository, BloodGroupRepository>();
@@ -137,6 +138,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IEventTemplateMappingRepository, EventTemplateMappingRepository>();
             services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
             services.AddScoped<ICandidateLoginOtpRepository, CandidateLoginOtpRepository>();
+            services.AddScoped<IEmailChangeVerificationRepository, EmailChangeVerificationRepository>();
             services.AddScoped<IDocumentTemplateRepository, DocumentTemplateRepository>();
             services.AddScoped<IOfferLetterRepository, OfferLetterRepository>();
             services.AddScoped<IAppointmentLetterRepository, AppointmentLetterRepository>();

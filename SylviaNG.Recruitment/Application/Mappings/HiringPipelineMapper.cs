@@ -19,23 +19,14 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PassingCriteria = request.PassingCriteria,
                 IsActive = true,
                 IsMandatory = request.IsMandatory,
-                DepartmentId = request.DepartmentId,
                 EstimatedDurationMinutes = request.EstimatedDurationMinutes,
                 SlaDays = request.SlaDays,
                 MaxMarks = request.MaxMarks,
                 PassMarks = request.PassMarks,
-                ColorBadge = request.ColorBadge,
-                EmailTemplate = request.EmailTemplate,
-                NotifyCandidateOnEnter = request.NotifyCandidateOnEnter,
-                NotifyInterviewersOnAssign = request.NotifyInterviewersOnAssign,
                 RequiredDocuments = request.RequiredDocuments,
-                AllowCandidateReschedule = request.AllowCandidateReschedule,
                 AutoProgressionRule = request.AutoProgressionRule,
-                ManualApprovalRequired = request.ManualApprovalRequired,
-                Interviewers = request.InterviewerEmployeeIds
-                    .Distinct()
-                    .Select(employeeId => new PipelineStageInterviewer { EmployeeId = employeeId })
-                    .ToList()
+                AutoProgressionTargetDisplayOrder = request.AutoProgressionTargetDisplayOrder,
+                ManualApprovalRequired = request.ManualApprovalRequired
             };
         }
 
@@ -51,20 +42,14 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PassingCriteria = entity.PassingCriteria,
                 IsActive = entity.IsActive,
                 IsMandatory = entity.IsMandatory,
-                DepartmentId = entity.DepartmentId,
                 EstimatedDurationMinutes = entity.EstimatedDurationMinutes,
                 SlaDays = entity.SlaDays,
                 MaxMarks = entity.MaxMarks,
                 PassMarks = entity.PassMarks,
-                ColorBadge = entity.ColorBadge,
-                EmailTemplate = entity.EmailTemplate,
-                NotifyCandidateOnEnter = entity.NotifyCandidateOnEnter,
-                NotifyInterviewersOnAssign = entity.NotifyInterviewersOnAssign,
                 RequiredDocuments = entity.RequiredDocuments,
-                AllowCandidateReschedule = entity.AllowCandidateReschedule,
                 AutoProgressionRule = entity.AutoProgressionRule,
-                ManualApprovalRequired = entity.ManualApprovalRequired,
-                InterviewerEmployeeIds = entity.Interviewers?.Select(i => i.EmployeeId).ToList() ?? new List<long>()
+                AutoProgressionTargetDisplayOrder = entity.AutoProgressionTargetDisplayOrder,
+                ManualApprovalRequired = entity.ManualApprovalRequired
             };
         }
 

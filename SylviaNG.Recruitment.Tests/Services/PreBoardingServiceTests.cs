@@ -1,6 +1,7 @@
 using FluentAssertions;
 using FluentValidation;
 using Moq;
+using SylviaNG.Recruitment.Application.Common.Email;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.PreBoarding.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
@@ -179,6 +180,7 @@ public class PreBoardingServiceTests
             It.IsAny<IDictionary<string, string>>(),
             It.IsAny<NotificationDispatchTargets>(),
             true,
+            It.IsAny<IReadOnlyList<EmailAttachment>>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -214,6 +216,7 @@ public class PreBoardingServiceTests
             It.IsAny<IDictionary<string, string>>(),
             It.IsAny<NotificationDispatchTargets>(),
             true,
+            It.IsAny<IReadOnlyList<EmailAttachment>>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -243,6 +246,7 @@ public class PreBoardingServiceTests
             It.IsAny<IDictionary<string, string>>(),
             It.IsAny<NotificationDispatchTargets>(),
             true,
+            It.IsAny<IReadOnlyList<EmailAttachment>>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

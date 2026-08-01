@@ -14,5 +14,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet.FirstOrDefaultAsync(o => o.ChallengeId == challengeId);
         }
+
+        public async Task<bool> HasEverVerifiedAsync(string username)
+        {
+            return await _dbSet.AnyAsync(o => o.Username == username && o.ConsumedAtUtc != null);
+        }
     }
 }

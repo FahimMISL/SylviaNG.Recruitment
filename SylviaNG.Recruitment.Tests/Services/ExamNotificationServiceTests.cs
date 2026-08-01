@@ -16,20 +16,23 @@ namespace SylviaNG.Recruitment.Tests.Services;
 public class ExamNotificationServiceTests
 {
     private readonly Mock<IExamEnrollmentRepository> _examEnrollmentRepositoryMock;
-    private readonly Mock<ISmtpEmailService> _smtpEmailServiceMock;
+    private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
     private readonly Mock<ISmsNotificationService> _smsNotificationServiceMock;
     private readonly Mock<IAdmitCardPdfGeneratorService> _admitCardPdfGeneratorServiceMock;
+    private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExamNotificationService _service;
 
     public ExamNotificationServiceTests()
     {
         _examEnrollmentRepositoryMock = new Mock<IExamEnrollmentRepository>();
-        _smtpEmailServiceMock = new Mock<ISmtpEmailService>();
+        _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
         _smsNotificationServiceMock = new Mock<ISmsNotificationService>();
         _admitCardPdfGeneratorServiceMock = new Mock<IAdmitCardPdfGeneratorService>();
+        _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+        _applicationSettingServiceMock.Setup(s => s.GetHrNotificationEmailAsync()).ReturnsAsync((string?)null);
 
         _admitCardPdfGeneratorServiceMock
             .Setup(g => g.Generate(It.IsAny<ExamEnrollment>(), It.IsAny<Exam>(), It.IsAny<JobApplication>()))
@@ -37,9 +40,10 @@ public class ExamNotificationServiceTests
 
         _service = new ExamNotificationService(
             _examEnrollmentRepositoryMock.Object,
-            _smtpEmailServiceMock.Object,
+            _notificationDispatchServiceMock.Object,
             _smsNotificationServiceMock.Object,
             _admitCardPdfGeneratorServiceMock.Object,
+            _applicationSettingServiceMock.Object,
             Options.Create(new PortalSettings { FrontendBaseUrl = "http://localhost:4600" }),
             _unitOfWorkMock.Object,
             new Mock<ILogger<ExamNotificationService>>().Object);
@@ -73,9 +77,15 @@ public class ExamNotificationServiceTests
         };
         _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdWithDetailsAsync(1)).ReturnsAsync(enrollments);
 
-        _smtpEmailServiceMock
-            .Setup(s => s.TrySendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EmailSendResult { Success = true });
+        _notificationDispatchServiceMock
+            .Setup(n => n.DispatchAsync(
+                It.IsAny<RecruitmentEventEnum>(),
+                It.IsAny<IDictionary<string, string>>(),
+                It.IsAny<NotificationDispatchTargets>(),
+                It.IsAny<bool>(),
+                It.IsAny<IReadOnlyList<EmailAttachment>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NotificationDispatchResult(new EmailSendResult { Success = true }, null));
         _smsNotificationServiceMock
             .Setup(s => s.TrySendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -97,9 +107,15 @@ public class ExamNotificationServiceTests
         var enrollments = new List<ExamEnrollment> { EnrollmentFor(1, 1, exam) };
         _examEnrollmentRepositoryMock.Setup(r => r.GetByExamIdWithDetailsAsync(1)).ReturnsAsync(enrollments);
 
-        _smtpEmailServiceMock
-            .Setup(s => s.TrySendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EmailSendResult { Success = true });
+        _notificationDispatchServiceMock
+            .Setup(n => n.DispatchAsync(
+                It.IsAny<RecruitmentEventEnum>(),
+                It.IsAny<IDictionary<string, string>>(),
+                It.IsAny<NotificationDispatchTargets>(),
+                It.IsAny<bool>(),
+                It.IsAny<IReadOnlyList<EmailAttachment>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NotificationDispatchResult(new EmailSendResult { Success = true }, null));
 
         string? capturedMessage = null;
         _smsNotificationServiceMock
@@ -126,6 +142,12 @@ public class ExamNotificationServiceTests
         smsSentCount.Should().Be(0);
         enrollments[0].EmailNotificationStatus.Should().Be(NotificationStatusEnum.Skipped);
         enrollments[0].SmsNotificationStatus.Should().Be(NotificationStatusEnum.Skipped);
-        _smtpEmailServiceMock.Verify(s => s.TrySendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationDispatchServiceMock.Verify(n => n.DispatchAsync(
+            It.IsAny<RecruitmentEventEnum>(),
+            It.IsAny<IDictionary<string, string>>(),
+            It.IsAny<NotificationDispatchTargets>(),
+            It.IsAny<bool>(),
+            It.IsAny<IReadOnlyList<EmailAttachment>>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 }

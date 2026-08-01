@@ -2,6 +2,7 @@ using FluentAssertions;
 using FluentValidation;
 using Microsoft.Extensions.Options;
 using Moq;
+using SylviaNG.Recruitment.Application.Common.Email;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.TargetLetters.Models;
@@ -22,6 +23,7 @@ public class TargetLetterServiceTests
     private readonly Mock<ITargetLetterPdfGeneratorService> _pdfGeneratorServiceMock;
     private readonly Mock<IFileStorageService> _fileStorageServiceMock;
     private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
+    private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly TargetLetterService _service;
 
@@ -33,8 +35,10 @@ public class TargetLetterServiceTests
         _pdfGeneratorServiceMock = new Mock<ITargetLetterPdfGeneratorService>();
         _fileStorageServiceMock = new Mock<IFileStorageService>();
         _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
+        _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+        _applicationSettingServiceMock.Setup(s => s.GetHrNotificationEmailAsync()).ReturnsAsync((string?)null);
 
         _service = new TargetLetterService(
             _targetLetterRepositoryMock.Object,
@@ -43,6 +47,7 @@ public class TargetLetterServiceTests
             _pdfGeneratorServiceMock.Object,
             _fileStorageServiceMock.Object,
             _notificationDispatchServiceMock.Object,
+            _applicationSettingServiceMock.Object,
             Options.Create(new PortalSettings()),
             _unitOfWorkMock.Object);
 
@@ -152,6 +157,7 @@ public class TargetLetterServiceTests
             It.IsAny<IDictionary<string, string>>(),
             It.IsAny<NotificationDispatchTargets>(),
             true,
+            It.IsAny<IReadOnlyList<EmailAttachment>>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

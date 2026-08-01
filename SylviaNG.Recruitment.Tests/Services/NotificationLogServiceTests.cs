@@ -17,6 +17,7 @@ public class NotificationLogServiceTests
     private readonly Mock<INotificationLogRepository> _repositoryMock;
     private readonly Mock<ISmtpEmailService> _smtpEmailServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
     private readonly NotificationLogService _service;
 
     public NotificationLogServiceTests()
@@ -25,8 +26,9 @@ public class NotificationLogServiceTests
         _smtpEmailServiceMock = new Mock<ISmtpEmailService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+        _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
 
-        _service = new NotificationLogService(_repositoryMock.Object, _smtpEmailServiceMock.Object, _unitOfWorkMock.Object);
+        _service = new NotificationLogService(_repositoryMock.Object, _smtpEmailServiceMock.Object, _unitOfWorkMock.Object, _currentCandidateServiceMock.Object);
     }
 
     [Fact]

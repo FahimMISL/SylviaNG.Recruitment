@@ -53,13 +53,13 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task<ReconciliationResponse> GetReconciliationAsync(ReconciliationRequest request)
         {
             var latestPayments = await _paymentRepository.GetLatestPaymentsInScopeAsync(
-                request.DateFrom, request.DateTo, request.JobPostingId, request.DepartmentId, request.SiteId);
+                request.DateFrom, request.DateTo, request.JobPostingId, request.DepartmentId);
 
             var paidPayments = latestPayments.Where(p => p.PaymentStatus == PaymentStatusEnum.Success).ToList();
             var failedCount = latestPayments.Count(p => p.PaymentStatus is PaymentStatusEnum.Failed or PaymentStatusEnum.Cancelled);
 
             var waivedCount = await _jobApplicationRepository.CountWaivedInPeriodAsync(
-                request.DateFrom, request.DateTo, request.JobPostingId, request.DepartmentId, request.SiteId);
+                request.DateFrom, request.DateTo, request.JobPostingId, request.DepartmentId);
 
             var paidAmount = paidPayments.Sum(p => p.Amount);
 

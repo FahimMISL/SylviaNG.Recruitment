@@ -49,6 +49,9 @@ public class JobApplicationStageProgressServiceTests
         };
     }
 
+    // IsMandatory = false throughout: these fixtures back tests about row-creation/update
+    // mechanics and auto-progression, not the mandatory-stage gate - see
+    // CreatePipelineWithMandatoryStages for that.
     private static HiringPipeline CreatePipelineWithStages()
     {
         return new HiringPipeline
@@ -57,9 +60,38 @@ public class JobApplicationStageProgressServiceTests
             Name = "Standard Pipeline",
             Stages = new List<PipelineStage>
             {
-                new() { PipelineStageId = 101, Name = "CV Screening", StageType = "CvScreening", DisplayOrder = 1, IsActive = true },
-                new() { PipelineStageId = 102, Name = "Technical Interview", StageType = "TechnicalInterview", DisplayOrder = 2, IsActive = true },
-                new() { PipelineStageId = 103, Name = "Retired Stage", StageType = "Other", DisplayOrder = 3, IsActive = false }
+                new() { PipelineStageId = 101, Name = "CV Screening", StageType = "CvScreening", DisplayOrder = 1, IsActive = true, IsMandatory = false },
+                new() { PipelineStageId = 102, Name = "Technical Interview", StageType = "TechnicalInterview", DisplayOrder = 2, IsActive = true, IsMandatory = false },
+                new() { PipelineStageId = 103, Name = "Retired Stage", StageType = "Other", DisplayOrder = 3, IsActive = false, IsMandatory = false }
+            }
+        };
+    }
+
+    private static HiringPipeline CreatePipelineWithAutoProgression(int? passMarks, int? autoProgressionTargetDisplayOrder)
+    {
+        return new HiringPipeline
+        {
+            HiringPipelineId = 5,
+            Name = "Standard Pipeline",
+            Stages = new List<PipelineStage>
+            {
+                new() { PipelineStageId = 101, Name = "CV Screening", StageType = "CvScreening", DisplayOrder = 1, IsActive = true, IsMandatory = false, PassMarks = passMarks, AutoProgressionTargetDisplayOrder = autoProgressionTargetDisplayOrder },
+                new() { PipelineStageId = 102, Name = "Technical Interview", StageType = "TechnicalInterview", DisplayOrder = 2, IsActive = true, IsMandatory = false }
+            }
+        };
+    }
+
+    private static HiringPipeline CreatePipelineWithMandatoryStages()
+    {
+        return new HiringPipeline
+        {
+            HiringPipelineId = 5,
+            Name = "Standard Pipeline",
+            Stages = new List<PipelineStage>
+            {
+                new() { PipelineStageId = 101, Name = "CV Screening", StageType = "CvScreening", DisplayOrder = 1, IsActive = true, IsMandatory = true },
+                new() { PipelineStageId = 102, Name = "Technical Assessment", StageType = "TechnicalAssessment", DisplayOrder = 2, IsActive = true, IsMandatory = false },
+                new() { PipelineStageId = 103, Name = "Technical Interview", StageType = "TechnicalInterview", DisplayOrder = 3, IsActive = true, IsMandatory = true }
             }
         };
     }
@@ -232,6 +264,86 @@ public class JobApplicationStageProgressServiceTests
         row.StageEnteredAt.Should().Be(originalStageEnteredAt);
     }
 
+    // Auto-progression (Auto Progression Rule + Pass Marks): scoring a stage Completed
+    // auto-advances the candidate into PipelineStage.AutoProgressionTargetDisplayOrder's stage
+    // when Score >= PassMarks, same effect as an HR-triggered BulkAdvanceToStageAsync.
+
+    [Fact]
+    public async Task UpdateStageAsync_CompletedWithScoreMeetingPassMarksAndTargetConfigured_ShouldAutoAdvanceIntoTargetStage()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithAutoProgression(passMarks: 70, autoProgressionTargetDisplayOrder: 2));
+        var row = new JobApplicationStageProgress { JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.InProgress };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress> { row });
+
+        JobApplicationStageProgress? added = null;
+        _stageProgressRepositoryMock
+            .Setup(r => r.AddAsync(It.IsAny<JobApplicationStageProgress>()))
+            .Callback<JobApplicationStageProgress>(p => added = p)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await _service.UpdateStageAsync(1, 101, new PipelineStageProgressUpdateRequest { Status = StageProgressStatusEnum.Completed, Score = 85 });
+
+        // Assert
+        row.Score.Should().Be(85);
+        added.Should().NotBeNull();
+        added!.PipelineStageId.Should().Be(102);
+        added.Status.Should().Be(StageProgressStatusEnum.InProgress);
+    }
+
+    [Fact]
+    public async Task UpdateStageAsync_CompletedWithScoreBelowPassMarks_ShouldNotAutoAdvance()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithAutoProgression(passMarks: 70, autoProgressionTargetDisplayOrder: 2));
+        var row = new JobApplicationStageProgress { JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.InProgress };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress> { row });
+
+        // Act
+        await _service.UpdateStageAsync(1, 101, new PipelineStageProgressUpdateRequest { Status = StageProgressStatusEnum.Completed, Score = 50 });
+
+        // Assert
+        row.Score.Should().Be(50);
+        _stageProgressRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplicationStageProgress>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateStageAsync_CompletedWithScoreButNoAutoProgressionTargetConfigured_ShouldNotAutoAdvance()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithAutoProgression(passMarks: 70, autoProgressionTargetDisplayOrder: null));
+        var row = new JobApplicationStageProgress { JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.InProgress };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress> { row });
+
+        // Act
+        await _service.UpdateStageAsync(1, 101, new PipelineStageProgressUpdateRequest { Status = StageProgressStatusEnum.Completed, Score = 95 });
+
+        // Assert
+        _stageProgressRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplicationStageProgress>()), Times.Never);
+        _hiringPipelineRepositoryMock.Verify(r => r.GetByIdWithStagesAsync(5), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateStageAsync_AlreadyCompletedReSavedWithScore_ShouldNotReTriggerAutoAdvance()
+    {
+        // Arrange: same non-bump semantics as CompletedAt/StageEnteredAt - only the transition
+        // INTO Completed fires auto-progression, not every subsequent PATCH while Completed.
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        var row = new JobApplicationStageProgress { JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.Completed };
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress> { row });
+
+        // Act
+        await _service.UpdateStageAsync(1, 101, new PipelineStageProgressUpdateRequest { Status = StageProgressStatusEnum.Completed, Score = 95 });
+
+        // Assert
+        row.Score.Should().Be(95);
+        _hiringPipelineRepositoryMock.Verify(r => r.GetByIdWithStagesAsync(It.IsAny<long>()), Times.Never);
+    }
+
     [Fact]
     public async Task UpdateStageAsync_UnknownStageRow_ShouldThrowNotFoundException()
     {
@@ -394,5 +506,65 @@ public class JobApplicationStageProgressServiceTests
 
         // Assert
         await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    // PipelineStage.IsMandatory gate: advancing past an incomplete mandatory stage is blocked,
+    // both for a fresh application (no progress rows yet) and one with some rows already.
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_SkippingIncompleteMandatoryStage_ShouldThrowInvalidStatusTransitionException()
+    {
+        // Arrange: no progress yet - CV Screening (101, mandatory) hasn't even started.
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithMandatoryStages());
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress>());
+        _stageProgressRepositoryMock.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<JobApplicationStageProgress>>())).Returns(Task.CompletedTask);
+
+        // Act: jump straight to Technical Interview (103), skipping mandatory CV Screening (101).
+        var act = () => _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 103);
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<InvalidStatusTransitionException>();
+        ex.Which.Message.Should().Contain("CV Screening");
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_MandatoryStageAlreadyCompleted_ShouldAllowAdvance()
+    {
+        // Arrange
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithMandatoryStages());
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress>
+        {
+            new() { JobApplicationStageProgressId = 1, JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.Completed },
+        });
+
+        // Act: Technical Assessment (102) is optional, so only completed-mandatory-101 is checked.
+        await _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 102);
+
+        // Assert - no throw, and the target stage advanced.
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkAdvanceToStageAsync_MovingBackwardToEarlierStage_ShouldNotBeBlockedByMandatoryGate()
+    {
+        // Arrange: candidate is at Technical Interview (103) with CV Screening (101, mandatory)
+        // completed; HR moves them back to CV Screening. The gate only checks stages before the
+        // TARGET, so moving backward never has anything to check.
+        SetupApplicationLookup(CreateApplication(1, hiringPipelineId: 5));
+        _hiringPipelineRepositoryMock.Setup(r => r.GetByIdWithStagesAsync(5)).ReturnsAsync(CreatePipelineWithMandatoryStages());
+        _stageProgressRepositoryMock.Setup(r => r.GetByJobApplicationIdAsync(1)).ReturnsAsync(new List<JobApplicationStageProgress>
+        {
+            new() { JobApplicationStageProgressId = 1, JobApplicationId = 1, PipelineStageId = 101, Status = StageProgressStatusEnum.Completed },
+            new() { JobApplicationStageProgressId = 2, JobApplicationId = 1, PipelineStageId = 103, Status = StageProgressStatusEnum.InProgress },
+        });
+
+        // Act
+        await _service.BulkAdvanceToStageAsync(new List<long> { 1 }, 101);
+
+        // Assert - no throw.
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
     }
 }

@@ -6,6 +6,5 @@ namespace SylviaNG.Recruitment.Application.Features.PaymentReports.Models
         public DateTime DateTo { get; set; }
         public long? JobPostingId { get; set; }
         public long? DepartmentId { get; set; }
-        public long? SiteId { get; set; }
     }
 }

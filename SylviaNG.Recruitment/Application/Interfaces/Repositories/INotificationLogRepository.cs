@@ -23,5 +23,21 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>US-079 AC4 "Mark all as read". Returns the number of rows updated.</summary>
         Task<int> MarkAllAsReadForAdminHrAsync();
+
+        /// <summary>Candidate-facing bell: most recent unread rows addressed to this candidate's
+        /// own applications, newest first. Scoped by JobApplication.CandidateProfileId, not
+        /// RecipientAddress, so it survives an email change (see the Account Settings email-change
+        /// feature) instead of silently going stale.</summary>
+        Task<List<NotificationLog>> GetUnreadForCandidateAsync(long candidateProfileId, int take);
+
+        /// <summary>Candidate-facing badge count, polled.</summary>
+        Task<int> GetUnreadCountForCandidateAsync(long candidateProfileId);
+
+        /// <summary>Candidate-facing "mark all as read". Returns the number of rows updated.</summary>
+        Task<int> MarkAllAsReadForCandidateAsync(long candidateProfileId);
+
+        /// <summary>IDOR guard for the candidate-facing mark-as-read endpoint - true only if this
+        /// row belongs to one of the given candidate's own applications.</summary>
+        Task<bool> IsOwnedByCandidateAsync(long notificationLogId, long candidateProfileId);
     }
 }

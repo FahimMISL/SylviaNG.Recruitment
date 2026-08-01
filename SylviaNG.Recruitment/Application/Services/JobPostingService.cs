@@ -42,7 +42,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<long> CreateAsync(JobPostingCreateRequest request)
         {
-            var exists = await _jobPostingRepository.ExistsByTitleAndSiteIdAsync(request.Title, request.SiteId);
+            var exists = await _jobPostingRepository.ExistsByTitleAsync(request.Title);
             if (exists)
                 throw new DuplicateException("JobPosting", "Title", request.Title);
 
@@ -126,7 +126,7 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await _jobPostingRepository.GetByIdWithIncludeAsync(
                 j => j.JobPostingId == jobPostingId,
-                j => j.Applications, j => j.HiringPipeline!)
+                j => j.Applications, j => j.HiringPipeline!, j => j.Department!)
                 ?? throw new NotFoundException("JobPosting", jobPostingId);
 
             return entity.ToResponse();
@@ -134,7 +134,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<List<JobPostingResponse>> GetAllAsync()
         {
-            var entities = await _jobPostingRepository.GetAllWithIncludeAsync(j => j.Applications, j => j.HiringPipeline!);
+            var entities = await _jobPostingRepository.GetAllWithIncludeAsync(j => j.Applications, j => j.HiringPipeline!, j => j.Department!);
             return entities.Select(e => e.ToResponse()).ToList();
         }
 
@@ -149,12 +149,6 @@ namespace SylviaNG.Recruitment.Application.Services
                 PageNumber = pagedResult.PageNumber,
                 PageSize = pagedResult.PageSize
             };
-        }
-
-        public async Task<List<JobPostingLookupResponse>> GetActiveBySiteIdAsync(long siteId)
-        {
-            var entities = await _jobPostingRepository.GetActiveBySiteIdAsync(siteId);
-            return entities.Select(e => e.ToLookupResponse()).ToList();
         }
 
         private static readonly CircularTypeEnum[] PublicCircularTypes = { CircularTypeEnum.ExternalOnly, CircularTypeEnum.Both };

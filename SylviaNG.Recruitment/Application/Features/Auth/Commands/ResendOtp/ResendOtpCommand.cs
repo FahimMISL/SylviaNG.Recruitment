@@ -3,7 +3,7 @@ using SylviaNG.Recruitment.Application.Features.Auth.Models;
 
 namespace SylviaNG.Recruitment.Application.Features.Auth.Commands.ResendOtp
 {
-    public class ResendOtpCommand : IRequest
+    public class ResendOtpCommand : IRequest<ResendOtpResponse>
     {
         public ResendOtpRequest Request { get; set; }
 

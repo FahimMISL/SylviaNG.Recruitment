@@ -23,6 +23,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankTalentP
                 FullName = e.CandidateProfile.FullName,
                 Email = e.CandidateProfile.Email,
                 Phone = e.CandidateProfile.Phone,
+                PhoneDialCode = e.CandidateProfile.Country?.DialCode,
                 ProfilePhotoPath = e.CandidateProfile.ProfilePhotoPath,
                 AddedAt = e.CreatedAt
             }).ToList();

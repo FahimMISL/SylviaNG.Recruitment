@@ -70,7 +70,7 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>F1 reconciliation "Waived" bucket: applications with a matched WaiverRule,
         /// submitted in [from, to], within the given vacancy/department/site scope.</summary>
-        Task<int> CountWaivedInPeriodAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId, long? siteId);
+        Task<int> CountWaivedInPeriodAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId);
 
         /// <summary>EP-14 US-105 AC1: applications grouped by ApplicationStatus, dashboard summary.</summary>
         Task<Dictionary<ApplicationStatusEnum, int>> GetCountsByStatusAsync();

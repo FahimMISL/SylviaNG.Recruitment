@@ -79,7 +79,7 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var entity = await _candidateProfileRepository.GetByIdWithIncludeAsync(
                 c => c.CandidateProfileId == candidateProfileId,
-                c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents, c => c.Tags)
+                c => c.Educations, c => c.WorkExperiences, c => c.Skills, c => c.Certifications, c => c.Documents, c => c.Tags, c => c.Country!)
                 ?? throw new NotFoundException("CandidateProfile", candidateProfileId);
 
             var applications = await _jobApplicationRepository.GetByCandidateAsync(candidateProfileId, entity.Email);
@@ -184,6 +184,37 @@ namespace SylviaNG.Recruitment.Application.Services
             entity.UpdatedAt = DateTime.UtcNow;
 
             _candidateProfileRepository.Update(entity);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        // Deliberately bypasses the identity-field lock UpdateContactAsync enforces above - this
+        // runs only after AccountSettingsService's OTP-verified Keycloak email change, which is a
+        // different concern (auth identity) than the anti-gaming lock (US-005) on the candidate's
+        // own self-edit path. Keeps CandidateProfile.Email and the Keycloak login email from
+        // drifting apart, which is the exact mismatch this was built to close.
+        public async Task SyncVerifiedEmailAsync(string keycloakSubjectId, string newEmail)
+        {
+            var entity = await _candidateProfileRepository.GetByKeycloakSubjectIdAsync(keycloakSubjectId);
+            if (entity == null)
+                return;
+
+            var oldEmail = entity.Email;
+
+            entity.Email = newEmail;
+            entity.UpdatedAt = DateTime.UtcNow;
+            _candidateProfileRepository.Update(entity);
+
+            // JobApplication.CandidateEmail is normally a permanent point-in-time snapshot (see
+            // its doc comment) - this is the one deliberate exception, so notifications on a
+            // candidate's existing applications keep following them to their current, verified
+            // address instead of silently going to an inbox they've moved away from.
+            var applications = await _jobApplicationRepository.GetByCandidateAsync(entity.CandidateProfileId, oldEmail);
+            foreach (var application in applications)
+            {
+                application.CandidateEmail = newEmail;
+                _jobApplicationRepository.Update(application);
+            }
+
             await _unitOfWork.SaveChangesAsync();
         }
 

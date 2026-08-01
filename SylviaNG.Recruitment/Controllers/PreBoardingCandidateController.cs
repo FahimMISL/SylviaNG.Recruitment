@@ -5,6 +5,7 @@ using SylviaNG.Recruitment.Application.Features.PreBoarding.Commands.PreBoarding
 using SylviaNG.Recruitment.Application.Features.PreBoarding.Commands.PreBoardingSubmit;
 using SylviaNG.Recruitment.Application.Features.PreBoarding.Models;
 using SylviaNG.Recruitment.Application.Features.PreBoarding.Queries.PreBoardingGetForCandidate;
+using SylviaNG.Recruitment.Application.Features.PreBoarding.Queries.PreBoardingIsEligible;
 
 namespace SylviaNG.Recruitment.Controllers
 {
@@ -27,6 +28,14 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult<PreBoardingSubmissionResponse>> Get()
         {
             return Ok(await _mediator.Send(new PreBoardingGetForCandidateQuery()));
+        }
+
+        /// <summary>Lightweight, never-throws check for whether the frontend should show the
+        /// Pre-Boarding nav item at all (true once the candidate has accepted an offer).</summary>
+        [HttpGet("eligible")]
+        public async Task<ActionResult<bool>> IsEligible()
+        {
+            return Ok(await _mediator.Send(new PreBoardingIsEligibleQuery()));
         }
 
         [HttpPut]

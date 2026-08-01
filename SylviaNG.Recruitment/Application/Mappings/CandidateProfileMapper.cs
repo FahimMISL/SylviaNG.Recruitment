@@ -83,6 +83,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 FullName = entity.FullName,
                 Email = entity.Email,
                 Phone = entity.Phone,
+                PhoneDialCode = entity.Country?.DialCode,
                 ProfilePhotoPath = entity.ProfilePhotoPath,
                 CompletenessPercentage = CalculateCompleteness(entity),
                 IsInternal = entity.IsInternal
@@ -109,6 +110,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 BloodGroupId = entity.BloodGroupId,
                 Email = entity.Email,
                 Phone = entity.Phone,
+                PhoneDialCode = entity.Country?.DialCode,
                 CountryId = entity.CountryId,
                 PresentDivisionId = entity.PresentDivisionId,
                 PresentDistrictId = entity.PresentDistrictId,

@@ -15,17 +15,20 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IFinalSelectionPoolRepository _finalSelectionPoolRepository;
         private readonly INotificationDispatchService _notificationDispatchService;
+        private readonly IApplicationSettingService _applicationSettingService;
         private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
 
         public FinalSelectionPoolService(
             IFinalSelectionPoolRepository finalSelectionPoolRepository,
             INotificationDispatchService notificationDispatchService,
+            IApplicationSettingService applicationSettingService,
             IOptions<PortalSettings> portalSettings,
             IUnitOfWork unitOfWork)
         {
             _finalSelectionPoolRepository = finalSelectionPoolRepository;
             _notificationDispatchService = notificationDispatchService;
+            _applicationSettingService = applicationSettingService;
             _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
         }
@@ -63,7 +66,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.PreBoardingRequested,
                 placeholders,
-                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, null, offerLetter.JobApplicationId),
+                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId),
                 persistImmediately: true);
         }
 

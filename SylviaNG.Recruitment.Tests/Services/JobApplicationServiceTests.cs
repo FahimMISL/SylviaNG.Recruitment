@@ -22,6 +22,8 @@ public class JobApplicationServiceTests
     private readonly Mock<IJobApplicationStageProgressRepository> _jobApplicationStageProgressRepositoryMock;
     private readonly Mock<IJobPostingRepository> _jobPostingRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
+    private readonly Mock<ICandidateDocumentRepository> _candidateDocumentRepositoryMock;
+    private readonly Mock<IFileStorageService> _fileStorageServiceMock;
     private readonly Mock<IApplicationCvStorageService> _cvStorageServiceMock;
     private readonly Mock<ICvPdfGeneratorService> _cvPdfGeneratorServiceMock;
     private readonly Mock<IApplicationStatusReasonRepository> _statusReasonRepositoryMock;
@@ -40,6 +42,8 @@ public class JobApplicationServiceTests
         _jobApplicationStageProgressRepositoryMock = new Mock<IJobApplicationStageProgressRepository>();
         _jobPostingRepositoryMock = new Mock<IJobPostingRepository>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
+        _candidateDocumentRepositoryMock = new Mock<ICandidateDocumentRepository>();
+        _fileStorageServiceMock = new Mock<IFileStorageService>();
         _cvStorageServiceMock = new Mock<IApplicationCvStorageService>();
         _cvPdfGeneratorServiceMock = new Mock<ICvPdfGeneratorService>();
         _statusReasonRepositoryMock = new Mock<IApplicationStatusReasonRepository>();
@@ -72,11 +76,19 @@ public class JobApplicationServiceTests
             .Setup(s => s.TryMatchAsync(It.IsAny<bool>(), It.IsAny<long?>(), It.IsAny<long?>()))
             .ReturnsAsync((WaiverRule?)null);
 
+        // No existing resume document by default, so existing SubmitAsync cases that always pass
+        // a Resume file are unaffected by the reuse-existing-resume fallback path.
+        _candidateDocumentRepositoryMock
+            .Setup(r => r.GetAllByCandidateProfileIdAsync(It.IsAny<long>()))
+            .ReturnsAsync(new List<CandidateDocument>());
+
         _service = new JobApplicationService(
             _jobApplicationRepositoryMock.Object,
             _jobApplicationStageProgressRepositoryMock.Object,
             _jobPostingRepositoryMock.Object,
             _candidateProfileRepositoryMock.Object,
+            _candidateDocumentRepositoryMock.Object,
+            _fileStorageServiceMock.Object,
             _cvStorageServiceMock.Object,
             _cvPdfGeneratorServiceMock.Object,
             _statusReasonRepositoryMock.Object,

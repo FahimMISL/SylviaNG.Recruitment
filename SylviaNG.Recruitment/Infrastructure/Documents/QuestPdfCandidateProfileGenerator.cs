@@ -197,7 +197,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
                         column.Item().Text(text =>
                         {
                             text.Span("Phone: ").SemiBold();
-                            text.Span(profile.Phone);
+                            text.Span(profile.Country?.DialCode != null ? $"{profile.Country.DialCode} {profile.Phone}" : profile.Phone);
                         });
                     }
                 });

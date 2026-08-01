@@ -63,5 +63,52 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                     .SetProperty(l => l.IsRead, true)
                     .SetProperty(l => l.ReadAt, DateTime.UtcNow));
         }
+
+        public async Task<List<NotificationLog>> GetUnreadForCandidateAsync(long candidateProfileId, int take)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Include(l => l.JobApplication)
+                    .ThenInclude(ja => ja!.CandidateProfile)
+                .Where(l => l.RecipientType == NotificationRecipientTypeEnum.Candidate
+                    && !l.IsRead
+                    && l.JobApplication != null
+                    && l.JobApplication.CandidateProfileId == candidateProfileId)
+                .OrderByDescending(l => l.CreatedAt)
+                .Take(take)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetUnreadCountForCandidateAsync(long candidateProfileId)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .CountAsync(l => l.RecipientType == NotificationRecipientTypeEnum.Candidate
+                    && !l.IsRead
+                    && l.JobApplication != null
+                    && l.JobApplication.CandidateProfileId == candidateProfileId);
+        }
+
+        public async Task<int> MarkAllAsReadForCandidateAsync(long candidateProfileId)
+        {
+            return await _dbSet
+                .Where(l => l.RecipientType == NotificationRecipientTypeEnum.Candidate
+                    && !l.IsRead
+                    && l.JobApplication != null
+                    && l.JobApplication.CandidateProfileId == candidateProfileId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(l => l.IsRead, true)
+                    .SetProperty(l => l.ReadAt, DateTime.UtcNow));
+        }
+
+        public async Task<bool> IsOwnedByCandidateAsync(long notificationLogId, long candidateProfileId)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .AnyAsync(l => l.NotificationLogId == notificationLogId
+                    && l.RecipientType == NotificationRecipientTypeEnum.Candidate
+                    && l.JobApplication != null
+                    && l.JobApplication.CandidateProfileId == candidateProfileId);
+        }
     }
 }

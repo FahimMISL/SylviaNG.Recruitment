@@ -24,7 +24,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         public async Task<List<CandidateTalentPool>> GetAllWithProfileAsync()
         {
             return await _dbSet
-                .Include(t => t.CandidateProfile)
+                .Include(t => t.CandidateProfile).ThenInclude(c => c.Country)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
         }

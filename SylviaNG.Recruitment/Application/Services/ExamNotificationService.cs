@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Email;
-using SylviaNG.Recruitment.Application.Common.Notifications;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -15,31 +14,36 @@ namespace SylviaNG.Recruitment.Application.Services
     /// Composes and sends the enrollment email (with admit-card PDF attached) and SMS summary
     /// for a single ExamEnrollment (US-055/US-056). Deliberately never throws - every risky
     /// section is wrapped so a mail-server or SMS-gateway failure never blocks the caller's bulk
-    /// enroll action; the outcome is written onto the enrollment row instead.
+    /// enroll action; the outcome is written onto the enrollment row instead. Email routes through
+    /// INotificationDispatchService (RecruitmentEventEnum.AdmitCardIssued) so its copy lives in the
+    /// same DB-editable template system as every other notification, not a hardcoded C# string.
     /// </summary>
     public class ExamNotificationService : IExamNotificationService
     {
         private readonly IExamEnrollmentRepository _examEnrollmentRepository;
-        private readonly ISmtpEmailService _smtpEmailService;
+        private readonly INotificationDispatchService _notificationDispatchService;
         private readonly ISmsNotificationService _smsNotificationService;
         private readonly IAdmitCardPdfGeneratorService _admitCardPdfGeneratorService;
+        private readonly IApplicationSettingService _applicationSettingService;
         private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<ExamNotificationService> _logger;
 
         public ExamNotificationService(
             IExamEnrollmentRepository examEnrollmentRepository,
-            ISmtpEmailService smtpEmailService,
+            INotificationDispatchService notificationDispatchService,
             ISmsNotificationService smsNotificationService,
             IAdmitCardPdfGeneratorService admitCardPdfGeneratorService,
+            IApplicationSettingService applicationSettingService,
             IOptions<PortalSettings> portalSettings,
             IUnitOfWork unitOfWork,
             ILogger<ExamNotificationService> logger)
         {
             _examEnrollmentRepository = examEnrollmentRepository;
-            _smtpEmailService = smtpEmailService;
+            _notificationDispatchService = notificationDispatchService;
             _smsNotificationService = smsNotificationService;
             _admitCardPdfGeneratorService = admitCardPdfGeneratorService;
+            _applicationSettingService = applicationSettingService;
             _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -104,28 +108,36 @@ namespace SylviaNG.Recruitment.Application.Services
                 return;
             }
 
-            var htmlBody = BuildEmailBody(enrollment, exam, jobApplication);
             var admitCardPdf = await _admitCardPdfGeneratorService.Generate(enrollment, exam, jobApplication);
 
-            var message = new EmailMessage
+            var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                To = jobApplication.CandidateEmail,
-                Subject = $"Exam Admit Card - {exam.Title}",
-                HtmlBody = htmlBody,
-                Attachments = new List<EmailAttachment>
+                ["CandidateName"] = jobApplication.CandidateName,
+                ["ExamTitle"] = exam.Title,
+                ["ScheduledStartAt"] = exam.ScheduledStartAt.ToString("dddd, dd MMM yyyy HH:mm"),
+                ["DurationMinutes"] = exam.DurationMinutes.ToString(),
+                ["VenueName"] = exam.ExamVenue?.VenueName ?? string.Empty,
+                ["VenueLocation"] = exam.ExamVenue?.Location ?? string.Empty,
+                ["SeatNumber"] = enrollment.SeatNumber ?? string.Empty
+            };
+
+            var attachments = new List<EmailAttachment>
+            {
+                new EmailAttachment
                 {
-                    new EmailAttachment
-                    {
-                        FileName = $"Admit-Card-{jobApplication.JobApplicationId}.pdf",
-                        ContentType = "application/pdf",
-                        Content = admitCardPdf
-                    }
+                    FileName = $"Admit-Card-{jobApplication.JobApplicationId}.pdf",
+                    ContentType = "application/pdf",
+                    Content = admitCardPdf
                 }
             };
 
-            var result = await EmailRetrySender.SendWithRetryAsync(_smtpEmailService, message, _logger);
+            var dispatchResult = await _notificationDispatchService.DispatchAsync(
+                RecruitmentEventEnum.AdmitCardIssued,
+                placeholders,
+                new NotificationDispatchTargets(jobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), jobApplication.JobApplicationId),
+                attachments: attachments);
 
-            if (result.Success)
+            if (dispatchResult.CandidateResult?.Success == true)
             {
                 enrollment.EmailNotificationStatus = NotificationStatusEnum.Sent;
                 enrollment.EmailSentAt = DateTime.UtcNow;
@@ -134,7 +146,7 @@ namespace SylviaNG.Recruitment.Application.Services
             else
             {
                 enrollment.EmailNotificationStatus = NotificationStatusEnum.Failed;
-                enrollment.EmailFailureReason = result.ErrorMessage;
+                enrollment.EmailFailureReason = dispatchResult.CandidateResult?.ErrorMessage ?? "Unknown error";
             }
         }
 
@@ -163,26 +175,5 @@ namespace SylviaNG.Recruitment.Application.Services
             }
         }
 
-        private static string BuildEmailBody(ExamEnrollment enrollment, Exam exam, JobApplication jobApplication)
-        {
-            var venueLine = exam.ExamVenue != null
-                ? $"<p><strong>Venue:</strong> {exam.ExamVenue.VenueName} - {exam.ExamVenue.Location}</p>"
-                : string.Empty;
-
-            var seatLine = !string.IsNullOrWhiteSpace(enrollment.SeatNumber)
-                ? $"<p><strong>Seat Number:</strong> {enrollment.SeatNumber}</p>"
-                : string.Empty;
-
-            return $@"
-<p>Dear {jobApplication.CandidateName},</p>
-<p>You have been enrolled for the following exam:</p>
-<p><strong>Exam:</strong> {exam.Title}</p>
-<p><strong>Date/Time:</strong> {exam.ScheduledStartAt:dddd, dd MMM yyyy HH:mm}</p>
-<p><strong>Duration:</strong> {exam.DurationMinutes} minutes</p>
-{venueLine}
-{seatLine}
-<p>Your admit card is attached to this email. Please bring a valid photo ID on the day of the exam.</p>
-<p>Regards,<br/>SylviaNG Recruitment</p>";
-        }
     }
 }

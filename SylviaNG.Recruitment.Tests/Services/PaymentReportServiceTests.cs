@@ -37,7 +37,7 @@ public class PaymentReportServiceTests
         var request = new ReconciliationRequest { DateFrom = new DateTime(2026, 1, 1), DateTo = new DateTime(2026, 1, 31) };
 
         _paymentRepositoryMock
-            .Setup(r => r.GetLatestPaymentsInScopeAsync(request.DateFrom, request.DateTo, null, null, null))
+            .Setup(r => r.GetLatestPaymentsInScopeAsync(request.DateFrom, request.DateTo, null, null))
             .ReturnsAsync(new List<Payment>
             {
                 Payment(1, PaymentStatusEnum.Success, 500m),
@@ -47,7 +47,7 @@ public class PaymentReportServiceTests
             });
 
         _jobApplicationRepositoryMock
-            .Setup(r => r.CountWaivedInPeriodAsync(request.DateFrom, request.DateTo, null, null, null))
+            .Setup(r => r.CountWaivedInPeriodAsync(request.DateFrom, request.DateTo, null, null))
             .ReturnsAsync(2);
 
         var result = await _service.GetReconciliationAsync(request);
@@ -65,10 +65,10 @@ public class PaymentReportServiceTests
         var request = new ReconciliationRequest { DateFrom = new DateTime(2026, 1, 1), DateTo = new DateTime(2026, 1, 31) };
 
         _paymentRepositoryMock
-            .Setup(r => r.GetLatestPaymentsInScopeAsync(request.DateFrom, request.DateTo, null, null, null))
+            .Setup(r => r.GetLatestPaymentsInScopeAsync(request.DateFrom, request.DateTo, null, null))
             .ReturnsAsync(new List<Payment>());
         _jobApplicationRepositoryMock
-            .Setup(r => r.CountWaivedInPeriodAsync(request.DateFrom, request.DateTo, null, null, null))
+            .Setup(r => r.CountWaivedInPeriodAsync(request.DateFrom, request.DateTo, null, null))
             .ReturnsAsync(0);
 
         var result = await _service.GetReconciliationAsync(request);
@@ -108,9 +108,9 @@ public class PaymentReportServiceTests
     public async Task ExportReconciliationAsync_WithPdfFormat_ShouldUsePdfGenerator()
     {
         var request = new ReconciliationRequest { DateFrom = new DateTime(2026, 1, 1), DateTo = new DateTime(2026, 1, 31) };
-        _paymentRepositoryMock.Setup(r => r.GetLatestPaymentsInScopeAsync(request.DateFrom, request.DateTo, null, null, null))
+        _paymentRepositoryMock.Setup(r => r.GetLatestPaymentsInScopeAsync(request.DateFrom, request.DateTo, null, null))
             .ReturnsAsync(new List<Payment>());
-        _jobApplicationRepositoryMock.Setup(r => r.CountWaivedInPeriodAsync(request.DateFrom, request.DateTo, null, null, null))
+        _jobApplicationRepositoryMock.Setup(r => r.CountWaivedInPeriodAsync(request.DateFrom, request.DateTo, null, null))
             .ReturnsAsync(0);
         _pdfGeneratorMock.Setup(g => g.GenerateReconciliationPdfAsync(request, It.IsAny<ReconciliationResponse>()))
             .ReturnsAsync(new byte[] { 1, 2, 3 });
@@ -126,9 +126,9 @@ public class PaymentReportServiceTests
     public async Task ExportReconciliationAsync_WithXlsxFormat_ShouldBuildExcelWorkbookWithoutCallingPdfGenerator()
     {
         var request = new ReconciliationRequest { DateFrom = new DateTime(2026, 1, 1), DateTo = new DateTime(2026, 1, 31) };
-        _paymentRepositoryMock.Setup(r => r.GetLatestPaymentsInScopeAsync(request.DateFrom, request.DateTo, null, null, null))
+        _paymentRepositoryMock.Setup(r => r.GetLatestPaymentsInScopeAsync(request.DateFrom, request.DateTo, null, null))
             .ReturnsAsync(new List<Payment>());
-        _jobApplicationRepositoryMock.Setup(r => r.CountWaivedInPeriodAsync(request.DateFrom, request.DateTo, null, null, null))
+        _jobApplicationRepositoryMock.Setup(r => r.CountWaivedInPeriodAsync(request.DateFrom, request.DateTo, null, null))
             .ReturnsAsync(0);
 
         var result = await _service.ExportReconciliationAsync(request, "xlsx");

@@ -7,10 +7,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 {
     public interface IJobPostingRepository : IRepository<JobPosting>
     {
-        Task<JobPosting?> GetByTitleAndSiteIdAsync(string title, long siteId);
-        Task<bool> ExistsByTitleAndSiteIdAsync(string title, long siteId, long? excludeId = null);
+        Task<bool> ExistsByTitleAsync(string title, long? excludeId = null);
         Task<PagedResult<JobPosting>> GetPaginatedAsync(PagedRequest request);
-        Task<List<JobPosting>> GetActiveBySiteIdAsync(long siteId);
 
         /// <summary>
         /// Paginated, audience-filtered browse used by the career portal (external/public) and

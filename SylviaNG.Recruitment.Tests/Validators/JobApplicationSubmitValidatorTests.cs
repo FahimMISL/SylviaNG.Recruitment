@@ -112,10 +112,27 @@ public class JobApplicationSubmitValidatorTests
     }
 
     [Fact]
-    public void Validate_WithMissingResume_ShouldHaveError()
+    public void Validate_WithMissingResumeAndExternalSource_ShouldHaveNoErrors()
     {
-        // Arrange
+        // Arrange - a Candidate submission with no file attached falls back to whatever resume
+        // already exists on their profile (JobApplicationService.SubmitAsync), so it's no longer
+        // a validation error at this layer.
         var command = CreateCommand(resume: null!);
+        command.Request.Resume = null;
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_WithMissingResumeAndAdminSource_ShouldHaveError()
+    {
+        // Arrange - Admin apply-on-behalf has no candidate session/profile to fall back to, so
+        // Resume stays required for that source.
+        var command = CreateCommand(resume: null!, source: ApplicationSourceEnum.Admin);
         command.Request.Resume = null;
 
         // Act

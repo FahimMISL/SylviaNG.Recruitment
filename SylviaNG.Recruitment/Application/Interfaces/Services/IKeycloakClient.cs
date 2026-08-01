@@ -33,10 +33,19 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task<string> GetUserIdByUsernameAsync(string username);
 
         /// <summary>
-        /// Updates a realm user's email via the Admin REST API. Marks the address unverified
-        /// (Keycloak does not re-verify automatically). Throws DuplicateException on conflict.
+        /// Updates a realm user's email via the Admin REST API. By default marks the address
+        /// unverified (Keycloak does not re-verify automatically) - pass emailVerified: true when
+        /// the caller already proved ownership of the new address through its own verification
+        /// step (e.g. the Account Settings email-change OTP), so Keycloak's separate email-link
+        /// flow isn't also required. Throws DuplicateException on conflict.
         /// </summary>
-        Task UpdateEmailAsync(string keycloakUserId, string newEmail);
+        Task UpdateEmailAsync(string keycloakUserId, string newEmail, bool emailVerified = false);
+
+        /// <summary>
+        /// Fetches a realm user's current email via the Admin REST API. Throws NotFoundException
+        /// if no such user exists.
+        /// </summary>
+        Task<string?> GetEmailByUserIdAsync(string keycloakUserId);
 
         /// <summary>
         /// Sets a realm user's password (non-temporary) via the Admin REST API.

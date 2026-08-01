@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SylviaNG.Recruitment.Application.Common.Email;
+using SylviaNG.Recruitment.Application.Common.Notifications;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -33,18 +34,22 @@ namespace SylviaNG.Recruitment.Application.Services
             _logger = logger;
         }
 
-        public async Task DispatchAsync(
+        public async Task<NotificationDispatchResult> DispatchAsync(
             RecruitmentEventEnum recruitmentEvent,
             IDictionary<string, string> placeholderValues,
             NotificationDispatchTargets targets,
             bool persistImmediately = true,
+            IReadOnlyList<EmailAttachment>? attachments = null,
             CancellationToken cancellationToken = default)
         {
+            EmailSendResult? candidateResult = null;
+            EmailSendResult? adminHrResult = null;
+
             if (!string.IsNullOrWhiteSpace(targets.CandidateEmail))
-                await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.Candidate, targets.CandidateEmail!, placeholderValues, targets.JobApplicationId, cancellationToken);
+                candidateResult = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.Candidate, targets.CandidateEmail!, placeholderValues, targets.JobApplicationId, attachments, cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(targets.AdminHrEmail))
-                await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.AdminHr, targets.AdminHrEmail!, placeholderValues, targets.JobApplicationId, cancellationToken);
+                adminHrResult = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.AdminHr, targets.AdminHrEmail!, placeholderValues, targets.JobApplicationId, attachments, cancellationToken);
 
             if (persistImmediately)
             {
@@ -57,14 +62,17 @@ namespace SylviaNG.Recruitment.Application.Services
                     _logger.LogError(ex, "Failed to persist NotificationLog rows for {RecruitmentEvent}.", recruitmentEvent);
                 }
             }
+
+            return new NotificationDispatchResult(candidateResult, adminHrResult);
         }
 
-        private async Task DispatchToRecipientAsync(
+        private async Task<EmailSendResult> DispatchToRecipientAsync(
             RecruitmentEventEnum recruitmentEvent,
             NotificationRecipientTypeEnum recipientType,
             string address,
             IDictionary<string, string> placeholderValues,
             long? jobApplicationId,
+            IReadOnlyList<EmailAttachment>? attachments,
             CancellationToken cancellationToken)
         {
             var log = new NotificationLog
@@ -75,6 +83,8 @@ namespace SylviaNG.Recruitment.Application.Services
                 RecipientAddress = address,
                 JobApplicationId = jobApplicationId
             };
+
+            var sendResult = new EmailSendResult { Success = false, ErrorMessage = "No active template mapping" };
 
             try
             {
@@ -93,14 +103,15 @@ namespace SylviaNG.Recruitment.Application.Services
                     log.RenderedSubject = renderedSubject;
                     log.RenderedBody = renderedBody;
 
-                    var result = await _smtpEmailService.TrySendAsync(new EmailMessage
+                    sendResult = await EmailRetrySender.SendWithRetryAsync(_smtpEmailService, new EmailMessage
                     {
                         To = address,
                         Subject = renderedSubject,
-                        HtmlBody = renderedBody
-                    }, cancellationToken);
+                        HtmlBody = renderedBody,
+                        Attachments = attachments?.ToList() ?? new List<EmailAttachment>()
+                    }, _logger, cancellationToken: cancellationToken);
 
-                    if (result.Success)
+                    if (sendResult.Success)
                     {
                         log.DeliveryStatus = NotificationStatusEnum.Sent;
                         log.SentAt = DateTime.UtcNow;
@@ -108,7 +119,7 @@ namespace SylviaNG.Recruitment.Application.Services
                     else
                     {
                         log.DeliveryStatus = NotificationStatusEnum.Failed;
-                        log.FailureReason = result.ErrorMessage;
+                        log.FailureReason = sendResult.ErrorMessage;
                     }
                 }
             }
@@ -117,9 +128,11 @@ namespace SylviaNG.Recruitment.Application.Services
                 _logger.LogError(ex, "Unexpected error dispatching {RecruitmentEvent}/{RecipientType} to {Address}.", recruitmentEvent, recipientType, address);
                 log.DeliveryStatus = NotificationStatusEnum.Failed;
                 log.FailureReason = ex.Message;
+                sendResult = new EmailSendResult { Success = false, ErrorMessage = ex.Message };
             }
 
             await _notificationLogRepository.AddAsync(log);
+            return sendResult;
         }
     }
 }

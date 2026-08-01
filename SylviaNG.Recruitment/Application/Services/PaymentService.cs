@@ -16,6 +16,8 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IPaymentRepository _paymentRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ISslCommerzPaymentGateway _gateway;
+        private readonly INotificationDispatchService _notificationDispatchService;
+        private readonly IApplicationSettingService _applicationSettingService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<PaymentService> _logger;
 
@@ -23,12 +25,16 @@ namespace SylviaNG.Recruitment.Application.Services
             IPaymentRepository paymentRepository,
             IJobApplicationRepository jobApplicationRepository,
             ISslCommerzPaymentGateway gateway,
+            INotificationDispatchService notificationDispatchService,
+            IApplicationSettingService applicationSettingService,
             IUnitOfWork unitOfWork,
             ILogger<PaymentService> logger)
         {
             _paymentRepository = paymentRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _gateway = gateway;
+            _notificationDispatchService = notificationDispatchService;
+            _applicationSettingService = applicationSettingService;
             _unitOfWork = unitOfWork;
             _logger = logger;
         }
@@ -146,7 +152,9 @@ namespace SylviaNG.Recruitment.Application.Services
             payment.PaidAt = DateTime.UtcNow;
             _paymentRepository.Update(payment);
 
-            var jobApplication = await _jobApplicationRepository.GetByIdAsync(payment.JobApplicationId);
+            var jobApplication = await _jobApplicationRepository.GetByIdWithIncludeAsync(
+                a => a.JobApplicationId == payment.JobApplicationId,
+                a => a.JobPosting);
             if (jobApplication != null && jobApplication.ApplicationStatus == ApplicationStatusEnum.AwaitingPayment)
             {
                 var fromStatus = jobApplication.ApplicationStatus;
@@ -162,6 +170,33 @@ namespace SylviaNG.Recruitment.Application.Services
                     ChangedAt = DateTime.UtcNow,
                     Note = $"Payment confirmed via SSLCommerz (tran_id: {transactionId})"
                 });
+
+                // Candidate action-required email fires at submit time, not here (see
+                // JobApplicationService.SubmitAsync) - it must not claim payment is done before it
+                // is. This is the actual "you paid, application confirmed" notification.
+                try
+                {
+                    var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["CandidateName"] = jobApplication.CandidateName,
+                        ["JobPostingTitle"] = jobApplication.JobPosting?.Title ?? string.Empty,
+                        ["ApplicationStatus"] = jobApplication.ApplicationStatus.ToString(),
+                        ["FromStatus"] = fromStatus.ToString(),
+                        ["ToStatus"] = ApplicationStatusEnum.Applied.ToString()
+                    };
+                    var hrEmail = await _applicationSettingService.GetHrNotificationEmailAsync();
+                    var targets = new NotificationDispatchTargets(jobApplication.CandidateEmail, hrEmail, jobApplication.JobApplicationId);
+
+                    await _notificationDispatchService.DispatchAsync(
+                        RecruitmentEventEnum.ApplicationStatusChanged,
+                        placeholders,
+                        targets,
+                        persistImmediately: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unexpected error dispatching payment-confirmation notification for JobApplicationId {JobApplicationId}.", jobApplication.JobApplicationId);
+                }
             }
 
             await _unitOfWork.SaveChangesAsync();

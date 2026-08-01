@@ -25,6 +25,7 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
         // Contact
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }
+        public string? PhoneDialCode { get; set; }
         public long? CountryId { get; set; }
 
         public long? PresentDivisionId { get; set; }

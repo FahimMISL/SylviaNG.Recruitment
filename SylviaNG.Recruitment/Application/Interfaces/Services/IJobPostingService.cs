@@ -16,7 +16,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// does not restrict the existing full-access endpoints above.</summary>
         Task<List<JobPostingResponse>> GetMyPostingsAsync();
         Task<PagedResult<JobPostingResponse>> GetPaginatedAsync(PagedRequest request);
-        Task<List<JobPostingLookupResponse>> GetActiveBySiteIdAsync(long siteId);
 
         /// <summary>Public career-portal browse: Open postings with CircularType ExternalOnly or Both.</summary>
         Task<PagedResult<JobPostingResponse>> GetPaginatedPublicAsync(PagedRequest request, string? location, long? departmentId, EmploymentTypeEnum? employmentType, int? maxExperienceYears);

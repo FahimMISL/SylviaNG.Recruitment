@@ -1,9 +1,10 @@
 using MediatR;
+using SylviaNG.Recruitment.Application.Features.Auth.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 
 namespace SylviaNG.Recruitment.Application.Features.Auth.Commands.ResendOtp
 {
-    public class ResendOtpHandler : IRequestHandler<ResendOtpCommand>
+    public class ResendOtpHandler : IRequestHandler<ResendOtpCommand, ResendOtpResponse>
     {
         private readonly IAuthService _authService;
 
@@ -12,9 +13,9 @@ namespace SylviaNG.Recruitment.Application.Features.Auth.Commands.ResendOtp
             _authService = authService;
         }
 
-        public async Task Handle(ResendOtpCommand command, CancellationToken cancellationToken)
+        public async Task<ResendOtpResponse> Handle(ResendOtpCommand command, CancellationToken cancellationToken)
         {
-            await _authService.ResendOtpAsync(command.Request);
+            return await _authService.ResendOtpAsync(command.Request);
         }
     }
 }

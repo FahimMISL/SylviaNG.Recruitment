@@ -2,6 +2,7 @@ using FluentAssertions;
 using FluentValidation;
 using Microsoft.Extensions.Options;
 using Moq;
+using SylviaNG.Recruitment.Application.Common.Email;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.OfferLetters.Models;
@@ -233,6 +234,7 @@ public class OfferLetterServiceTests
             It.IsAny<IDictionary<string, string>>(),
             It.IsAny<NotificationDispatchTargets>(),
             true,
+            It.IsAny<IReadOnlyList<EmailAttachment>>(),
             It.IsAny<CancellationToken>()), Times.Once);
         _finalSelectionPoolServiceMock.Verify(s => s.CreateFromAcceptedOfferAsync(entity), Times.Once);
     }

@@ -9,6 +9,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task<CandidateProfileResponse> GetMyProfileAsync();
         Task UpdatePersonalInfoAsync(CandidateProfilePersonalInfoUpdateRequest request);
         Task UpdateContactAsync(CandidateProfileContactUpdateRequest request);
+
+        /// <summary>Account Settings email change (post-OTP-verification) writes here directly,
+        /// bypassing UpdateContactAsync's identity-field lock - see CandidateProfileService for why.</summary>
+        Task SyncVerifiedEmailAsync(string keycloakSubjectId, string newEmail);
         Task<string> UploadPhotoAsync(IFormFile file);
         Task DeletePhotoAsync();
         Task<string> UploadSignatureAsync(IFormFile file);

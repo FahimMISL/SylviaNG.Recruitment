@@ -77,10 +77,10 @@ namespace SylviaNG.Recruitment.Controllers
         /// </summary>
         [AllowAnonymous]
         [HttpPost("resend-otp")]
-        public async Task<ActionResult> ResendOtp([FromBody] ResendOtpRequest request)
+        public async Task<ActionResult<ResendOtpResponse>> ResendOtp([FromBody] ResendOtpRequest request)
         {
-            await _mediator.Send(new ResendOtpCommand(request));
-            return Ok();
+            var result = await _mediator.Send(new ResendOtpCommand(request));
+            return Ok(result);
         }
     }
 }

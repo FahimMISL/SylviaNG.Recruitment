@@ -19,6 +19,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ITargetLetterRepository _targetLetterRepository;
         private readonly IOfficeNoteRepository _officeNoteRepository;
         private readonly INotificationDispatchService _notificationDispatchService;
+        private readonly IApplicationSettingService _applicationSettingService;
         private readonly PortalSettings _portalSettings;
 
         public DocumentTrackingService(
@@ -29,6 +30,7 @@ namespace SylviaNG.Recruitment.Application.Services
             ITargetLetterRepository targetLetterRepository,
             IOfficeNoteRepository officeNoteRepository,
             INotificationDispatchService notificationDispatchService,
+            IApplicationSettingService applicationSettingService,
             IOptions<PortalSettings> portalSettings)
         {
             _offerLetterRepository = offerLetterRepository;
@@ -38,6 +40,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _targetLetterRepository = targetLetterRepository;
             _officeNoteRepository = officeNoteRepository;
             _notificationDispatchService = notificationDispatchService;
+            _applicationSettingService = applicationSettingService;
             _portalSettings = portalSettings.Value;
         }
 
@@ -135,7 +138,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.OfferLetterAvailable,
                 placeholders,
-                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, null, offerLetter.JobApplicationId),
+                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId),
                 persistImmediately: true);
         }
 

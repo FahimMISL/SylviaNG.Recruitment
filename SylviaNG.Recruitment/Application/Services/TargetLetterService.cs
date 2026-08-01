@@ -19,6 +19,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ITargetLetterPdfGeneratorService _targetLetterPdfGeneratorService;
         private readonly IFileStorageService _fileStorageService;
         private readonly INotificationDispatchService _notificationDispatchService;
+        private readonly IApplicationSettingService _applicationSettingService;
         private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -31,6 +32,7 @@ namespace SylviaNG.Recruitment.Application.Services
             ITargetLetterPdfGeneratorService targetLetterPdfGeneratorService,
             IFileStorageService fileStorageService,
             INotificationDispatchService notificationDispatchService,
+            IApplicationSettingService applicationSettingService,
             IOptions<PortalSettings> portalSettings,
             IUnitOfWork unitOfWork)
         {
@@ -40,6 +42,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _targetLetterPdfGeneratorService = targetLetterPdfGeneratorService;
             _fileStorageService = fileStorageService;
             _notificationDispatchService = notificationDispatchService;
+            _applicationSettingService = applicationSettingService;
             _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
         }
@@ -116,7 +119,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.TargetLetterAvailable,
                 placeholders,
-                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, null, offerLetter.JobApplicationId),
+                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId),
                 persistImmediately: true);
 
             return entity.ToResponse();

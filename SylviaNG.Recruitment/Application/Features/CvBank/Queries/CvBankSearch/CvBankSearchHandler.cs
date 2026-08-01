@@ -138,6 +138,11 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch
         {
             var parts = new List<string> { profile.FullName, profile.Email, profile.Phone ?? string.Empty };
 
+            // Stored phone has no leading trunk "0" (e.g. "1701554707"), but HR commonly searches
+            // the domestic-dialing form ("01701554707") - index both so either form matches.
+            if (!string.IsNullOrEmpty(profile.Phone) && !profile.Phone.StartsWith('0'))
+                parts.Add("0" + profile.Phone);
+
             parts.AddRange(profile.Skills.Select(s => s.SkillName));
             parts.AddRange(profile.Educations.SelectMany(e => new[] { e.Degree.Name, e.Institution, e.MajorSubjectDisplay }).Where(s => s != null)!);
             parts.AddRange(profile.WorkExperiences.SelectMany(w => new[] { w.Designation, w.CompanyName, w.Responsibilities }));
@@ -187,6 +192,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch
                 FullName = profile.FullName,
                 Email = profile.Email,
                 Phone = profile.Phone,
+                PhoneDialCode = profile.Country?.DialCode,
                 ProfilePhotoPath = profile.ProfilePhotoPath,
                 EducationSummary = topEducation != null ? $"{topEducation.Degree.Name} - {topEducation.Institution}" : null,
                 TotalExperienceYears = Math.Round(facts.TotalExperienceYears, 1),

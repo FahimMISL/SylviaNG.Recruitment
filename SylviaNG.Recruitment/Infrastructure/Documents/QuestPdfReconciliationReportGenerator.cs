@@ -70,7 +70,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
                     text.Span($"{summary.DateFrom:dd MMM yyyy} - {summary.DateTo:dd MMM yyyy}");
                 });
 
-                if (request.JobPostingId.HasValue || request.DepartmentId.HasValue || request.SiteId.HasValue)
+                if (request.JobPostingId.HasValue || request.DepartmentId.HasValue)
                 {
                     column.Item().PaddingBottom(6).Text(text =>
                     {
@@ -78,7 +78,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
                         var parts = new List<string>();
                         if (request.JobPostingId.HasValue) parts.Add($"Vacancy #{request.JobPostingId}");
                         if (request.DepartmentId.HasValue) parts.Add($"Department #{request.DepartmentId}");
-                        if (request.SiteId.HasValue) parts.Add($"Site #{request.SiteId}");
                         text.Span(string.Join(", ", parts));
                     });
                 }

@@ -5,6 +5,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     public interface IPreBoardingService
     {
         Task<PreBoardingSubmissionResponse> GetForCurrentCandidateAsync();
+
+        /// <summary>True once the current candidate has a Final Selection Pool entry (i.e. they've
+        /// accepted an offer) - drives whether the frontend shows the Pre-Boarding nav item at all,
+        /// instead of every candidate seeing it and hitting a NotFoundException.</summary>
+        Task<bool> IsEligibleForCurrentCandidateAsync();
         Task<PreBoardingSubmissionResponse> SaveDraftAsync(PreBoardingSaveRequest request);
         Task<PreBoardingSubmissionResponse> SubmitAsync();
 

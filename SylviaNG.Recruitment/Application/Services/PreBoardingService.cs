@@ -40,6 +40,13 @@ namespace SylviaNG.Recruitment.Application.Services
             return submission!.ToResponse();
         }
 
+        public async Task<bool> IsEligibleForCurrentCandidateAsync()
+        {
+            var candidateProfileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+            var pool = await _finalSelectionPoolRepository.GetByCandidateProfileIdWithDetailsAsync(candidateProfileId);
+            return pool != null;
+        }
+
         public async Task<PreBoardingSubmissionResponse> SaveDraftAsync(PreBoardingSaveRequest request)
         {
             var (_, submission) = await GetOwnedPoolAndSubmissionAsync(autoCreateDraft: true);
@@ -133,7 +140,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.PreBoardingApproved,
                 placeholders,
-                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, null, submission.FinalSelectionPool.JobApplicationId),
+                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), submission.FinalSelectionPool.JobApplicationId),
                 persistImmediately: true);
 
             return submission.ToResponse();
@@ -168,7 +175,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.PreBoardingCorrectionRequested,
                 placeholders,
-                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, null, submission.FinalSelectionPool.JobApplicationId),
+                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), submission.FinalSelectionPool.JobApplicationId),
                 persistImmediately: true);
 
             return submission.ToResponse();

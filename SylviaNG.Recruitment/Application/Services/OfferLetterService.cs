@@ -117,7 +117,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.OfferLetterAvailable,
                 placeholderValues,
-                new NotificationDispatchTargets(jobApplication.CandidateEmail, null, jobApplication.JobApplicationId),
+                new NotificationDispatchTargets(jobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), jobApplication.JobApplicationId),
                 persistImmediately: true);
 
             return entity.ToResponse();

@@ -32,13 +32,12 @@ public class JobPostingServiceTests
         var request = new JobPostingCreateRequest
         {
             Title = "Software Engineer",
-            SiteId = 1,
             DepartmentId = 1,
             NumberOfPositions = 2,
             EmploymentType = EmploymentTypeEnum.FullTime
         };
 
-        _repositoryMock.Setup(r => r.ExistsByTitleAndSiteIdAsync(request.Title, request.SiteId, null))
+        _repositoryMock.Setup(r => r.ExistsByTitleAsync(request.Title, null))
             .ReturnsAsync(false);
 
         _repositoryMock.Setup(r => r.AddAsync(It.IsAny<JobPosting>()))
@@ -65,10 +64,9 @@ public class JobPostingServiceTests
         var request = new JobPostingCreateRequest
         {
             Title = "Software Engineer",
-            SiteId = 1
         };
 
-        _repositoryMock.Setup(r => r.ExistsByTitleAndSiteIdAsync(request.Title, request.SiteId, null))
+        _repositoryMock.Setup(r => r.ExistsByTitleAsync(request.Title, null))
             .ReturnsAsync(false);
 
         JobPosting? createdEntity = null;
@@ -113,10 +111,9 @@ public class JobPostingServiceTests
         var request = new JobPostingCreateRequest
         {
             Title = "Existing Job",
-            SiteId = 1
         };
 
-        _repositoryMock.Setup(r => r.ExistsByTitleAndSiteIdAsync(request.Title, request.SiteId, null))
+        _repositoryMock.Setup(r => r.ExistsByTitleAsync(request.Title, null))
             .ReturnsAsync(true);
 
         // Act
@@ -163,7 +160,6 @@ public class JobPostingServiceTests
         {
             JobPostingId = 1,
             Title = "Software Engineer",
-            SiteId = 1,
             IsActive = true,
             Applications = new List<JobApplication>()
         };

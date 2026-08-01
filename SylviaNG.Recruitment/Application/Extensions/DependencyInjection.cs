@@ -86,6 +86,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<ISpecialCategoryService, SpecialCategoryService>();
             services.AddScoped<IReferralSourceService, ReferralSourceService>();
             services.AddScoped<IGenderService, GenderService>();
+            services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<IMaritalStatusService, MaritalStatusService>();
             services.AddScoped<IReligionService, ReligionService>();
             services.AddScoped<IBloodGroupService, BloodGroupService>();

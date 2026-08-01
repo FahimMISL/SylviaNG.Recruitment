@@ -1,8 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.Auth.Models;
@@ -12,7 +10,6 @@ using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -23,27 +20,15 @@ namespace SylviaNG.Recruitment.Application.Services
     /// Keycloak-backed authentication (EP-15). Login proxies the ROPC grant to Keycloak's
     /// token endpoint server-side and returns the Keycloak access token; registration
     /// creates a Candidate-role realm user via the Admin REST API (US-001).
-    ///
-    /// The three legacy hardcoded accounts remain ONLY as an offline fallback for when
-    /// Keycloak is unreachable (shared dev server needs VPN) — same spirit as the local
-    /// Docker Postgres fallback. They are never consulted when Keycloak is up.
     /// </summary>
     public class AuthService : IAuthService
     {
-        private static readonly IReadOnlyList<HardcodedUser> FallbackUsers = new List<HardcodedUser>
-        {
-            new("admin", "admin123", UserRoleEnum.Admin, "Administrator"),
-            new("abir", "abir123", UserRoleEnum.HR, "Abir"),
-            new("sadia", "sadia123", UserRoleEnum.Candidate, "Sadia")
-        };
-
         // Highest-privilege first: when a Keycloak user carries several known roles,
         // the response's single Role field reports the strongest one.
         private static readonly UserRoleEnum[] RolePriority = { UserRoleEnum.Admin, UserRoleEnum.HR, UserRoleEnum.Candidate };
 
         private const string OtpCachePrefix = "candidate-login-otp:";
 
-        private readonly IConfiguration _configuration;
         private readonly IKeycloakClient _keycloakClient;
         private readonly KeycloakSettings _keycloakSettings;
         private readonly OtpSettings _otpSettings;
@@ -54,7 +39,6 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ILogger<AuthService> _logger;
 
         public AuthService(
-            IConfiguration configuration,
             IKeycloakClient keycloakClient,
             IOptions<KeycloakSettings> keycloakSettings,
             IOptions<OtpSettings> otpSettings,
@@ -64,7 +48,6 @@ namespace SylviaNG.Recruitment.Application.Services
             IUnitOfWork unitOfWork,
             ILogger<AuthService> logger)
         {
-            _configuration = configuration;
             _keycloakClient = keycloakClient;
             _keycloakSettings = keycloakSettings.Value;
             _otpSettings = otpSettings.Value;
@@ -77,33 +60,31 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<LoginResponse> LoginAsync(LoginRequest request)
         {
-            try
+            var tokenResult = await _keycloakClient.TokenAsync(request.Username, request.Password);
+            var response = BuildResponseFromKeycloakToken(tokenResult);
+
+            // EP-09 Feature 2: OTP gate applies only to a Candidate's first-ever successful login,
+            // not every login - once they've completed one OTP challenge, subsequent logins skip
+            // it. No-op whenever the toggle is off or the role isn't Candidate, so Admin/HR
+            // behavior is unchanged.
+            if (_otpSettings.Enabled && response.Role == UserRoleEnum.Candidate.ToString())
             {
-                var tokenResult = await _keycloakClient.TokenAsync(request.Username, request.Password);
-                var response = BuildResponseFromKeycloakToken(tokenResult);
-
-                // EP-09 Feature 2: OTP gate applies only to real Keycloak-authenticated Candidate
-                // logins - never to the offline fallback accounts below (dev-only safety net, not
-                // real candidates), and it's a no-op whenever the toggle is off or the role isn't
-                // Candidate, so Admin/HR behavior is unchanged.
-                if (_otpSettings.Enabled && response.Role == UserRoleEnum.Candidate.ToString())
+                var alreadyVerifiedBefore = await _candidateLoginOtpRepository.HasEverVerifiedAsync(response.Username);
+                if (alreadyVerifiedBefore)
                 {
-                    if (string.IsNullOrEmpty(tokenResult.RefreshToken))
-                    {
-                        _logger.LogWarning("Candidate login for {Username} qualified for the OTP gate but Keycloak returned no refresh token - skipping the gate for this login.", response.Username);
-                        return response;
-                    }
-
-                    return await BeginOtpChallengeAsync(response, tokenResult.RefreshToken);
+                    return response;
                 }
 
-                return response;
+                if (string.IsNullOrEmpty(tokenResult.RefreshToken))
+                {
+                    _logger.LogWarning("Candidate login for {Username} qualified for the OTP gate but Keycloak returned no refresh token - skipping the gate for this login.", response.Username);
+                    return response;
+                }
+
+                return await BeginOtpChallengeAsync(response, tokenResult.RefreshToken);
             }
-            catch (KeycloakUnavailableException ex)
-            {
-                _logger.LogWarning(ex, "Keycloak unreachable — falling back to the offline hardcoded accounts.");
-                return LoginWithFallbackAccounts(request);
-            }
+
+            return response;
         }
 
         private async Task<LoginResponse> BeginOtpChallengeAsync(LoginResponse candidateResponse, string refreshToken)
@@ -147,7 +128,8 @@ namespace SylviaNG.Recruitment.Application.Services
                 DisplayName = candidateResponse.DisplayName,
                 Role = candidateResponse.Role,
                 RequiresOtp = true,
-                ChallengeId = challengeId.ToString()
+                ChallengeId = challengeId.ToString(),
+                OtpExpiresAtUtc = otp.ExpiresAtUtc
             };
         }
 
@@ -195,7 +177,7 @@ namespace SylviaNG.Recruitment.Application.Services
             return BuildResponseFromKeycloakToken(tokenResult);
         }
 
-        public async Task ResendOtpAsync(ResendOtpRequest request)
+        public async Task<ResendOtpResponse> ResendOtpAsync(ResendOtpRequest request)
         {
             if (!Guid.TryParse(request.ChallengeId, out var challengeId))
                 throw new OtpVerificationException();
@@ -232,6 +214,8 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 _logger.LogError(ex, "Unexpected error dispatching resend-OTP email for challenge {ChallengeId}.", challengeId);
             }
+
+            return new ResendOtpResponse { ExpiresAtUtc = otp.ExpiresAtUtc };
         }
 
         private static string GenerateOtpCode()
@@ -329,63 +313,5 @@ namespace SylviaNG.Recruitment.Application.Services
                 : (trimmed[..spaceIdx], trimmed[(spaceIdx + 1)..].Trim());
         }
 
-        // ---- Offline fallback (Keycloak unreachable) ----
-
-        private LoginResponse LoginWithFallbackAccounts(LoginRequest request)
-        {
-            var user = FallbackUsers.SingleOrDefault(u =>
-                string.Equals(u.Username, request.Username, StringComparison.OrdinalIgnoreCase)
-                && u.Password == request.Password);
-
-            if (user is null)
-                throw new InvalidCredentialsException();
-
-            var jwtSection = _configuration.GetSection("Jwt:Local");
-            var signingKey = jwtSection.GetValue<string>("SigningKey");
-            if (string.IsNullOrWhiteSpace(signingKey))
-            {
-                throw new InvalidOperationException(
-                    "Jwt:Local:SigningKey is not configured. Set it via 'dotnet user-secrets set \"Jwt:Local:SigningKey\" \"<value>\"' for local development, or your secret store in other environments.");
-            }
-            var issuer = jwtSection.GetValue<string>("Issuer")
-                ?? throw new ArgumentNullException("Jwt:Local:Issuer");
-            var audience = jwtSection.GetValue<string>("Audience")
-                ?? throw new ArgumentNullException("Jwt:Local:Audience");
-            var expiryMinutes = jwtSection.GetValue<int>("ExpiryMinutes", 60);
-
-            var expiresAtUtc = DateTime.UtcNow.AddMinutes(expiryMinutes);
-
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.Role.ToString()),
-                new Claim(JwtRegisteredClaimNames.Sub, user.Username),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
-
-            var credentials = new SigningCredentials(
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
-                SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: issuer,
-                audience: audience,
-                claims: claims,
-                expires: expiresAtUtc,
-                signingCredentials: credentials);
-
-            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-
-            return new LoginResponse
-            {
-                Token = tokenString,
-                ExpiresAtUtc = expiresAtUtc,
-                Username = user.Username,
-                DisplayName = user.DisplayName,
-                Role = user.Role.ToString()
-            };
-        }
-
-        private sealed record HardcodedUser(string Username, string Password, UserRoleEnum Role, string DisplayName);
     }
 }

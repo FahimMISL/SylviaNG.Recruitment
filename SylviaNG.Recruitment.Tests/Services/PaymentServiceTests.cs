@@ -4,6 +4,7 @@ using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
@@ -16,6 +17,8 @@ public class PaymentServiceTests
     private readonly Mock<IPaymentRepository> _paymentRepositoryMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ISslCommerzPaymentGateway> _gatewayMock;
+    private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
+    private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly PaymentService _service;
 
@@ -24,14 +27,28 @@ public class PaymentServiceTests
         _paymentRepositoryMock = new Mock<IPaymentRepository>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _gatewayMock = new Mock<ISslCommerzPaymentGateway>();
+        _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
+        _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
 
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+        _applicationSettingServiceMock.Setup(s => s.GetHrNotificationEmailAsync()).ReturnsAsync((string?)null);
+        _notificationDispatchServiceMock
+            .Setup(d => d.DispatchAsync(
+                It.IsAny<RecruitmentEventEnum>(),
+                It.IsAny<IDictionary<string, string>>(),
+                It.IsAny<NotificationDispatchTargets>(),
+                It.IsAny<bool>(),
+                It.IsAny<IReadOnlyList<Application.Common.Email.EmailAttachment>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NotificationDispatchResult(null, null));
 
         _service = new PaymentService(
             _paymentRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object,
             _gatewayMock.Object,
+            _notificationDispatchServiceMock.Object,
+            _applicationSettingServiceMock.Object,
             _unitOfWorkMock.Object,
             NullLogger<PaymentService>.Instance);
     }
@@ -128,8 +145,10 @@ public class PaymentServiceTests
         _gatewayMock.Setup(g => g.ValidateTransactionAsync("VAL123"))
             .ReturnsAsync(new SslCommerzValidationResult(true, "VALID", 500m, "BDT", "TRAN123"));
 
-        var jobApplication = new JobApplication { JobApplicationId = 1, ApplicationStatus = ApplicationStatusEnum.AwaitingPayment };
-        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(jobApplication);
+        var jobApplication = new JobApplication { JobApplicationId = 1, CandidateEmail = "jane@example.com", ApplicationStatus = ApplicationStatusEnum.AwaitingPayment, JobPosting = new JobPosting { JobPostingId = 1, Title = "Software Engineer" } };
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByIdWithIncludeAsync(It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, bool>>>(), It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, object>>[]>()))
+            .ReturnsAsync(jobApplication);
 
         await _service.HandleIpnAsync("TRAN123", "VAL123", "tran_id=TRAN123&val_id=VAL123");
 
@@ -138,6 +157,13 @@ public class PaymentServiceTests
         payment.PaidAt.Should().NotBeNull();
         jobApplication.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
         jobApplication.StatusHistory.Should().ContainSingle(h => h.ChangedByUserName == "system:sslcommerz-ipn" && h.ToStatus == ApplicationStatusEnum.Applied);
+        _notificationDispatchServiceMock.Verify(d => d.DispatchAsync(
+            RecruitmentEventEnum.ApplicationStatusChanged,
+            It.IsAny<IDictionary<string, string>>(),
+            It.Is<NotificationDispatchTargets>(t => t.CandidateEmail == "jane@example.com"),
+            false,
+            null,
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -192,13 +218,18 @@ public class PaymentServiceTests
             .ReturnsAsync(new SslCommerzValidationResult(true, "VALID", 500m, "BDT", "TRAN123"));
 
         var jobApplication = new JobApplication { JobApplicationId = 1, ApplicationStatus = ApplicationStatusEnum.Applied };
-        _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(jobApplication);
+        _jobApplicationRepositoryMock
+            .Setup(r => r.GetByIdWithIncludeAsync(It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, bool>>>(), It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, object>>[]>()))
+            .ReturnsAsync(jobApplication);
 
         await _service.HandleIpnAsync("TRAN123", "VAL123", "tran_id=TRAN123&val_id=VAL123");
 
         jobApplication.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
         jobApplication.StatusHistory.Should().BeEmpty();
         payment.PaymentStatus.Should().Be(PaymentStatusEnum.Success);
+        _notificationDispatchServiceMock.Verify(d => d.DispatchAsync(
+            It.IsAny<RecruitmentEventEnum>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<NotificationDispatchTargets>(),
+            It.IsAny<bool>(), It.IsAny<IReadOnlyList<Application.Common.Email.EmailAttachment>?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── GetStatusAsync ──────────────────────────────────────────────────────

@@ -20,15 +20,18 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly INotificationLogRepository _notificationLogRepository;
         private readonly ISmtpEmailService _smtpEmailService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentCandidateService _currentCandidateService;
 
         public NotificationLogService(
             INotificationLogRepository notificationLogRepository,
             ISmtpEmailService smtpEmailService,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            ICurrentCandidateService currentCandidateService)
         {
             _notificationLogRepository = notificationLogRepository;
             _smtpEmailService = smtpEmailService;
             _unitOfWork = unitOfWork;
+            _currentCandidateService = currentCandidateService;
         }
 
         public async Task<PagedResult<NotificationLogResponse>> GetFilteredAsync(NotificationLogFilterRequest filter)
@@ -151,6 +154,44 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task<int> MarkAllAsReadAsync()
         {
             return await _notificationLogRepository.MarkAllAsReadForAdminHrAsync();
+        }
+
+        public async Task<List<NotificationLogResponse>> GetUnreadForCurrentCandidateAsync()
+        {
+            var candidateProfileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+            var entities = await _notificationLogRepository.GetUnreadForCandidateAsync(candidateProfileId, 10);
+            return entities.Select(l => l.ToResponse()).ToList();
+        }
+
+        public async Task<int> GetUnreadCountForCurrentCandidateAsync()
+        {
+            var candidateProfileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+            return await _notificationLogRepository.GetUnreadCountForCandidateAsync(candidateProfileId);
+        }
+
+        public async Task<int> MarkAllAsReadForCurrentCandidateAsync()
+        {
+            var candidateProfileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+            return await _notificationLogRepository.MarkAllAsReadForCandidateAsync(candidateProfileId);
+        }
+
+        public async Task MarkAsReadForCurrentCandidateAsync(long notificationLogId)
+        {
+            var candidateProfileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+
+            if (!await _notificationLogRepository.IsOwnedByCandidateAsync(notificationLogId, candidateProfileId))
+                throw new NotFoundException("NotificationLog", notificationLogId);
+
+            var entity = await _notificationLogRepository.GetByIdAsync(notificationLogId)
+                ?? throw new NotFoundException("NotificationLog", notificationLogId);
+
+            if (entity.IsRead)
+                return;
+
+            entity.IsRead = true;
+            entity.ReadAt = DateTime.UtcNow;
+            _notificationLogRepository.Update(entity);
+            await _unitOfWork.SaveChangesAsync();
         }
     }
 }

@@ -39,6 +39,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.Skills)
                 .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.Certifications)
                 .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.Documents)
+                .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.Country)
                 .FirstOrDefaultAsync(p => p.TalentPoolId == talentPoolId);
         }
     }

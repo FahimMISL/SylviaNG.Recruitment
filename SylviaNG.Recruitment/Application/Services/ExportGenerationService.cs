@@ -186,7 +186,7 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 profile?.FullName ?? application.CandidateName,
                 profile?.Email ?? application.CandidateEmail ?? string.Empty,
-                profile?.Phone ?? application.CandidatePhone ?? string.Empty,
+                profile?.Phone != null ? $"{(profile.Country?.DialCode != null ? profile.Country.DialCode + " " : string.Empty)}{profile.Phone}" : application.CandidatePhone ?? string.Empty,
                 application.JobPosting?.Title ?? string.Empty,
                 application.ApplicationStatus.ToString(),
                 application.AppliedDate.HasValue ? application.AppliedDate.Value.ToString("yyyy-MM-dd") : string.Empty,

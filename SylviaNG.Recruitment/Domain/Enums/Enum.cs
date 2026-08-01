@@ -310,7 +310,11 @@ public enum RecruitmentEventEnum
     ExportRequestReady,
 
     /// <summary>EP-13 US-104: HR/Admin notified their queued export failed to generate.</summary>
-    ExportRequestFailed
+    ExportRequestFailed,
+
+    /// <summary>Account Settings email change (all 3 roles): OTP sent to the NEW address to prove
+    /// ownership before the Keycloak email actually switches.</summary>
+    EmailChangeRequested
 }
 
 /// <summary>EP-13 US-104: what kind of data an ExportRequest generates. Left as an enum since

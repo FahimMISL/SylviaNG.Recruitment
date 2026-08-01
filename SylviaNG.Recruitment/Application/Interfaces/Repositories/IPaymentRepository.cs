@@ -26,6 +26,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// was submitted in [from, to] and whose vacancy matches the given scope - avoids
         /// double-counting a failed-then-retried-successful application.
         /// </summary>
-        Task<List<Payment>> GetLatestPaymentsInScopeAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId, long? siteId);
+        Task<List<Payment>> GetLatestPaymentsInScopeAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId);
     }
 }

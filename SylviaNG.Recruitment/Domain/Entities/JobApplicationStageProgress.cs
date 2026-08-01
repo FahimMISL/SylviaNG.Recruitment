@@ -23,6 +23,11 @@ public class JobApplicationStageProgress : Audit
     public DateTime? ScheduledDate { get; set; }
     public string? MeetingLink { get; set; }
     public string? Notes { get; set; }
+
+    // Score on this stage (CV screening rating, exam mark, interview weighted score - whatever
+    // the stage type calls for). HR enters it manually here regardless of stage type; feeds
+    // PipelineStage.AutoProgressionTargetDisplayOrder when set alongside a Completed status.
+    public decimal? Score { get; set; }
     public DateTime? CompletedAt { get; set; }
     public string? LastUpdatedByUserName { get; set; }
 

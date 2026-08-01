@@ -167,11 +167,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             return users[0].GetProperty("id").GetString()!;
         }
 
-        public async Task UpdateEmailAsync(string keycloakUserId, string newEmail)
+        public async Task UpdateEmailAsync(string keycloakUserId, string newEmail, bool emailVerified = false)
         {
             var adminToken = await AdminTokenAsync();
 
-            var payload = new { email = newEmail, emailVerified = false };
+            var payload = new { email = newEmail, emailVerified };
 
             using var request = new HttpRequestMessage(HttpMethod.Put, $"{AdminUsersEndpoint}/{keycloakUserId}")
             {
@@ -189,6 +189,25 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 _logger.LogError("Keycloak email update failed ({Status}): {Body}", (int)response.StatusCode, body);
                 throw new KeycloakUnavailableException($"Keycloak email update returned {(int)response.StatusCode}.");
             }
+        }
+
+        public async Task<string?> GetEmailByUserIdAsync(string keycloakUserId)
+        {
+            var adminToken = await AdminTokenAsync();
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{AdminUsersEndpoint}/{keycloakUserId}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+            var response = await SendAsync(request);
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                throw new NotFoundException("KeycloakUser", keycloakUserId);
+
+            if (!response.IsSuccessStatusCode)
+                throw new KeycloakUnavailableException($"Keycloak user lookup returned {(int)response.StatusCode}.");
+
+            var body = await response.Content.ReadAsStringAsync();
+            using var json = JsonDocument.Parse(body);
+            return json.RootElement.TryGetProperty("email", out var emailProp) ? emailProp.GetString() : null;
         }
 
         public async Task ResetPasswordAsync(string keycloakUserId, string newPassword)

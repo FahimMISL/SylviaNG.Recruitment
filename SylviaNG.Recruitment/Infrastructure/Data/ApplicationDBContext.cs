@@ -61,7 +61,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<Employee> Employees { get; set; }
         public DbSet<HiringPipeline> HiringPipelines { get; set; }
         public DbSet<PipelineStage> PipelineStages { get; set; }
-        public DbSet<PipelineStageInterviewer> PipelineStageInterviewers { get; set; }
         public DbSet<CandidateProfile> CandidateProfiles { get; set; }
         public DbSet<CandidateEducation> CandidateEducations { get; set; }
         public DbSet<CandidateWorkExperience> CandidateWorkExperiences { get; set; }
@@ -109,6 +108,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<EducationBoard> EducationBoards { get; set; }
         public DbSet<Degree> Degrees { get; set; }
         public DbSet<Gender> Genders { get; set; }
+        public DbSet<Department> Departments { get; set; }
         public DbSet<MaritalStatus> MaritalStatuses { get; set; }
         public DbSet<Religion> Religions { get; set; }
         public DbSet<BloodGroup> BloodGroups { get; set; }
@@ -127,6 +127,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<MedicalLetter> MedicalLetters { get; set; }
         public DbSet<TargetLetter> TargetLetters { get; set; }
         public DbSet<CandidateLoginOtp> CandidateLoginOtps { get; set; }
+        public DbSet<EmailChangeVerification> EmailChangeVerifications { get; set; }
         public DbSet<FinalSelectionPool> FinalSelectionPools { get; set; }
         public DbSet<PreBoardingSubmission> PreBoardingSubmissions { get; set; }
         public DbSet<PreBoardingNominee> PreBoardingNominees { get; set; }

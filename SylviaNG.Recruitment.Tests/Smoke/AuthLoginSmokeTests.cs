@@ -15,16 +15,19 @@ namespace SylviaNG.Recruitment.Tests.Smoke;
 
 /// <summary>
 /// First integration-style test in this repo (previously only unit tests existed).
-/// Boots the full app via <see cref="WebApplicationFactory{TEntryPoint}"/> to prove the
-/// hardcoded /recruitment/auth/login endpoint and the dual Keycloak/Local JWT scheme
-/// wiring in AuthenticationExtensions actually work end-to-end, not just in isolation.
+/// Boots the full app via <see cref="WebApplicationFactory{TEntryPoint}"/> to prove
+/// /recruitment/auth/login and the dual Keycloak/Local JWT scheme wiring in
+/// AuthenticationExtensions actually work end-to-end, not just in isolation. "admin" and
+/// "abir" are real accounts in the shared dev Keycloak realm this suite runs against
+/// (there is no offline/hardcoded fallback - see AuthService.LoginAsync), so these cases
+/// only pass when that realm is reachable and those accounts still exist there.
 /// The Jwt:Local signing key is intentionally NOT committed in appsettings.json (see the
 /// comment there), so this fixture supplies its own test-only value rather than relying
 /// on a developer's local user-secrets store — keeps this suite runnable on any machine/CI.
 /// Two overrides are needed for the same key: the in-memory config value (read live by
-/// AuthService when it signs a token) and a PostConfigure on the "Local" JwtBearer scheme
-/// (whose TokenValidationParameters are captured once at host startup, before test config
-/// overrides are visible to it).
+/// ImpersonationService when it signs a token) and a PostConfigure on the "Local" JwtBearer
+/// scheme (whose TokenValidationParameters are captured once at host startup, before test
+/// config overrides are visible to it).
 /// </summary>
 public class AuthLoginSmokeTests : IClassFixture<WebApplicationFactory<Program>>
 {
@@ -63,8 +66,7 @@ public class AuthLoginSmokeTests : IClassFixture<WebApplicationFactory<Program>>
     [Theory]
     [InlineData("admin", "admin123", "Admin")]
     [InlineData("abir", "abir123", "HR")]
-    [InlineData("sadia", "sadia123", "Candidate")]
-    public async Task Login_WithValidHardcodedCredentials_ShouldReturn200WithToken(string username, string password, string expectedRole)
+    public async Task Login_WithValidRealKeycloakCredentials_ShouldReturn200WithToken(string username, string password, string expectedRole)
     {
         // Arrange
         var client = _factory.CreateClient();

@@ -18,5 +18,9 @@ namespace SylviaNG.Recruitment.Application.Features.Auth.Models
 
         /// <summary>Opaque id to pass to verify-otp/resend-otp. Only set when RequiresOtp is true.</summary>
         public string? ChallengeId { get; set; }
+
+        /// <summary>When the current OTP code expires (UTC). Only set when RequiresOtp is true -
+        /// drives the countdown shown on the code-entry screen.</summary>
+        public DateTime? OtpExpiresAtUtc { get; set; }
     }
 }

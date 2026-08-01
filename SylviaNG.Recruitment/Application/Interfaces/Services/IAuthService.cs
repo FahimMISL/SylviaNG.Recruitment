@@ -21,6 +21,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task<LoginResponse> VerifyOtpAsync(VerifyOtpRequest request);
 
         /// <summary>Re-sends a fresh code for a still-open OTP challenge, resetting its expiry and attempt count.</summary>
-        Task ResendOtpAsync(ResendOtpRequest request);
+        Task<ResendOtpResponse> ResendOtpAsync(ResendOtpRequest request);
     }
 }

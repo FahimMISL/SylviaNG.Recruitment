@@ -84,7 +84,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankCvBulkE
 
             sheet.Cell(rowIndex, 1).Value = profile.FullName;
             sheet.Cell(rowIndex, 2).Value = profile.Email;
-            sheet.Cell(rowIndex, 3).Value = profile.Phone ?? string.Empty;
+            sheet.Cell(rowIndex, 3).Value = profile.Phone == null ? string.Empty : $"{(profile.Country?.DialCode != null ? profile.Country.DialCode + " " : string.Empty)}{profile.Phone}";
             sheet.Cell(rowIndex, 4).Value = profile.Gender?.Name ?? string.Empty;
             sheet.Cell(rowIndex, 5).Value = profile.DateOfBirth.HasValue ? profile.DateOfBirth.Value.ToString("yyyy-MM-dd") : string.Empty;
             sheet.Cell(rowIndex, 6).Value = profile.Nationality ?? string.Empty;

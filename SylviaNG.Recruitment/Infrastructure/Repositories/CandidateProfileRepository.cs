@@ -39,6 +39,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(c => c.Certifications)
                 .Include(c => c.Documents)
                 .Include(c => c.Gender)
+                .Include(c => c.Country)
                 .AsSplitQuery()
                 .AsQueryable();
 
@@ -80,6 +81,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(c => c.Certifications)
                 .Include(c => c.Documents)
                 .Include(c => c.Gender)
+                .Include(c => c.Country)
                 .Where(c => c.IsActive)
                 .ToListAsync();
         }
@@ -95,6 +97,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(c => c.Skills)
                 .Include(c => c.Certifications)
                 .Include(c => c.Gender)
+                .Include(c => c.Country)
                 .Where(c => idSet.Contains(c.CandidateProfileId))
                 .ToListAsync();
         }

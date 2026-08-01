@@ -44,9 +44,17 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobAppl
             RuleFor(x => x.Request.CoverLetter)
                 .MaximumLength(5000).WithMessage("CoverLetter must not exceed 5000 characters.");
 
+            // No longer a hard NotNull - a Candidate submission (external/internal) with no file
+            // attached falls back to whatever resume they already have on file in their profile
+            // Documents (see JobApplicationService.SubmitAsync). Still required for Admin
+            // apply-on-behalf, which has no candidate profile/session to fall back to.
             RuleFor(x => x.Request.Resume)
                 .NotNull().WithMessage("Resume is required.")
-                .Must(f => f != null && f.Length > 0).WithMessage("Resume must not be empty.");
+                .When(x => x.Source == ApplicationSourceEnum.Admin);
+
+            RuleFor(x => x.Request.Resume)
+                .Must(f => f != null && f.Length > 0).WithMessage("Resume must not be empty.")
+                .When(x => x.Request.Resume != null);
 
             RuleFor(x => x.Request.Resume)
                 .Must(f => f != null && allowedExtensions.Contains(Path.GetExtension(f.FileName), StringComparer.OrdinalIgnoreCase))

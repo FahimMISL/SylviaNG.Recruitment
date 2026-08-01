@@ -22,6 +22,8 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobApplicationStageProgressRepository _jobApplicationStageProgressRepository;
         private readonly IJobPostingRepository _jobPostingRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
+        private readonly ICandidateDocumentRepository _candidateDocumentRepository;
+        private readonly IFileStorageService _fileStorageService;
         private readonly IApplicationCvStorageService _applicationCvStorageService;
         private readonly ICvPdfGeneratorService _cvPdfGeneratorService;
         private readonly IApplicationStatusReasonRepository _applicationStatusReasonRepository;
@@ -78,6 +80,8 @@ namespace SylviaNG.Recruitment.Application.Services
             IJobApplicationStageProgressRepository jobApplicationStageProgressRepository,
             IJobPostingRepository jobPostingRepository,
             ICandidateProfileRepository candidateProfileRepository,
+            ICandidateDocumentRepository candidateDocumentRepository,
+            IFileStorageService fileStorageService,
             IApplicationCvStorageService applicationCvStorageService,
             ICvPdfGeneratorService cvPdfGeneratorService,
             IApplicationStatusReasonRepository applicationStatusReasonRepository,
@@ -95,6 +99,8 @@ namespace SylviaNG.Recruitment.Application.Services
             _jobApplicationStageProgressRepository = jobApplicationStageProgressRepository;
             _jobPostingRepository = jobPostingRepository;
             _candidateProfileRepository = candidateProfileRepository;
+            _candidateDocumentRepository = candidateDocumentRepository;
+            _fileStorageService = fileStorageService;
             _applicationCvStorageService = applicationCvStorageService;
             _cvPdfGeneratorService = cvPdfGeneratorService;
             _applicationStatusReasonRepository = applicationStatusReasonRepository;
@@ -269,6 +275,38 @@ namespace SylviaNG.Recruitment.Application.Services
                 entity.ResumeUrl = filePath;
                 entity.ResumeExtractedText = await TryExtractResumeTextAsync(request.Resume);
             }
+            else if (candidateProfileId.HasValue)
+            {
+                // No new file attached - reuse whatever resume the candidate already has on file
+                // in their profile Documents (US-006), so they aren't forced to re-upload the same
+                // file on every application. Copies the bytes into this application's own CV
+                // storage (rather than pointing ResumeUrl at the shared document) so what HR sees
+                // for this application is a stable snapshot, unaffected if the candidate later
+                // replaces or deletes their profile resume.
+                var existingDocuments = await _candidateDocumentRepository.GetAllByCandidateProfileIdAsync(candidateProfileId.Value);
+                var existingResume = existingDocuments
+                    .Where(d => d.DocumentType == CandidateDocumentTypeEnum.Resume && d.IsActive)
+                    .OrderByDescending(d => d.CreatedAt)
+                    .FirstOrDefault();
+
+                if (existingResume != null)
+                {
+                    try
+                    {
+                        await using var existingStream = await _fileStorageService.OpenReadAsync(existingResume.FilePath);
+                        var (_, filePath) = await _applicationCvStorageService.SaveAsync(
+                            existingStream, existingResume.FileName, jobPosting.JobPostingId.ToString());
+                        entity.ResumeUrl = filePath;
+                        // Not re-extracted here (ExtractRawTextAsync takes an IFormFile, not a
+                        // stream) - CV Bank search on this application falls back to whatever the
+                        // candidate profile's own resume text already indexed, not a hard failure.
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to copy existing resume document {CandidateDocumentId} for JobPostingId {JobPostingId}; application still saved without one.", existingResume.CandidateDocumentId, jobPosting.JobPostingId);
+                    }
+                }
+            }
 
             await _jobApplicationRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
@@ -316,18 +354,21 @@ namespace SylviaNG.Recruitment.Application.Services
                 }
             }
 
-            // US-075/US-076: dispatch on submit. requiresPayment is the only currently-wired
-            // trigger for CandidateActionRequired - "candidate must act (pay) before this
-            // application proceeds" - not a general-purpose event yet.
-            try
+            // US-075/US-076: dispatch on submit. A payment-required submission gets no email here -
+            // the candidate hasn't paid yet, so sending "action required"/status here just races the
+            // SSLCommerz redirect and can arrive after they've already paid. The confirmation email
+            // fires from PaymentService.HandleIpnAsync once the IPN actually confirms payment.
+            if (!requiresPayment)
             {
-                var recruitmentEvent = requiresPayment ? RecruitmentEventEnum.CandidateActionRequired : RecruitmentEventEnum.ApplicationSubmitted;
-                var placeholders = BuildBaseDispatchPlaceholders(entity, jobPosting.Title);
-                await _notificationDispatchService.DispatchAsync(recruitmentEvent, placeholders, await BuildDispatchTargetsAsync(entity));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error dispatching submit notification for JobApplicationId {JobApplicationId}.", entity.JobApplicationId);
+                try
+                {
+                    var placeholders = BuildBaseDispatchPlaceholders(entity, jobPosting.Title);
+                    await _notificationDispatchService.DispatchAsync(RecruitmentEventEnum.ApplicationSubmitted, placeholders, await BuildDispatchTargetsAsync(entity));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unexpected error dispatching submit notification for JobApplicationId {JobApplicationId}.", entity.JobApplicationId);
+                }
             }
 
             return response;

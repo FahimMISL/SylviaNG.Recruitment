@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using SylviaNG.Recruitment.Application.Common.Email;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -12,48 +11,53 @@ namespace SylviaNG.Recruitment.Application.Services
     /// Composes and sends the schedule/reschedule/cancel email+SMS for a single Interview
     /// (EP-08). Deliberately never throws - every risky section is wrapped so a mail-server or
     /// SMS-gateway failure never blocks the caller's action; the outcome is written onto the
-    /// interview row instead. Same shape as ExamNotificationService.
+    /// interview row instead. Email routes through INotificationDispatchService (one
+    /// RecruitmentEventEnum per scheduled/rescheduled/cancelled) so its copy lives in the same
+    /// DB-editable template system as every other notification, not a hardcoded C# string. SMS has
+    /// no equivalent templating system anywhere in this codebase, so it stays a plain string.
     /// </summary>
     public class InterviewNotificationService : IInterviewNotificationService
     {
         private readonly IInterviewRepository _interviewRepository;
-        private readonly ISmtpEmailService _smtpEmailService;
+        private readonly INotificationDispatchService _notificationDispatchService;
         private readonly ISmsNotificationService _smsNotificationService;
+        private readonly IApplicationSettingService _applicationSettingService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<InterviewNotificationService> _logger;
 
         public InterviewNotificationService(
             IInterviewRepository interviewRepository,
-            ISmtpEmailService smtpEmailService,
+            INotificationDispatchService notificationDispatchService,
             ISmsNotificationService smsNotificationService,
+            IApplicationSettingService applicationSettingService,
             IUnitOfWork unitOfWork,
             ILogger<InterviewNotificationService> logger)
         {
             _interviewRepository = interviewRepository;
-            _smtpEmailService = smtpEmailService;
+            _notificationDispatchService = notificationDispatchService;
             _smsNotificationService = smsNotificationService;
+            _applicationSettingService = applicationSettingService;
             _unitOfWork = unitOfWork;
             _logger = logger;
         }
 
         public Task NotifyScheduledAsync(Interview interview) =>
-            NotifyAsync(interview, "Interview Scheduled", BuildScheduledBody, BuildScheduledSms);
+            NotifyAsync(interview, RecruitmentEventEnum.InterviewScheduled, BuildScheduledSms);
 
         public Task NotifyRescheduledAsync(Interview interview) =>
-            NotifyAsync(interview, "Interview Rescheduled", BuildRescheduledBody, BuildRescheduledSms);
+            NotifyAsync(interview, RecruitmentEventEnum.InterviewRescheduled, BuildRescheduledSms);
 
         public Task NotifyCancelledAsync(Interview interview) =>
-            NotifyAsync(interview, "Interview Cancelled", BuildCancelledBody, BuildCancelledSms);
+            NotifyAsync(interview, RecruitmentEventEnum.InterviewCancelled, BuildCancelledSms);
 
         private async Task NotifyAsync(
             Interview interview,
-            string subjectPrefix,
-            Func<Interview, string> buildBody,
+            RecruitmentEventEnum recruitmentEvent,
             Func<Interview, string> buildSms)
         {
             try
             {
-                await SendEmailAsync(interview, subjectPrefix, buildBody);
+                await SendEmailAsync(interview, recruitmentEvent);
             }
             catch (Exception ex)
             {
@@ -83,7 +87,7 @@ namespace SylviaNG.Recruitment.Application.Services
             }
         }
 
-        private async Task SendEmailAsync(Interview interview, string subjectPrefix, Func<Interview, string> buildBody)
+        private async Task SendEmailAsync(Interview interview, RecruitmentEventEnum recruitmentEvent)
         {
             var candidateEmail = interview.JobApplication?.CandidateEmail;
             if (string.IsNullOrWhiteSpace(candidateEmail))
@@ -92,16 +96,24 @@ namespace SylviaNG.Recruitment.Application.Services
                 return;
             }
 
-            var message = new EmailMessage
+            var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                To = candidateEmail,
-                Subject = $"{subjectPrefix} - {interview.JobApplication?.CandidateName}",
-                HtmlBody = buildBody(interview),
+                ["CandidateName"] = interview.JobApplication?.CandidateName ?? string.Empty,
+                ["ScheduledStartAt"] = interview.ScheduledStartAt.ToString("dddd, dd MMM yyyy HH:mm"),
+                ["ScheduledEndAt"] = interview.ScheduledEndAt.ToString("HH:mm"),
+                ["LocationLabel"] = interview.InterviewType == InterviewTypeEnum.Virtual ? "Meeting Link" : "Venue",
+                ["LocationValue"] = interview.InterviewType == InterviewTypeEnum.Virtual
+                    ? interview.MeetingLink ?? string.Empty
+                    : $"{interview.InterviewVenue?.VenueName} - Room: {interview.InterviewRoom?.RoomName}",
+                ["CancellationReason"] = interview.CancellationReason ?? string.Empty
             };
 
-            var result = await _smtpEmailService.TrySendAsync(message);
+            var dispatchResult = await _notificationDispatchService.DispatchAsync(
+                recruitmentEvent,
+                placeholders,
+                new NotificationDispatchTargets(candidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), interview.JobApplicationId));
 
-            if (result.Success)
+            if (dispatchResult.CandidateResult?.Success == true)
             {
                 interview.EmailNotificationStatus = NotificationStatusEnum.Sent;
                 interview.EmailSentAt = DateTime.UtcNow;
@@ -110,7 +122,7 @@ namespace SylviaNG.Recruitment.Application.Services
             else
             {
                 interview.EmailNotificationStatus = NotificationStatusEnum.Failed;
-                interview.EmailFailureReason = result.ErrorMessage;
+                interview.EmailFailureReason = dispatchResult.CandidateResult?.ErrorMessage ?? "Unknown error";
             }
         }
 
@@ -135,31 +147,6 @@ namespace SylviaNG.Recruitment.Application.Services
                 interview.SmsNotificationStatus = NotificationStatusEnum.Failed;
             }
         }
-
-        private static string LocationLine(Interview interview) =>
-            interview.InterviewType == InterviewTypeEnum.Virtual
-                ? $"<p><strong>Meeting Link:</strong> {interview.MeetingLink}</p>"
-                : $"<p><strong>Venue:</strong> {interview.InterviewVenue?.VenueName} - Room: {interview.InterviewRoom?.RoomName}</p>";
-
-        private static string BuildScheduledBody(Interview interview) => $@"
-<p>Dear {interview.JobApplication?.CandidateName},</p>
-<p>Your interview has been scheduled:</p>
-<p><strong>Date/Time:</strong> {interview.ScheduledStartAt:dddd, dd MMM yyyy HH:mm} - {interview.ScheduledEndAt:HH:mm}</p>
-{LocationLine(interview)}
-<p>Regards,<br/>SylviaNG Recruitment</p>";
-
-        private static string BuildRescheduledBody(Interview interview) => $@"
-<p>Dear {interview.JobApplication?.CandidateName},</p>
-<p>Your interview has been rescheduled to a new date/time:</p>
-<p><strong>Date/Time:</strong> {interview.ScheduledStartAt:dddd, dd MMM yyyy HH:mm} - {interview.ScheduledEndAt:HH:mm}</p>
-{LocationLine(interview)}
-<p>Regards,<br/>SylviaNG Recruitment</p>";
-
-        private static string BuildCancelledBody(Interview interview) => $@"
-<p>Dear {interview.JobApplication?.CandidateName},</p>
-<p>Your interview originally scheduled for {interview.ScheduledStartAt:dddd, dd MMM yyyy HH:mm} has been cancelled.</p>
-{(string.IsNullOrWhiteSpace(interview.CancellationReason) ? string.Empty : $"<p><strong>Reason:</strong> {interview.CancellationReason}</p>")}
-<p>Regards,<br/>SylviaNG Recruitment</p>";
 
         private static string BuildScheduledSms(Interview interview) =>
             $"Your interview is scheduled on {interview.ScheduledStartAt:dd MMM yyyy HH:mm}.";

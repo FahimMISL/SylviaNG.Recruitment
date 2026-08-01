@@ -36,14 +36,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await BuildTransactionFilterQuery(filter).SumAsync(p => (decimal?)p.Amount) ?? 0m;
         }
 
-        public async Task<List<Payment>> GetLatestPaymentsInScopeAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId, long? siteId)
+        public async Task<List<Payment>> GetLatestPaymentsInScopeAsync(DateTime from, DateTime to, long? jobPostingId, long? departmentId)
         {
             var payments = await _dbSet
                 .Include(p => p.JobApplication).ThenInclude(a => a.JobPosting)
                 .Where(p => p.JobApplication.AppliedDate != null && p.JobApplication.AppliedDate >= from && p.JobApplication.AppliedDate <= to)
                 .Where(p => jobPostingId == null || p.JobApplication.JobPostingId == jobPostingId)
                 .Where(p => departmentId == null || p.JobApplication.JobPosting.DepartmentId == departmentId)
-                .Where(p => siteId == null || p.JobApplication.JobPosting.SiteId == siteId)
                 .ToListAsync();
 
             // Grouped client-side (period-bounded dataset) to avoid relying on provider support
