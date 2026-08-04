@@ -8,6 +8,7 @@ using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetAll;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetAllPaged;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetById;
+using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetMyPostings;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
 
 namespace SylviaNG.Recruitment.Controllers
@@ -41,6 +42,18 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult<JobPostingResponse>> GetById(long jobPostingId)
         {
             var result = await _mediator.Send(new JobPostingGetByIdQuery(jobPostingId));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// EP-15/US-113: postings created by the current user - additive alongside GetAll/GetPaged,
+        /// does not restrict them. Empty for users with no resolvable local UserAccount (e.g. the
+        /// hardcoded-auth scheme, or Keycloak users invited before EP-15 added the UserAccount table).
+        /// </summary>
+        [HttpGet("my-postings")]
+        public async Task<ActionResult<List<JobPostingResponse>>> GetMyPostings()
+        {
+            var result = await _mediator.Send(new JobPostingGetMyPostingsQuery());
             return Ok(result);
         }
 

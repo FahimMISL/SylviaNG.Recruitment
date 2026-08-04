@@ -53,6 +53,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             return Task.CompletedTask;
         }
 
+        public Task<Stream> OpenReadAsync(string relativeFilePath)
+        {
+            var physicalPath = Path.Combine(_environment.ContentRootPath, "wwwroot", relativeFilePath.TrimStart('/'));
+            Stream stream = new FileStream(physicalPath, FileMode.Open, FileAccess.Read);
+            return Task.FromResult(stream);
+        }
+
         private static string TrimWwwRootPrefix(string rootPath)
         {
             var normalized = rootPath.Replace('\\', '/').Trim('/');

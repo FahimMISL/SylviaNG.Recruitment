@@ -23,9 +23,12 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// Get a job application by ID.
+        /// Get a job application by ID. Admin/HR only - a candidate's own applications are
+        /// exposed exclusively via GetMyApplications/GetById never took a candidate-ownership
+        /// check (EP-15/US-114 gap fix: was reachable by any authenticated user for any id).
         /// </summary>
         [HttpGet("{jobApplicationId}")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult<JobApplicationResponse>> GetById(long jobApplicationId)
         {
             var result = await _jobApplicationService.GetByIdAsync(jobApplicationId);
@@ -36,6 +39,7 @@ namespace SylviaNG.Recruitment.Controllers
         /// Get paginated job applications for a specific job posting.
         /// </summary>
         [HttpGet("job-posting/{jobPostingId}/paged")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult<PagedResult<JobApplicationResponse>>> GetPagedByJobPosting(long jobPostingId, [FromQuery] PagedRequest request)
         {
             var result = await _jobApplicationService.GetPaginatedByJobPostingAsync(jobPostingId, request);
@@ -53,9 +57,11 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// Update an existing job application.
+        /// Update an existing job application. Admin/HR only (EP-15/US-114 gap fix: previously
+        /// reachable by any authenticated user for any application id, no ownership check).
         /// </summary>
         [HttpPut("{jobApplicationId}")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult> Update(long jobApplicationId, [FromBody] JobApplicationUpdateRequest request)
         {
             await _jobApplicationService.UpdateAsync(jobApplicationId, request);
@@ -63,9 +69,11 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
-        /// Delete a job application.
+        /// Delete a job application. Admin/HR only (EP-15/US-114 gap fix: previously reachable by
+        /// any authenticated user for any application id, no ownership check).
         /// </summary>
         [HttpDelete("{jobApplicationId}")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult> Delete(long jobApplicationId)
         {
             await _jobApplicationService.DeleteAsync(jobApplicationId);
@@ -144,6 +152,31 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         /// <summary>
+        /// Re-dispatch a chosen event's notification (e.g. ApplicationStatusChanged) across a batch
+        /// of applications at once (US-076). POST, not PATCH - this doesn't mutate application state.
+        /// </summary>
+        [HttpPost("bulk-notify")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<JobApplicationBulkNotifyResponse>> BulkNotify([FromBody] JobApplicationBulkNotifyRequest request)
+        {
+            var result = await _jobApplicationService.BulkNotifyAsync(request);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Synchronous bulk-ZIP download of selected applications' system-rendered CVs, capped at
+        /// JobApplicationService.BulkDownloadCvsSyncMaxCount (US-101). Larger batches should use
+        /// POST recruitment/export-requests/bulk-cv-zip instead.
+        /// </summary>
+        [HttpPost("bulk-download-cvs")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<IActionResult> BulkDownloadCvs([FromBody] JobApplicationCvBulkDownloadRequest request)
+        {
+            var file = await _jobApplicationService.BulkDownloadCvsAsync(request);
+            return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>
         /// HR submits an application on behalf of a candidate (agency/direct outreach), to any open
         /// vacancy regardless of its audience restriction. Recorded with Source=Admin (US-034).
         /// </summary>
@@ -176,6 +209,42 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult> WithdrawMyApplication(long jobApplicationId)
         {
             await _jobApplicationService.WithdrawMyApplicationAsync(jobApplicationId);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Real-time check of the current candidate's profile against a job posting's own
+        /// eligibility criteria - age/education/experience/district (US-024 AC2/AC3).
+        /// </summary>
+        [HttpGet("job-posting/{jobPostingId}/eligibility")]
+        [Authorize(Roles = "Candidate")]
+        public async Task<ActionResult<JobEligibilityResponse>> CheckEligibility(long jobPostingId)
+        {
+            var result = await _jobApplicationService.CheckEligibilityAsync(jobPostingId);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Applications to this vacancy that share an email, national ID, or phone number across
+        /// different channels, grouped for side-by-side review (US-038 AC1/AC2).
+        /// </summary>
+        [HttpGet("job-posting/{jobPostingId}/duplicates")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult<List<JobApplicationDuplicateGroupResponse>>> GetDuplicates(long jobPostingId)
+        {
+            var result = await _jobApplicationService.GetDuplicatesAsync(jobPostingId);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// HR keeps one application as primary and dismisses the rest of a detected duplicate
+        /// group (US-038 AC3/AC4).
+        /// </summary>
+        [HttpPatch("duplicates/resolve")]
+        [Authorize(Roles = "Admin,HR")]
+        public async Task<ActionResult> ResolveDuplicates([FromBody] JobApplicationDuplicateResolveRequest request)
+        {
+            await _jobApplicationService.ResolveDuplicatesAsync(request);
             return Ok();
         }
     }
