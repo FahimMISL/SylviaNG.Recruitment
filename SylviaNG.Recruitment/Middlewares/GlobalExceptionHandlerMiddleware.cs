@@ -30,10 +30,20 @@ namespace SylviaNG.Recruitment.Middlewares
                 _logger.LogWarning(ex, "Invalid credentials.");
                 await HandleExceptionAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
             }
+            catch (OtpVerificationException ex)
+            {
+                _logger.LogWarning(ex, "OTP verification failed.");
+                await HandleExceptionAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
+            }
             catch (DuplicateException ex)
             {
                 _logger.LogWarning(ex, "Duplicate resource.");
                 await HandleExceptionAsync(context, StatusCodes.Status409Conflict, ex.Message);
+            }
+            catch (ForbiddenException ex)
+            {
+                _logger.LogWarning(ex, "Forbidden.");
+                await HandleExceptionAsync(context, StatusCodes.Status403Forbidden, ex.Message);
             }
             catch (InvalidStatusTransitionException ex)
             {
@@ -49,6 +59,16 @@ namespace SylviaNG.Recruitment.Middlewares
             {
                 _logger.LogError(ex, "Keycloak unavailable.");
                 await HandleExceptionAsync(context, StatusCodes.Status503ServiceUnavailable, "The authentication server is currently unavailable. Please try again later.");
+            }
+            catch (GroqUnavailableException ex)
+            {
+                _logger.LogError(ex, "Groq unavailable.");
+                await HandleExceptionAsync(context, StatusCodes.Status503ServiceUnavailable, "The AI scoring service is currently unavailable. Please try again later.");
+            }
+            catch (SslCommerzUnavailableException ex)
+            {
+                _logger.LogError(ex, "SSLCommerz payment gateway unavailable.");
+                await HandleExceptionAsync(context, StatusCodes.Status503ServiceUnavailable, "The payment gateway is currently unavailable. Please try again later.");
             }
             catch (FluentValidation.ValidationException ex)
             {

@@ -18,6 +18,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPost
                 .When(x => x.Request.MinSalary.HasValue && x.Request.MaxSalary.HasValue)
                 .WithMessage("MinSalary must be less than MaxSalary.");
 
+            RuleFor(x => x.Request.SalaryCurrency)
+                .NotEmpty().When(x => x.Request.MinSalary.HasValue || x.Request.MaxSalary.HasValue)
+                .WithMessage("SalaryCurrency is required when MinSalary or MaxSalary is set.");
+
             RuleFor(x => x.Request.ClosingDate)
                 .GreaterThan(x => x.Request.PostingDate)
                 .When(x => x.Request.PostingDate.HasValue && x.Request.ClosingDate.HasValue)

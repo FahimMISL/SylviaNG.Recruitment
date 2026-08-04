@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -32,7 +33,7 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task<string?> GetMyPhotoPathAsync()
         {
             var entity = await GetOrCreateCurrentEntityAsync();
-            return entity.ProfilePhotoPath;
+            return FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath);
         }
 
         public async Task<string> UploadPhotoAsync(IFormFile file)
@@ -52,7 +53,7 @@ namespace SylviaNG.Recruitment.Application.Services
             if (!string.IsNullOrEmpty(oldFilePath))
                 await _fileStorageService.DeleteAsync(oldFilePath);
 
-            return filePath;
+            return FileUrlBuilder.BuildDownloadUrl(filePath) ?? filePath;
         }
 
         public async Task DeletePhotoAsync()

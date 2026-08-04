@@ -108,6 +108,7 @@ app.UseStaticFiles();
 app.UseMiddleware<ResponseWrappingMiddleware>();
 
 app.UseAuthentication();
+app.UseMiddleware<ImpersonationMiddleware>();
 app.UseAuthorization();
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();

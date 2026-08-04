@@ -12,16 +12,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
     {
         public JobPostingRepository(ApplicationDBContext dbContext) : base(dbContext) { }
 
-        public async Task<JobPosting?> GetByTitleAndSiteIdAsync(string title, long siteId)
+        public async Task<bool> ExistsByTitleAsync(string title, long? excludeId = null)
         {
             return await _dbSet
-                .FirstOrDefaultAsync(j => j.Title == title && j.SiteId == siteId);
-        }
-
-        public async Task<bool> ExistsByTitleAndSiteIdAsync(string title, long siteId, long? excludeId = null)
-        {
-            return await _dbSet
-                .AnyAsync(j => j.Title == title && j.SiteId == siteId && (!excludeId.HasValue || j.JobPostingId != excludeId.Value));
+                .AnyAsync(j => j.Title == title && (!excludeId.HasValue || j.JobPostingId != excludeId.Value));
         }
 
         public async Task<PagedResult<JobPosting>> GetPaginatedAsync(PagedRequest request)
@@ -29,16 +23,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             var query = _dbSet
                 .Include(j => j.Applications)
                 .Include(j => j.HiringPipeline)
+                .Include(j => j.Department)
                 .AsQueryable();
 
             return await query.ToPaginatedResultAsync(request);
-        }
-
-        public async Task<List<JobPosting>> GetActiveBySiteIdAsync(long siteId)
-        {
-            return await _dbSet
-                .Where(j => j.SiteId == siteId && j.IsActive)
-                .ToListAsync();
         }
 
         public async Task<PagedResult<JobPosting>> GetPaginatedByCircularTypesAsync(
@@ -49,7 +37,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             EmploymentTypeEnum? employmentType,
             int? maxExperienceYears)
         {
-            var query = ApplyAudienceFilter(_dbSet.AsQueryable(), allowedCircularTypes)
+            var query = ApplyAudienceFilter(_dbSet.Include(j => j.Department).AsQueryable(), allowedCircularTypes)
                 .Where(j => location == null || (j.Location != null && j.Location.Contains(location)))
                 .Where(j => departmentId == null || j.DepartmentId == departmentId)
                 .Where(j => employmentType == null || j.EmploymentType == employmentType)
@@ -60,18 +48,29 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         public async Task<JobPosting?> GetOpenByIdAndCircularTypesAsync(long jobPostingId, IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes)
         {
-            return await ApplyAudienceFilter(_dbSet.AsQueryable(), allowedCircularTypes)
+            return await ApplyAudienceFilter(_dbSet.Include(j => j.Department).AsQueryable(), allowedCircularTypes)
                 .FirstOrDefaultAsync(j => j.JobPostingId == jobPostingId);
         }
 
         private static IQueryable<JobPosting> ApplyAudienceFilter(IQueryable<JobPosting> query, IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes)
         {
-            return query.Where(j => j.Status == JobStatusEnum.Open && allowedCircularTypes.Contains(j.CircularType));
+            var now = DateTime.UtcNow;
+            return query.Where(j => j.Status == JobStatusEnum.Open && allowedCircularTypes.Contains(j.CircularType) && (j.ClosingDate == null || j.ClosingDate >= now));
         }
 
         public async Task<int> CountByStatusAsync(JobStatusEnum status)
         {
             return await _dbSet.CountAsync(j => j.Status == status);
+        }
+
+        public async Task<List<JobPosting>> GetByCreatedByAsync(long userAccountId)
+        {
+            return await _dbSet
+                .Include(j => j.Applications)
+                .Include(j => j.HiringPipeline)
+                .Include(j => j.Department)
+                .Where(j => j.CreatedBy == userAccountId)
+                .ToListAsync();
         }
     }
 }

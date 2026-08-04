@@ -19,10 +19,21 @@ namespace SylviaNG.Recruitment.SharedKernel.Pagination
             }
 
 
-            // Apply sorting
+            // Apply sorting - falls back to newest-first (CreatedAt desc, every Audit-derived
+            // entity has it) when the caller didn't ask for a specific sort AND the query isn't
+            // already ordered by the repository itself (e.g. PaymentRepository/
+            // ExportRequestRepository chain their own OrderByDescending before calling this -
+            // that's a deliberate choice and must win, not get silently replaced). Otherwise the
+            // query is unordered, which returns rows in whatever incidental order Postgres
+            // picks - oldest-first in practice, not the most recently created records callers
+            // actually want to see first.
             if (!string.IsNullOrEmpty(request.SortBy) && !string.IsNullOrEmpty(request.SortDirection))
             {
                 query = ApplySorting(query, request.SortBy, request.SortDirection);
+            }
+            else if (!IsAlreadyOrdered(query) && typeof(T).GetProperty("CreatedAt", BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance) != null)
+            {
+                query = ApplySorting(query, "CreatedAt", "desc");
             }
 
             // Get total count before pagination
@@ -43,6 +54,17 @@ namespace SylviaNG.Recruitment.SharedKernel.Pagination
             };
         }
 
+
+        /// <summary>True if the outermost call in this query's expression tree is already an
+        /// OrderBy/OrderByDescending/ThenBy/ThenByDescending - i.e. the caller chained an explicit
+        /// sort onto the IQueryable right before handing it to ToPaginatedResultAsync. Only
+        /// catches that specific "OrderBy is the last call" shape (this codebase's own
+        /// convention: filter, then optionally order, then paginate) - a query where OrderBy is
+        /// buried under a later Where wouldn't be caught, but no current caller does that.</summary>
+        private static bool IsAlreadyOrdered<T>(IQueryable<T> query)
+        {
+            return query.Expression is MethodCallExpression { Method.Name: "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending" };
+        }
 
         private static IQueryable<T> ApplySearch<T>(IQueryable<T> query, string searchTerm, string[] searchProperties)
         {
