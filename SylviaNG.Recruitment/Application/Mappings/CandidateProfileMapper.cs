@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -67,8 +68,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 HomeDistrictId = entity.HomeDistrictId,
                 HomeThanaId = entity.HomeThanaId,
                 PermanentAddressDetail = entity.PermanentAddressDetail,
-                ProfilePhotoPath = entity.ProfilePhotoPath,
-                SignaturePath = entity.SignaturePath,
+                ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath),
+                SignaturePath = FileUrlBuilder.BuildDownloadUrl(entity.SignaturePath),
                 CompletenessPercentage = CalculateCompleteness(entity),
                 IsInternal = entity.IsInternal,
                 HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity)
@@ -84,7 +85,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Email = entity.Email,
                 Phone = entity.Phone,
                 PhoneDialCode = entity.Country?.DialCode,
-                ProfilePhotoPath = entity.ProfilePhotoPath,
+                ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath),
                 CompletenessPercentage = CalculateCompleteness(entity),
                 IsInternal = entity.IsInternal
             };
@@ -120,8 +121,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 HomeDistrictId = entity.HomeDistrictId,
                 HomeThanaId = entity.HomeThanaId,
                 PermanentAddressDetail = entity.PermanentAddressDetail,
-                ProfilePhotoPath = entity.ProfilePhotoPath,
-                SignaturePath = entity.SignaturePath,
+                ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath),
+                SignaturePath = FileUrlBuilder.BuildDownloadUrl(entity.SignaturePath),
                 CompletenessPercentage = CalculateCompleteness(entity),
                 IsInternal = entity.IsInternal,
                 HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity),
@@ -360,7 +361,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 IssueDate = entity.IssueDate,
                 ExpiryDate = entity.ExpiryDate,
                 CredentialId = entity.CredentialId,
-                CertificateFilePath = entity.CertificateFilePath
+                CertificateFilePath = FileUrlBuilder.BuildDownloadUrl(entity.CertificateFilePath)
             };
         }
 
@@ -376,7 +377,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ContentType = entity.ContentType,
                 FileSizeBytes = entity.FileSizeBytes,
                 IsActive = entity.IsActive,
-                DownloadUrl = "/" + entity.FilePath.TrimStart('/')
+                DownloadUrl = FileUrlBuilder.BuildDownloadUrl(entity.FilePath) ?? string.Empty
             };
         }
     }

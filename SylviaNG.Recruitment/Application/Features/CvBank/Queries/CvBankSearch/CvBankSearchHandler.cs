@@ -1,6 +1,7 @@
 using System.Text;
 using MediatR;
 using SylviaNG.Recruitment.Application.Common.BooleanQuery;
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.CvBank.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Services;
@@ -193,7 +194,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch
                 Email = profile.Email,
                 Phone = profile.Phone,
                 PhoneDialCode = profile.Country?.DialCode,
-                ProfilePhotoPath = profile.ProfilePhotoPath,
+                ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(profile.ProfilePhotoPath),
                 EducationSummary = topEducation != null ? $"{topEducation.Degree.Name} - {topEducation.Institution}" : null,
                 TotalExperienceYears = Math.Round(facts.TotalExperienceYears, 1),
                 RelevanceScore = relevanceScore

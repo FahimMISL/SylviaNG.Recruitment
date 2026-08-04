@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.CompanyBranding.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -85,7 +86,7 @@ namespace SylviaNG.Recruitment.Application.Services
             if (!string.IsNullOrEmpty(oldFilePath))
                 await _fileStorageService.DeleteAsync(oldFilePath);
 
-            return filePath;
+            return FileUrlBuilder.BuildDownloadUrl(filePath) ?? filePath;
         }
 
         public async Task<byte[]> GeneratePreviewPdfAsync(CompanyBrandingUpdateRequest request)
@@ -136,7 +137,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         private static CompanyBrandingResponse ToResponse(Domain.Entities.CompanyBranding entity) => new()
         {
-            LogoFilePath = entity.LogoFilePath,
+            LogoFilePath = FileUrlBuilder.BuildDownloadUrl(entity.LogoFilePath),
             CompanyName = entity.CompanyName,
             AddressLine = entity.AddressLine,
             Phone = entity.Phone,

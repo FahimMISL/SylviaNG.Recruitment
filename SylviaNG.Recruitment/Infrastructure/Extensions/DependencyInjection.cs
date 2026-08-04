@@ -1,6 +1,8 @@
 using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using Finbuckle.MultiTenant.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Minio;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
@@ -160,13 +162,64 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-            // File storage (local disk, backs job posting attachments)
-            services.Configure<FileStorageSettings>(configuration.GetSection(FileStorageSettings.SectionName));
-            services.AddScoped<IFileStorageService, LocalFileStorageService>();
+            // MinIO client (S3-compatible object storage), shared by both Minio storage services
+            // below. Registered unconditionally - cheap to construct, no connection attempt until
+            // first call - so it's available even when FileStorage:Provider is "Local".
+            services.Configure<MinioSettings>(configuration.GetSection(MinioSettings.SectionName));
+            services.AddSingleton<IMinioClient>(sp =>
+            {
+                var minioSettings = sp.GetRequiredService<IOptions<MinioSettings>>().Value;
+                return new MinioClient()
+                    .WithEndpoint(minioSettings.Endpoint)
+                    .WithCredentials(minioSettings.AccessKey, minioSettings.SecretKey)
+                    .WithSSL(minioSettings.UseSsl)
+                    .Build();
+            });
 
-            // File storage (local disk, backs career-portal / internal-job-board CV uploads)
+            // File storage (backs job posting attachments): "Local" (wwwroot, default) or "Minio"
+            // - see FileStorage:Provider, same switch pattern as ShortlistScoring:Provider below.
+            services.Configure<FileStorageSettings>(configuration.GetSection(FileStorageSettings.SectionName));
+            services.AddScoped<LocalFileStorageService>();
+            services.AddScoped<MinioFileStorageService>();
+
+            var fileStorageProvider = configuration["FileStorage:Provider"];
+            services.AddScoped<IFileStorageService>(sp =>
+            {
+                var provider = NormalizeFileStorageProvider(fileStorageProvider);
+
+                return provider switch
+                {
+                    "local" => sp.GetRequiredService<LocalFileStorageService>(),
+                    "minio" => sp.GetRequiredService<MinioFileStorageService>(),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported file storage provider: {fileStorageProvider}. Supported providers: Local, Minio.")
+                };
+            });
+
+            // File storage (backs career-portal / internal-job-board CV uploads): same
+            // FileStorage:Provider switch as above - one config key governs both storage areas.
             services.Configure<ApplicationCvStorageSettings>(configuration.GetSection(ApplicationCvStorageSettings.SectionName));
-            services.AddScoped<IApplicationCvStorageService, LocalApplicationCvStorageService>();
+            services.AddScoped<LocalApplicationCvStorageService>();
+            services.AddScoped<MinioApplicationCvStorageService>();
+
+            services.AddScoped<IApplicationCvStorageService>(sp =>
+            {
+                var provider = NormalizeFileStorageProvider(fileStorageProvider);
+
+                return provider switch
+                {
+                    "local" => sp.GetRequiredService<LocalApplicationCvStorageService>(),
+                    "minio" => sp.GetRequiredService<MinioApplicationCvStorageService>(),
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported file storage provider: {fileStorageProvider}. Supported providers: Local, Minio.")
+                };
+            });
+
+            // Bucket bootstrap - only relevant when the Minio provider is active; idempotent.
+            if (NormalizeFileStorageProvider(fileStorageProvider) == "minio")
+            {
+                services.AddHostedService<MinioBucketInitializer>();
+            }
 
             // Size/extension policy for candidate profile photo/signature and document uploads
             // (both reuse the IFileStorageService/FileStorageSettings root above - see plan decision).
@@ -322,6 +375,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
         {
             if (string.IsNullOrWhiteSpace(provider))
                 throw new ArgumentNullException(nameof(provider), "ResumeParsing provider is not specified.");
+
+            return provider.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizeFileStorageProvider(string? provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new ArgumentNullException(nameof(provider), "FileStorage provider is not specified.");
 
             return provider.Trim().ToLowerInvariant();
         }

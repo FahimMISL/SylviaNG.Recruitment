@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.AppointmentLetters.Models;
 using SylviaNG.Recruitment.Domain.Entities;
 
@@ -16,7 +17,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 DocumentTemplateId = entity.DocumentTemplateId,
                 DocumentTemplateName = entity.DocumentTemplate?.Name ?? string.Empty,
                 FinalBody = entity.FinalBody,
-                GeneratedPdfPath = entity.GeneratedPdfPath,
+                GeneratedPdfPath = FileUrlBuilder.BuildDownloadUrl(entity.GeneratedPdfPath) ?? string.Empty,
                 GeneratedAt = entity.GeneratedAt,
             };
         }

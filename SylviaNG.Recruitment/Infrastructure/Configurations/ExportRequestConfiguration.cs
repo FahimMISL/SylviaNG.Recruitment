@@ -18,6 +18,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(e => e.RequestedByUserName).HasMaxLength(200);
             builder.Property(e => e.RequestedByEmail).HasMaxLength(320);
             builder.Property(e => e.FileName).HasMaxLength(300);
+            builder.Property(e => e.ContentObjectKey).HasMaxLength(500);
             builder.Property(e => e.ContentType).HasMaxLength(150);
             builder.Property(e => e.FailureReason).HasMaxLength(1000);
 

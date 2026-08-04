@@ -23,17 +23,20 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IExportRequestRepository _exportRequestRepository;
         private readonly IJobApplicationService _jobApplicationService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileStorageService _fileStorageService;
         private readonly IUnitOfWork _unitOfWork;
 
         public ExportRequestService(
             IExportRequestRepository exportRequestRepository,
             IJobApplicationService jobApplicationService,
             ICurrentUserService currentUserService,
+            IFileStorageService fileStorageService,
             IUnitOfWork unitOfWork)
         {
             _exportRequestRepository = exportRequestRepository;
             _jobApplicationService = jobApplicationService;
             _currentUserService = currentUserService;
+            _fileStorageService = fileStorageService;
             _unitOfWork = unitOfWork;
         }
 
@@ -138,13 +141,14 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = await _exportRequestRepository.GetByIdAsync(exportRequestId)
                 ?? throw new NotFoundException("ExportRequest", exportRequestId);
 
-            if (entity.Status != ExportRequestStatusEnum.Completed || entity.Content == null)
+            if (entity.Status != ExportRequestStatusEnum.Completed || entity.ContentObjectKey == null)
                 throw new ValidationException(new[]
                 {
                     new ValidationFailure(nameof(entity.Status), $"Export is not ready for download (status: {entity.Status}).")
                 });
 
-            return new ExportRequestFileResponse(entity.Content, entity.ContentType ?? "application/octet-stream", entity.FileName ?? "export.xlsx");
+            var stream = await _fileStorageService.OpenReadAsync(entity.ContentObjectKey);
+            return new ExportRequestFileResponse(stream, entity.ContentType ?? "application/octet-stream", entity.FileName ?? "export.xlsx");
         }
     }
 }

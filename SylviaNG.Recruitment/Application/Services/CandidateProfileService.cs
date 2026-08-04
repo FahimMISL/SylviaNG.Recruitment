@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
@@ -259,7 +260,7 @@ namespace SylviaNG.Recruitment.Application.Services
             if (!string.IsNullOrEmpty(oldFilePath))
                 await _fileStorageService.DeleteAsync(oldFilePath);
 
-            return filePath;
+            return FileUrlBuilder.BuildDownloadUrl(filePath) ?? filePath;
         }
 
         private async Task DeleteMediaAsync(Func<Domain.Entities.CandidateProfile, string?> getPath, Action<Domain.Entities.CandidateProfile> clearPath)

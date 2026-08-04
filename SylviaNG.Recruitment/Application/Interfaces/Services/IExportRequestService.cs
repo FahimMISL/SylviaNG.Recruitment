@@ -5,7 +5,7 @@ using SylviaNG.Recruitment.SharedKernel.Pagination;
 
 namespace SylviaNG.Recruitment.Application.Interfaces.Services
 {
-    public record ExportRequestFileResponse(byte[] Content, string ContentType, string FileName);
+    public record ExportRequestFileResponse(Stream Content, string ContentType, string FileName);
 
     /// <summary>EP-13 US-100/104: queues candidate-list export requests and serves the completed
     /// results. Actual file generation happens out-of-band in ExportRequestWorker.</summary>

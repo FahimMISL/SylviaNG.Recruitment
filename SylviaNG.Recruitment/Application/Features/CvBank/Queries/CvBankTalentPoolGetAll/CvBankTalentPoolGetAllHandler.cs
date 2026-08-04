@@ -1,4 +1,5 @@
 using MediatR;
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.CvBank.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 
@@ -24,7 +25,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankTalentP
                 Email = e.CandidateProfile.Email,
                 Phone = e.CandidateProfile.Phone,
                 PhoneDialCode = e.CandidateProfile.Country?.DialCode,
-                ProfilePhotoPath = e.CandidateProfile.ProfilePhotoPath,
+                ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(e.CandidateProfile.ProfilePhotoPath),
                 AddedAt = e.CreatedAt
             }).ToList();
         }

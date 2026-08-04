@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
@@ -151,7 +152,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateName = entity.CandidateName,
                 CandidateEmail = entity.CandidateEmail,
                 CandidatePhone = entity.CandidatePhone,
-                ResumeUrl = entity.ResumeUrl,
+                ResumeUrl = FileUrlBuilder.BuildDownloadUrl(entity.ResumeUrl),
                 ApplicationStatus = entity.ApplicationStatus,
                 AppliedDate = entity.AppliedDate,
                 IsActive = entity.IsActive,
@@ -186,7 +187,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateName = entity.CandidateName,
                 CandidateEmail = entity.CandidateEmail,
                 CandidatePhone = entity.CandidatePhone,
-                ResumeUrl = entity.ResumeUrl,
+                ResumeUrl = FileUrlBuilder.BuildDownloadUrl(entity.ResumeUrl),
                 CoverLetter = entity.CoverLetter,
                 ApplicationStatus = entity.ApplicationStatus,
                 AppliedDate = entity.AppliedDate,
@@ -217,13 +218,25 @@ namespace SylviaNG.Recruitment.Application.Mappings
 
         public static MyApplicationInterviewResponse ToMyApplicationInterviewResponse(this Interview entity)
         {
+            string? location = null;
+            if (entity.InterviewType == InterviewTypeEnum.InPerson)
+            {
+                var venueName = entity.InterviewVenue?.VenueName;
+                var roomName = entity.InterviewRoom?.RoomName;
+                location = (venueName, roomName) switch
+                {
+                    (null or "", null or "") => null,
+                    (null or "", _) => roomName,
+                    (_, null or "") => venueName,
+                    _ => $"{venueName} - {roomName}"
+                };
+            }
+
             return new MyApplicationInterviewResponse
             {
                 InterviewId = entity.InterviewId,
                 ScheduledDate = entity.ScheduledStartAt,
-                Location = entity.InterviewType == InterviewTypeEnum.InPerson
-                    ? $"{entity.InterviewVenue?.VenueName} - {entity.InterviewRoom?.RoomName}"
-                    : null,
+                Location = location,
                 MeetingLink = entity.MeetingLink,
                 Round = entity.Round.ToString()
             };
@@ -287,7 +300,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Source = entity.Source,
                 ApplicationStatus = entity.ApplicationStatus,
                 AppliedDate = entity.AppliedDate,
-                ResumeUrl = entity.ResumeUrl
+                ResumeUrl = FileUrlBuilder.BuildDownloadUrl(entity.ResumeUrl)
             };
         }
     }

@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.OfficeNotes.Models;
 using SylviaNG.Recruitment.Domain.Entities;
 
@@ -16,7 +17,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 DocumentTemplateName = entity.DocumentTemplate?.Name ?? string.Empty,
                 Remarks = entity.Remarks,
                 EnclosuresSummary = entity.EnclosuresSummary,
-                GeneratedPdfPath = entity.GeneratedPdfPath,
+                GeneratedPdfPath = FileUrlBuilder.BuildDownloadUrl(entity.GeneratedPdfPath) ?? string.Empty,
                 GeneratedAt = entity.GeneratedAt,
             };
         }

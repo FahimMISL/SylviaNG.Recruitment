@@ -4,10 +4,10 @@ using SylviaNG.Recruitment.SharedKernel.Audit;
 namespace SylviaNG.Recruitment.Domain.Entities;
 
 /// <summary>
-/// EP-13 US-104: one row per queued export request. The generated file is stored inline
-/// (Content bytea) rather than on disk/blob storage - no object storage exists in this codebase
-/// yet (MinIO swap is a separate, deferred piece of work), and this is the only feature that
-/// needs the output to outlive a single request, so a column is the simplest option.
+/// EP-13 US-104: one row per queued export request. The generated file is persisted via
+/// IFileStorageService (ContentObjectKey points at the stored object/local path) rather than
+/// inline in the DB - see ExportRequestWorker for the write path and ExportRequestService for
+/// the read/download path.
 /// </summary>
 public class ExportRequest : Audit
 {
@@ -39,7 +39,7 @@ public class ExportRequest : Audit
     /// regardless of whether the file was ever downloaded.</summary>
     public DateTime ExpiresAt { get; set; }
 
-    public byte[]? Content { get; set; }
+    public string? ContentObjectKey { get; set; }
     public string? FileName { get; set; }
     public string? ContentType { get; set; }
     public int? RowCount { get; set; }

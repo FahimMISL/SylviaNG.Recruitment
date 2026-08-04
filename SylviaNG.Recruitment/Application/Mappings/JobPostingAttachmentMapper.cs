@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.JobPostingAttachments.Models;
 using SylviaNG.Recruitment.Domain.Entities;
 
@@ -18,7 +19,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ContentType = entity.ContentType,
                 FileSizeBytes = entity.FileSizeBytes,
                 IsActive = entity.IsActive,
-                DownloadUrl = "/" + entity.FilePath.TrimStart('/'),
+                DownloadUrl = FileUrlBuilder.BuildDownloadUrl(entity.FilePath) ?? string.Empty,
                 CreatedAt = entity.CreatedAt
             };
         }

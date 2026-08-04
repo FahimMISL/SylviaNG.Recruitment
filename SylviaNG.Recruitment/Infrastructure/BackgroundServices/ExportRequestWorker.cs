@@ -36,14 +36,15 @@ namespace SylviaNG.Recruitment.Infrastructure.BackgroundServices
             {
                 try
                 {
-                    using var scope = _serviceProvider.CreateScope();
+                    await using var scope = _serviceProvider.CreateAsyncScope();
                     var exportRequestRepository = scope.ServiceProvider.GetRequiredService<IExportRequestRepository>();
                     var exportGenerationService = scope.ServiceProvider.GetRequiredService<IExportGenerationService>();
                     var notificationDispatchService = scope.ServiceProvider.GetRequiredService<INotificationDispatchService>();
+                    var fileStorageService = scope.ServiceProvider.GetRequiredService<IFileStorageService>();
                     var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-                    await ProcessPendingAsync(exportRequestRepository, exportGenerationService, notificationDispatchService, unitOfWork, stoppingToken);
-                    await SweepExpiredAsync(exportRequestRepository, unitOfWork);
+                    await ProcessPendingAsync(exportRequestRepository, exportGenerationService, notificationDispatchService, fileStorageService, unitOfWork, stoppingToken);
+                    await SweepExpiredAsync(exportRequestRepository, fileStorageService, unitOfWork);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -69,6 +70,7 @@ namespace SylviaNG.Recruitment.Infrastructure.BackgroundServices
             IExportRequestRepository exportRequestRepository,
             IExportGenerationService exportGenerationService,
             INotificationDispatchService notificationDispatchService,
+            IFileStorageService fileStorageService,
             IUnitOfWork unitOfWork,
             CancellationToken stoppingToken)
         {
@@ -92,7 +94,9 @@ namespace SylviaNG.Recruitment.Infrastructure.BackgroundServices
                         _ => await exportGenerationService.GenerateCandidateListExportAsync(jobApplicationIds, entity.Format, stoppingToken)
                     };
 
-                    entity.Content = file.Content;
+                    using var contentStream = new MemoryStream(file.Content);
+                    var (_, objectKey) = await fileStorageService.SaveAsync(contentStream, file.FileName, "export-requests");
+                    entity.ContentObjectKey = objectKey;
                     entity.ContentType = file.ContentType;
                     entity.FileName = file.FileName;
                     entity.RowCount = file.RowCount;
@@ -125,11 +129,23 @@ namespace SylviaNG.Recruitment.Infrastructure.BackgroundServices
             }
         }
 
-        private static async Task SweepExpiredAsync(IExportRequestRepository exportRequestRepository, IUnitOfWork unitOfWork)
+        private async Task SweepExpiredAsync(IExportRequestRepository exportRequestRepository, IFileStorageService fileStorageService, IUnitOfWork unitOfWork)
         {
             var expired = await exportRequestRepository.GetExpiredAsync(DateTime.UtcNow);
             if (expired.Count == 0)
                 return;
+
+            foreach (var entity in expired.Where(e => e.ContentObjectKey != null))
+            {
+                try
+                {
+                    await fileStorageService.DeleteAsync(entity.ContentObjectKey!);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete expired export object {Key}", entity.ContentObjectKey);
+                }
+            }
 
             exportRequestRepository.DeleteRange(expired);
             await unitOfWork.SaveChangesAsync();
