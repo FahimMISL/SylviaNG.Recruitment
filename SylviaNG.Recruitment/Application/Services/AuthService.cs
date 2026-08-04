@@ -33,6 +33,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly KeycloakSettings _keycloakSettings;
         private readonly OtpSettings _otpSettings;
         private readonly ICandidateLoginOtpRepository _candidateLoginOtpRepository;
+        private readonly IPasswordResetOtpRepository _passwordResetOtpRepository;
         private readonly INotificationDispatchService _notificationDispatchService;
         private readonly IMemoryCache _memoryCache;
         private readonly IUnitOfWork _unitOfWork;
@@ -43,6 +44,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IOptions<KeycloakSettings> keycloakSettings,
             IOptions<OtpSettings> otpSettings,
             ICandidateLoginOtpRepository candidateLoginOtpRepository,
+            IPasswordResetOtpRepository passwordResetOtpRepository,
             INotificationDispatchService notificationDispatchService,
             IMemoryCache memoryCache,
             IUnitOfWork unitOfWork,
@@ -52,6 +54,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _keycloakSettings = keycloakSettings.Value;
             _otpSettings = otpSettings.Value;
             _candidateLoginOtpRepository = candidateLoginOtpRepository;
+            _passwordResetOtpRepository = passwordResetOtpRepository;
             _notificationDispatchService = notificationDispatchService;
             _memoryCache = memoryCache;
             _unitOfWork = unitOfWork;
@@ -234,6 +237,90 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var tokenResult = await _keycloakClient.RefreshTokenAsync(refreshToken);
             return BuildResponseFromKeycloakToken(tokenResult);
+        }
+
+        public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
+        {
+            var challengeId = Guid.NewGuid();
+            var expiresAtUtc = DateTime.UtcNow.AddMinutes(_otpSettings.ExpiryMinutes);
+
+            try
+            {
+                var userId = await _keycloakClient.GetUserIdByUsernameAsync(request.Username);
+                var email = await _keycloakClient.GetEmailByUserIdAsync(userId);
+
+                if (!string.IsNullOrWhiteSpace(email))
+                {
+                    var code = GenerateOtpCode();
+                    var otp = new PasswordResetOtp
+                    {
+                        ChallengeId = challengeId,
+                        KeycloakUserId = userId,
+                        Username = request.Username,
+                        OtpCodeHash = HashOtpCode(code),
+                        ExpiresAtUtc = expiresAtUtc
+                    };
+
+                    await _passwordResetOtpRepository.AddAsync(otp);
+                    await _unitOfWork.SaveChangesAsync();
+
+                    try
+                    {
+                        await _notificationDispatchService.DispatchAsync(
+                            RecruitmentEventEnum.PasswordResetRequested,
+                            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["OtpCode"] = code,
+                                ["ExpiryMinutes"] = _otpSettings.ExpiryMinutes.ToString()
+                            },
+                            new NotificationDispatchTargets(email, null));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Unexpected error dispatching password-reset OTP for challenge {ChallengeId}.", challengeId);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is NotFoundException or KeycloakUnavailableException)
+            {
+                // Unknown username or Keycloak hiccup - fall through without persisting/sending
+                // anything. The same response shape is returned either way below, so this endpoint
+                // can't be used to enumerate accounts; the unresolved challenge just never verifies.
+                _logger.LogInformation(ex, "Forgot-password request could not be resolved to a Keycloak user.");
+            }
+
+            return new ForgotPasswordResponse { ChallengeId = challengeId.ToString(), ExpiresAtUtc = expiresAtUtc };
+        }
+
+        public async Task ResetPasswordAsync(ResetPasswordRequest request)
+        {
+            if (!Guid.TryParse(request.ChallengeId, out var challengeId))
+                throw new OtpVerificationException();
+
+            var otp = await _passwordResetOtpRepository.GetByChallengeIdAsync(challengeId)
+                ?? throw new OtpVerificationException();
+
+            if (otp.Locked || otp.ConsumedAtUtc.HasValue || otp.ExpiresAtUtc < DateTime.UtcNow)
+                throw new OtpVerificationException();
+
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(HashOtpCode(request.OtpCode)),
+                    Encoding.UTF8.GetBytes(otp.OtpCodeHash)))
+            {
+                otp.AttemptCount++;
+                if (otp.AttemptCount >= _otpSettings.MaxAttempts)
+                    otp.Locked = true;
+
+                _passwordResetOtpRepository.Update(otp);
+                await _unitOfWork.SaveChangesAsync();
+                throw new OtpVerificationException();
+            }
+
+            otp.ConsumedAtUtc = DateTime.UtcNow;
+            _passwordResetOtpRepository.Update(otp);
+            await _unitOfWork.SaveChangesAsync();
+
+            await _keycloakClient.ResetPasswordAsync(otp.KeycloakUserId, request.NewPassword);
         }
 
         public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)

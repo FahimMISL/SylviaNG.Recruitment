@@ -141,6 +141,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
             services.AddScoped<ICandidateLoginOtpRepository, CandidateLoginOtpRepository>();
             services.AddScoped<IEmailChangeVerificationRepository, EmailChangeVerificationRepository>();
+            services.AddScoped<IPasswordResetOtpRepository, PasswordResetOtpRepository>();
             services.AddScoped<IDocumentTemplateRepository, DocumentTemplateRepository>();
             services.AddScoped<IOfferLetterRepository, OfferLetterRepository>();
             services.AddScoped<IAppointmentLetterRepository, AppointmentLetterRepository>();

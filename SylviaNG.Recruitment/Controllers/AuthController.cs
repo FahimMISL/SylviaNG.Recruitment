@@ -1,10 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SylviaNG.Recruitment.Application.Features.Auth.Commands.ForgotPassword;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Login;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Refresh;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Register;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.ResendOtp;
+using SylviaNG.Recruitment.Application.Features.Auth.Commands.ResetPassword;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.VerifyOtp;
 using SylviaNG.Recruitment.Application.Features.Auth.Models;
 
@@ -81,6 +83,31 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var result = await _mediator.Send(new ResendOtpCommand(request));
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Starts a forgot-password challenge for any role. Always returns 200 with a ChallengeId,
+        /// even for a username that doesn't resolve to a Keycloak user, so this endpoint can't be
+        /// used to enumerate accounts - a real email only goes out when the username is real.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("forgot-password")]
+        public async Task<ActionResult<ForgotPasswordResponse>> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            var result = await _mediator.Send(new ForgotPasswordCommand(request));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Completes a forgot-password challenge: verifies the OTP that ForgotPassword emailed and
+        /// sets the new password directly via Keycloak - no old password required.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("reset-password")]
+        public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            await _mediator.Send(new ResetPasswordCommand(request));
+            return Ok();
         }
     }
 }

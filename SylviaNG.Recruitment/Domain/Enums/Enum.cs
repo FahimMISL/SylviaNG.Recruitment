@@ -285,6 +285,11 @@ public enum RecruitmentEventEnum
     AdmitCardIssued,
     ExamResultPublished,
     AccountCreatedOtp,
+
+    /// <summary>Forgot-password OTP, sent to the requester's own email - closes the gap where
+    /// Account Settings' "change password" required an active session.</summary>
+    PasswordResetRequested,
+
     OfferLetterAvailable,
     OfferAccepted,
     OfferDeclined,
