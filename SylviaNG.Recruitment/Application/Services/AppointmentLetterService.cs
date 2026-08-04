@@ -20,6 +20,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IFileStorageService _fileStorageService;
         private readonly INotificationDispatchService _notificationDispatchService;
         private readonly IApplicationSettingService _applicationSettingService;
+        private readonly ICurrentCandidateService _currentCandidateService;
         private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -33,6 +34,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IFileStorageService fileStorageService,
             INotificationDispatchService notificationDispatchService,
             IApplicationSettingService applicationSettingService,
+            ICurrentCandidateService currentCandidateService,
             IOptions<PortalSettings> portalSettings,
             IUnitOfWork unitOfWork)
         {
@@ -43,6 +45,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _fileStorageService = fileStorageService;
             _notificationDispatchService = notificationDispatchService;
             _applicationSettingService = applicationSettingService;
+            _currentCandidateService = currentCandidateService;
             _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
         }
@@ -111,7 +114,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 ["CandidateName"] = offerLetter.JobApplication.CandidateName,
                 ["Designation"] = offerLetter.Designation,
                 ["JoiningDate"] = offerLetter.JoiningDate.ToString("dd MMM yyyy"),
-                ["PortalLink"] = $"{_portalSettings.FrontendBaseUrl}/candidate-profile/offer-letters",
+                ["PortalLink"] = $"{_portalSettings.FrontendBaseUrl}/candidate-profile/appointment-letters",
             };
 
             await _notificationDispatchService.DispatchAsync(
@@ -135,6 +138,31 @@ namespace SylviaNG.Recruitment.Application.Services
                 ?? throw new NotFoundException("AppointmentLetter", appointmentLetterId);
 
             return entity.ToResponse();
+        }
+
+        public async Task<List<AppointmentLetterResponse>> GetAllForCandidateAsync()
+        {
+            var candidateProfileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+            var entities = await _appointmentLetterRepository.GetAllForCandidateAsync(candidateProfileId);
+            return entities.Select(e => e.ToResponse()).ToList();
+        }
+
+        public async Task<AppointmentLetterResponse> GetByIdForCandidateAsync(long appointmentLetterId)
+        {
+            var entity = await GetOwnedAppointmentLetterAsync(appointmentLetterId);
+            return entity.ToResponse();
+        }
+
+        private async Task<AppointmentLetter> GetOwnedAppointmentLetterAsync(long appointmentLetterId)
+        {
+            var entity = await _appointmentLetterRepository.GetByIdWithDetailsAsync(appointmentLetterId)
+                ?? throw new NotFoundException("AppointmentLetter", appointmentLetterId);
+
+            var candidateProfileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
+            if (entity.JobApplication.CandidateProfileId != candidateProfileId)
+                throw new ForbiddenException("This appointment letter does not belong to you.");
+
+            return entity;
         }
     }
 }

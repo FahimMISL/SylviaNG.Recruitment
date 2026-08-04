@@ -47,7 +47,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(a => a.JobPosting)
-                .Include(a => a.Interviews)
+                .Include(a => a.Interviews).ThenInclude(i => i.InterviewVenue)
+                .Include(a => a.Interviews).ThenInclude(i => i.InterviewRoom)
                 .Where(a =>
                     (candidateProfileId != null && a.CandidateProfileId == candidateProfileId) ||
                     (a.CandidateProfileId == null && a.CandidateEmail == email))

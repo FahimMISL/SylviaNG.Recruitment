@@ -6,6 +6,7 @@ using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
 
@@ -28,17 +29,20 @@ namespace SylviaNG.Recruitment.Application.Services
 
         private readonly IExamRepository _examRepository;
         private readonly IExamEnrollmentRepository _examEnrollmentRepository;
+        private readonly IJobApplicationStageProgressService _jobApplicationStageProgressService;
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
         public ExamScoreImportService(
             IExamRepository examRepository,
             IExamEnrollmentRepository examEnrollmentRepository,
+            IJobApplicationStageProgressService jobApplicationStageProgressService,
             ICurrentUserService currentUserService,
             IUnitOfWork unitOfWork)
         {
             _examRepository = examRepository;
             _examEnrollmentRepository = examEnrollmentRepository;
+            _jobApplicationStageProgressService = jobApplicationStageProgressService;
             _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
@@ -119,6 +123,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var response = new ExamScoreBulkUploadResponse { TotalRows = rows.Count };
             var scoredByUserName = _currentUserService.GetCurrentUserName();
             var updatedCount = 0;
+            var updatedEnrollments = new List<ExamEnrollment>();
 
             for (var i = 0; i < rows.Count; i++)
             {
@@ -157,6 +162,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 enrollment.ScoredAt = DateTime.UtcNow;
                 enrollment.ScoredByUserName = scoredByUserName;
                 _examEnrollmentRepository.Update(enrollment);
+                updatedEnrollments.Add(enrollment);
                 updatedCount++;
             }
 
@@ -165,6 +171,12 @@ namespace SylviaNG.Recruitment.Application.Services
 
             if (updatedCount > 0)
                 await _unitOfWork.SaveChangesAsync();
+
+            // Same authoritative-finalize reasoning as ExamEnrollmentService.UploadScoreAsync -
+            // this bulk import IS the HR finalize action for these rows.
+            foreach (var enrollment in updatedEnrollments)
+                await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
+                    enrollment.JobApplicationId, "TechnicalAssessment", enrollment.Score!.Value, "system:exam-score");
 
             return response;
         }

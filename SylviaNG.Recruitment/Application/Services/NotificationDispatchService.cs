@@ -81,7 +81,13 @@ namespace SylviaNG.Recruitment.Application.Services
                 Channel = NotificationChannelEnum.Email,
                 RecipientType = recipientType,
                 RecipientAddress = address,
-                JobApplicationId = jobApplicationId
+                JobApplicationId = jobApplicationId,
+                // Audit.CreatedAt isn't auto-stamped anywhere (no SaveChanges interceptor for it,
+                // unlike UtcDateTimeInterceptor's UTC-normalization) - every repo query that orders
+                // the bell/log list by CreatedAt (NotificationLogRepository.GetUnreadFor*Async,
+                // GetFilteredQueryable) silently no-ops without this, since a column that's always
+                // null sorts as "no order" and Postgres falls back to insertion order.
+                CreatedAt = DateTime.UtcNow,
             };
 
             var sendResult = new EmailSendResult { Success = false, ErrorMessage = "No active template mapping" };

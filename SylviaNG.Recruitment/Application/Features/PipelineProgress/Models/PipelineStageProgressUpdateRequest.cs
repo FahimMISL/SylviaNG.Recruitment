@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Features.PipelineProgress.Models
 {
@@ -11,6 +13,7 @@ namespace SylviaNG.Recruitment.Application.Features.PipelineProgress.Models
     public class PipelineStageProgressUpdateRequest
     {
         public StageProgressStatusEnum? Status { get; set; }
+        [JsonConverter(typeof(NullableLocalDateTimeJsonConverter))]
         public DateTime? ScheduledDate { get; set; }
         public string? MeetingLink { get; set; }
         public string? Notes { get; set; }

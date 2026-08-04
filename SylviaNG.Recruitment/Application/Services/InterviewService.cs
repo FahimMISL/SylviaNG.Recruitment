@@ -19,9 +19,14 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IInterviewRoomRepository _interviewRoomRepository;
         private readonly IInterviewRoundConfigRepository _interviewRoundConfigRepository;
         private readonly IEmployeeRepository _employeeRepository;
+        private readonly IInterviewEvaluationRepository _interviewEvaluationRepository;
+        private readonly IJobApplicationStageProgressService _jobApplicationStageProgressService;
         private readonly IInterviewNotificationService _interviewNotificationService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<InterviewService> _logger;
+
+        // Matches the frontend gate in pipeline-progress-tracker.component.ts (blockingStageBeforeInterview).
+        private const string TechnicalInterviewStageType = "TechnicalInterview";
 
         public InterviewService(
             IInterviewRepository interviewRepository,
@@ -30,6 +35,8 @@ namespace SylviaNG.Recruitment.Application.Services
             IInterviewRoomRepository interviewRoomRepository,
             IInterviewRoundConfigRepository interviewRoundConfigRepository,
             IEmployeeRepository employeeRepository,
+            IInterviewEvaluationRepository interviewEvaluationRepository,
+            IJobApplicationStageProgressService jobApplicationStageProgressService,
             IInterviewNotificationService interviewNotificationService,
             IUnitOfWork unitOfWork,
             ILogger<InterviewService> logger)
@@ -40,6 +47,8 @@ namespace SylviaNG.Recruitment.Application.Services
             _interviewRoomRepository = interviewRoomRepository;
             _interviewRoundConfigRepository = interviewRoundConfigRepository;
             _employeeRepository = employeeRepository;
+            _interviewEvaluationRepository = interviewEvaluationRepository;
+            _jobApplicationStageProgressService = jobApplicationStageProgressService;
             _interviewNotificationService = interviewNotificationService;
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -49,6 +58,8 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var jobApplication = await _jobApplicationRepository.GetByIdAsync(request.JobApplicationId)
                 ?? throw new NotFoundException("JobApplication", request.JobApplicationId);
+
+            await _jobApplicationStageProgressService.EnsureStagePrerequisitesMetAsync(request.JobApplicationId, TechnicalInterviewStageType);
 
             var entity = request.ToEntity();
             var panelistIds = request.PanelistEmployeeIds.Distinct().ToList();
@@ -90,6 +101,8 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 var jobApplication = await _jobApplicationRepository.GetByIdAsync(jobApplicationId)
                     ?? throw new NotFoundException("JobApplication", jobApplicationId);
+
+                await _jobApplicationStageProgressService.EnsureStagePrerequisitesMetAsync(jobApplicationId, TechnicalInterviewStageType);
 
                 var entity = new Interview
                 {
@@ -256,6 +269,21 @@ namespace SylviaNG.Recruitment.Application.Services
 
             _interviewRepository.Update(interview);
             await _unitOfWork.SaveChangesAsync();
+
+            // Drive the matching pipeline stage from the panel's actual evaluation instead of
+            // leaving HR to separately re-type a score there - only on Passed (a Failed/Pending
+            // result has nothing to complete the stage with), and only if a panelist actually
+            // submitted a scorecard (WeightedScore is meaningless with zero evaluations).
+            if (request.Result == InterviewResultEnum.Passed)
+            {
+                var evaluations = await _interviewEvaluationRepository.GetByInterviewIdAsync(interviewId);
+                if (evaluations.Count > 0)
+                {
+                    var averageWeightedScore = evaluations.Average(e => e.ToResponse().WeightedScore);
+                    await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
+                        interview.JobApplicationId, "TechnicalInterview", averageWeightedScore, "system:interview-evaluation");
+                }
+            }
         }
 
         public async Task<PagedResult<InterviewResponse>> GetPagedAsync(

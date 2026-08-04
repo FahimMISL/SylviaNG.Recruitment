@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Features.Interviews.Models
 {
@@ -15,6 +17,7 @@ namespace SylviaNG.Recruitment.Application.Features.Interviews.Models
         public long? InterviewRoomId { get; set; }
         public string? MeetingLink { get; set; }
 
+        [JsonConverter(typeof(LocalDateTimeJsonConverter))]
         public DateTime StartAt { get; set; }
         public int DurationMinutes { get; set; }
         public int GapMinutes { get; set; } = 0;

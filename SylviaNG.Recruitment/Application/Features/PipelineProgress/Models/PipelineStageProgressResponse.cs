@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Features.PipelineProgress.Models
 {
@@ -9,6 +11,7 @@ namespace SylviaNG.Recruitment.Application.Features.PipelineProgress.Models
         public string StageName { get; set; } = string.Empty;
         public string StageType { get; set; } = string.Empty;
         public int DisplayOrder { get; set; }
+        public bool IsMandatory { get; set; }
 
         // Live-joined from the current PipelineStage config (not snapshotted, unlike
         // StageName/StageType/DisplayOrder above) - null if the pipeline was edited since this
@@ -19,7 +22,13 @@ namespace SylviaNG.Recruitment.Application.Features.PipelineProgress.Models
         public string? RequiredDocuments { get; set; }
         public int? EstimatedDurationMinutes { get; set; }
 
+        // Score's upper bound - null means the stage was never configured as a scored assessment
+        // (PipelineStage's own doc comment: only assessment-shaped stages set this), in which
+        // case Score is still conceptually a percentage-style 0-100 rating.
+        public int? MaxMarks { get; set; }
+
         public StageProgressStatusEnum Status { get; set; }
+        [JsonConverter(typeof(NullableLocalDateTimeJsonConverter))]
         public DateTime? ScheduledDate { get; set; }
         public string? MeetingLink { get; set; }
         public string? Notes { get; set; }

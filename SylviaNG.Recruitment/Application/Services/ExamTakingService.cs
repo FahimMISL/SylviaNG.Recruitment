@@ -17,6 +17,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IExamEnrollmentRepository _examEnrollmentRepository;
         private readonly IExamQuestionRepository _examQuestionRepository;
         private readonly IExamAnswerRepository _examAnswerRepository;
+        private readonly IJobApplicationStageProgressService _jobApplicationStageProgressService;
         private readonly ICurrentCandidateService _currentCandidateService;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -24,12 +25,14 @@ namespace SylviaNG.Recruitment.Application.Services
             IExamEnrollmentRepository examEnrollmentRepository,
             IExamQuestionRepository examQuestionRepository,
             IExamAnswerRepository examAnswerRepository,
+            IJobApplicationStageProgressService jobApplicationStageProgressService,
             ICurrentCandidateService currentCandidateService,
             IUnitOfWork unitOfWork)
         {
             _examEnrollmentRepository = examEnrollmentRepository;
             _examQuestionRepository = examQuestionRepository;
             _examAnswerRepository = examAnswerRepository;
+            _jobApplicationStageProgressService = jobApplicationStageProgressService;
             _currentCandidateService = currentCandidateService;
             _unitOfWork = unitOfWork;
         }
@@ -177,6 +180,15 @@ namespace SylviaNG.Recruitment.Application.Services
             _examEnrollmentRepository.Update(enrollment);
 
             await _unitOfWork.SaveChangesAsync();
+
+            // totalScore only counts auto-gradable questions - if any Subjective question exists,
+            // it contributed 0 here and is still awaiting HR grading (via UploadScoreAsync/
+            // ExamScoreImportService, which overwrite Score/IsPassed with the true final value).
+            // Only safe to drive the pipeline stage from this score when there's nothing left ungraded.
+            var hasUngradedSubjective = questions.Any(q => q.QuestionType == QuestionTypeEnum.Subjective);
+            if (!hasUngradedSubjective)
+                await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
+                    enrollment.JobApplicationId, "TechnicalAssessment", totalScore, "system:exam-score");
 
             var resultsVisible = enrollment.Exam.ShowResultsToCandidate;
 

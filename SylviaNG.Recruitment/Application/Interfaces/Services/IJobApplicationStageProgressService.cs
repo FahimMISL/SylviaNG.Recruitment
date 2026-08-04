@@ -23,5 +23,27 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// (like an Exam) to a specific PipelineStageId.
         /// </summary>
         Task BulkAdvanceToStageAsync(List<long> jobApplicationIds, long pipelineStageId);
+
+        /// <summary>
+        /// Auto-completes this application's earliest non-Completed stage whose StageType matches
+        /// (case-insensitive), setting Score and Status=Completed directly - for when an external
+        /// system (Exam scoring, Interview Evaluation) already produced the authoritative result,
+        /// instead of requiring HR to re-type it manually. Silently no-ops (never throws) if there's
+        /// no pipeline, no matching stage, the matching stage is already Completed, or an earlier
+        /// mandatory stage isn't Completed yet - callers are score-producing side effects of another
+        /// action (submitting an exam, marking an interview result) and must never fail that action.
+        /// </summary>
+        Task AutoCompleteStageByTypeAsync(long jobApplicationId, string stageType, decimal score, string source);
+
+        /// <summary>
+        /// Throws InvalidStatusTransitionException if any mandatory stage before the given
+        /// StageType (case-insensitive) isn't Completed yet - for other features that represent
+        /// doing work FOR a specific stage (e.g. scheduling an interview for the "Technical
+        /// Interview" stage), so they can't be used before that stage's own prerequisites are
+        /// met. Mirrors the frontend's blockingPriorStage check, enforced server-side so it can't
+        /// be bypassed via direct API calls. No-ops silently if there's no pipeline or no stage of
+        /// that type configured.
+        /// </summary>
+        Task EnsureStagePrerequisitesMetAsync(long jobApplicationId, string stageType);
     }
 }

@@ -55,7 +55,7 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 var jobApplication = await _jobApplicationRepository.GetByIdWithIncludeAsync(
                     ja => ja.JobApplicationId == jobApplicationId,
-                    ja => ja.CandidateProfile)
+                    ja => ja.CandidateProfile!)
                     ?? throw new NotFoundException("JobApplication", jobApplicationId);
 
                 if (jobApplication.JobPostingId != exam.JobPostingId)
@@ -157,6 +157,11 @@ namespace SylviaNG.Recruitment.Application.Services
 
             _examEnrollmentRepository.Update(enrollment);
             await _unitOfWork.SaveChangesAsync();
+
+            // This is HR's authoritative finalize of the exam score - drive the matching pipeline
+            // stage from it instead of leaving HR to separately re-type the same number there.
+            await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
+                enrollment.JobApplicationId, "TechnicalAssessment", score, "system:exam-score");
         }
 
         public async Task BulkMoveToStageAsync(long examId, List<long> examEnrollmentIds, long pipelineStageId)

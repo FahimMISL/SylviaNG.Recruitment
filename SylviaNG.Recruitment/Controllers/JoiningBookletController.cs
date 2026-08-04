@@ -15,7 +15,7 @@ namespace SylviaNG.Recruitment.Controllers
     // bulk-download-as-File-result pattern.
     [ApiController]
     [Route("recruitment/joining-booklet")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,HR")]
     public class JoiningBookletController : ControllerBase
     {
         private readonly IMediator _mediator;

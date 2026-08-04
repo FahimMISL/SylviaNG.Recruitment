@@ -16,6 +16,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IOfferLetterRepository _offerLetterRepository;
         private readonly IDocumentTemplateRepository _documentTemplateRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
+        private readonly ICandidateRecommendationRepository _candidateRecommendationRepository;
         private readonly IPlaceholderSubstitutionService _placeholderSubstitutionService;
         private readonly IOfferLetterPdfGeneratorService _offerLetterPdfGeneratorService;
         private readonly IFileStorageService _fileStorageService;
@@ -23,15 +24,27 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly INotificationDispatchService _notificationDispatchService;
         private readonly IApplicationSettingService _applicationSettingService;
         private readonly IFinalSelectionPoolService _finalSelectionPoolService;
+        private readonly IJobApplicationStageProgressService _jobApplicationStageProgressService;
         private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
 
         private const string PdfStorageSubFolder = "documents/offer-letters";
+        private const string OfferAcceptedSystemActor = "system:offer-accepted";
+        private const string OfferGeneratedSystemActor = "system:offer-generated";
+
+        private static readonly ApplicationStatusEnum[] TerminalApplicationStatuses =
+        {
+            ApplicationStatusEnum.Hired,
+            ApplicationStatusEnum.Rejected,
+            ApplicationStatusEnum.Withdrawn,
+            ApplicationStatusEnum.DuplicateDismissed,
+        };
 
         public OfferLetterService(
             IOfferLetterRepository offerLetterRepository,
             IDocumentTemplateRepository documentTemplateRepository,
             IJobApplicationRepository jobApplicationRepository,
+            ICandidateRecommendationRepository candidateRecommendationRepository,
             IPlaceholderSubstitutionService placeholderSubstitutionService,
             IOfferLetterPdfGeneratorService offerLetterPdfGeneratorService,
             IFileStorageService fileStorageService,
@@ -39,12 +52,14 @@ namespace SylviaNG.Recruitment.Application.Services
             INotificationDispatchService notificationDispatchService,
             IApplicationSettingService applicationSettingService,
             IFinalSelectionPoolService finalSelectionPoolService,
+            IJobApplicationStageProgressService jobApplicationStageProgressService,
             IOptions<PortalSettings> portalSettings,
             IUnitOfWork unitOfWork)
         {
             _offerLetterRepository = offerLetterRepository;
             _documentTemplateRepository = documentTemplateRepository;
             _jobApplicationRepository = jobApplicationRepository;
+            _candidateRecommendationRepository = candidateRecommendationRepository;
             _placeholderSubstitutionService = placeholderSubstitutionService;
             _offerLetterPdfGeneratorService = offerLetterPdfGeneratorService;
             _fileStorageService = fileStorageService;
@@ -52,12 +67,27 @@ namespace SylviaNG.Recruitment.Application.Services
             _notificationDispatchService = notificationDispatchService;
             _applicationSettingService = applicationSettingService;
             _finalSelectionPoolService = finalSelectionPoolService;
+            _jobApplicationStageProgressService = jobApplicationStageProgressService;
             _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
         }
 
         public async Task<OfferLetterResponse> GenerateAsync(OfferLetterGenerateRequest request)
         {
+            // An offer follows the final selection decision, not the other way around - the
+            // recommendation itself is already gated on pipeline stage completion
+            // (CandidateRecommendationService.CreateAsync), so checking it here transitively
+            // enforces that too without duplicating the stage logic. Checked first, ahead of
+            // template validation, since it's the more fundamental business-rule gate.
+            var recommendation = await _candidateRecommendationRepository.GetLatestByJobApplicationIdAsync(request.JobApplicationId);
+            if (recommendation is not { Status: RecommendationStatusEnum.Accepted })
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure(
+                        nameof(request.JobApplicationId),
+                        "An offer letter can only be generated once the candidate has an Accepted final selection recommendation.")
+                });
+
             var template = await _documentTemplateRepository.GetByIdAsync(request.DocumentTemplateId)
                 ?? throw new NotFoundException("DocumentTemplate", request.DocumentTemplateId);
 
@@ -111,6 +141,13 @@ namespace SylviaNG.Recruitment.Application.Services
             entity.JobApplication = jobApplication;
             entity.DocumentTemplate = template;
 
+            // Same ApplicationStatus/pipeline-stage split as AcceptAsync's Hired transition below -
+            // generating the offer is the system event that should push the application to
+            // Offered, since nothing else in the codebase writes that status automatically.
+            await AutoTransitionApplicationStatusAsync(
+                jobApplication, ApplicationStatusEnum.Offered, OfferGeneratedSystemActor,
+                "Auto-transitioned: offer letter generated.");
+
             // EP-10 US-082 AC1: candidate gets a portal-link notification for the newly generated
             // offer. DispatchAsync never throws (a missing EventTemplateMapping just logs a
             // Skipped NotificationLog row), so this can't fail the generate call itself.
@@ -121,6 +158,24 @@ namespace SylviaNG.Recruitment.Application.Services
                 persistImmediately: true);
 
             return entity.ToResponse();
+        }
+
+        public async Task<List<CandidateHireConflictResponse>> GetCandidateHireConflictsAsync(long jobApplicationId)
+        {
+            var application = await _jobApplicationRepository.GetByIdAsync(jobApplicationId)
+                ?? throw new NotFoundException("JobApplication", jobApplicationId);
+
+            var siblings = await _jobApplicationRepository.GetByCandidateAsync(application.CandidateProfileId, application.CandidateEmail!);
+
+            return siblings
+                .Where(a => a.JobApplicationId != jobApplicationId && a.ApplicationStatus == ApplicationStatusEnum.Hired)
+                .Select(a => new CandidateHireConflictResponse
+                {
+                    JobApplicationId = a.JobApplicationId,
+                    JobPostingTitle = a.JobPosting?.Title ?? string.Empty,
+                    ApplicationStatus = a.ApplicationStatus.ToString(),
+                })
+                .ToList();
         }
 
         public async Task<List<OfferLetterResponse>> GetAllAsync(long? jobApplicationId)
@@ -166,7 +221,52 @@ namespace SylviaNG.Recruitment.Application.Services
             // can accept an offer without also enrolling it in the pool.
             await _finalSelectionPoolService.CreateFromAcceptedOfferAsync(entity);
 
+            // The "Offer" pipeline stage's own passing criteria is literally "Candidate accepts
+            // the offer" - there's no meaningful numeric score for it, so 100 is used as a
+            // pass/fail sentinel (also lets it participate in AutoProgressionTargetDisplayOrder
+            // like any other stage, if a pipeline configures one out of Offer).
+            await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
+                entity.JobApplicationId, "Offer", 100m, OfferAcceptedSystemActor);
+
+            // JobApplication.ApplicationStatus is a separate HR-facing field from the pipeline
+            // stage above, and its dropdown only allows single-step manual moves (see
+            // JobApplicationService.LegalStatusTransitions) - so without this, an accepted offer
+            // leaves the application stuck wherever HR last set it (e.g. Shortlisted), with no
+            // legal manual path to Hired. Mirrors PaymentService.HandleIpnAsync's direct write for
+            // the same reason: a system event, not an HR pick, is driving this transition.
+            await AutoTransitionApplicationStatusAsync(
+                entity.JobApplication, ApplicationStatusEnum.Hired, OfferAcceptedSystemActor,
+                "Auto-transitioned: candidate accepted the offer letter.");
+
             return entity.ToResponse();
+        }
+
+        // Same rationale as the Hired transition in AcceptAsync below - offer generation is a
+        // system event (HR clicked "Generate", not "set status to Offered"), so it should push
+        // ApplicationStatus forward too instead of leaving it wherever HR last manually set it.
+        private async Task AutoTransitionApplicationStatusAsync(
+            JobApplication? jobApplication, ApplicationStatusEnum toStatus, string systemActor, string note)
+        {
+            if (jobApplication == null
+                || jobApplication.ApplicationStatus == toStatus
+                || TerminalApplicationStatuses.Contains(jobApplication.ApplicationStatus))
+                return;
+
+            var fromStatus = jobApplication.ApplicationStatus;
+            jobApplication.ApplicationStatus = toStatus;
+            _jobApplicationRepository.Update(jobApplication);
+
+            jobApplication.StatusHistory.Add(new ApplicationStatusHistory
+            {
+                JobApplicationId = jobApplication.JobApplicationId,
+                FromStatus = fromStatus,
+                ToStatus = toStatus,
+                ChangedByUserName = systemActor,
+                ChangedAt = DateTime.UtcNow,
+                Note = note,
+            });
+
+            await _unitOfWork.SaveChangesAsync();
         }
 
         public async Task<OfferLetterResponse> DeclineAsync(long offerLetterId, string reason)

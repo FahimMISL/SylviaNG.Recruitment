@@ -7,5 +7,6 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
     {
         Task<List<AppointmentLetter>> GetAllOrderedAsync(long? jobApplicationId);
         Task<AppointmentLetter?> GetByIdWithDetailsAsync(long appointmentLetterId);
+        Task<List<AppointmentLetter>> GetAllForCandidateAsync(long candidateProfileId);
     }
 }

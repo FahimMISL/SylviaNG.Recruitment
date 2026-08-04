@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Features.ExamTaking.Models
 {
@@ -21,6 +23,7 @@ namespace SylviaNG.Recruitment.Application.Features.ExamTaking.Models
         public long ExamId { get; set; }
         public string ExamTitle { get; set; } = string.Empty;
         public ExamTypeEnum ExamType { get; set; }
+        [JsonConverter(typeof(LocalDateTimeJsonConverter))]
         public DateTime ScheduledStartAt { get; set; }
         public int DurationMinutes { get; set; }
         public decimal TotalMarks { get; set; }

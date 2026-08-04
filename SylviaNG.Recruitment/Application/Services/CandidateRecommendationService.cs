@@ -1,5 +1,6 @@
 using FluentValidation;
 using FluentValidation.Results;
+using SylviaNG.Recruitment.Application.Common.Constants;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.CandidateRecommendations.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
@@ -16,17 +17,20 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly ICandidateRecommendationRepository _candidateRecommendationRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
+        private readonly IJobApplicationStageProgressService _stageProgressService;
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
         public CandidateRecommendationService(
             ICandidateRecommendationRepository candidateRecommendationRepository,
             IJobApplicationRepository jobApplicationRepository,
+            IJobApplicationStageProgressService stageProgressService,
             ICurrentUserService currentUserService,
             IUnitOfWork unitOfWork)
         {
             _candidateRecommendationRepository = candidateRecommendationRepository;
             _jobApplicationRepository = jobApplicationRepository;
+            _stageProgressService = stageProgressService;
             _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
@@ -41,6 +45,24 @@ namespace SylviaNG.Recruitment.Application.Services
                 {
                     new ValidationFailure(nameof(request.Justification), "Justification is required.")
                 });
+
+            // A recommendation is the selection decision itself - every evaluation stage (mandatory
+            // stages other than Offer/Joining/Onboarding, which come AFTER this decision) must be
+            // Completed first. Mirrors the frontend gate in pipeline-progress-tracker.component.ts.
+            var progress = await _stageProgressService.GetByJobApplicationIdAsync(jobApplicationId);
+            if (progress.HasPipeline)
+            {
+                var incompleteRequiredStage = progress.Stages.FirstOrDefault(s =>
+                    s.IsMandatory
+                    && !PipelineStageTypes.PostDecision.Contains(s.StageType, StringComparer.OrdinalIgnoreCase)
+                    && s.Status != StageProgressStatusEnum.Completed);
+
+                if (incompleteRequiredStage != null)
+                    throw new ValidationException(new[]
+                    {
+                        new ValidationFailure(nameof(jobApplicationId), $"All required stages must be completed before recommending for final selection ('{incompleteRequiredStage.StageName}' is not yet Completed).")
+                    });
+            }
 
             var existingPending = await _candidateRecommendationRepository.GetLatestByJobApplicationIdAsync(jobApplicationId);
             if (existingPending is { Status: RecommendationStatusEnum.Pending })

@@ -39,7 +39,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
             {
                 container.Page(page =>
                 {
-                    page.Size(PageSizes.A5.Landscape());
+                    // Every other generated document in this codebase uses A4 (see
+                    // QuestPdfSeatPlanGenerator, QuestPdfCvGenerator, etc.) - A5.Landscape() is
+                    // only ~148mm tall, not enough room for this layout, which was spilling the
+                    // trailing "IMPORTANT" notice onto a second page. A4.Landscape() keeps the
+                    // wide two-column layout but with ~210mm of height instead.
+                    page.Size(PageSizes.A4.Landscape());
                     page.MarginTop(branding.MarginTop);
                     page.MarginBottom(branding.MarginBottom);
                     page.MarginLeft(branding.MarginLeft);

@@ -8,6 +8,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task<List<OfferLetterResponse>> GetAllAsync(long? jobApplicationId);
         Task<OfferLetterResponse> GetByIdAsync(long offerLetterId);
 
+        // Warn-only: other applications from the same candidate already Hired elsewhere. See
+        // CandidateHireConflictResponse's doc comment for why this exists and why it never blocks.
+        Task<List<CandidateHireConflictResponse>> GetCandidateHireConflictsAsync(long jobApplicationId);
+
         // EP-10 US-082: candidate self-service - identity is resolved internally via
         // ICurrentCandidateService, not passed in by the caller (same convention as
         // ExamTakingService.GetOwnedEnrollmentAsync).

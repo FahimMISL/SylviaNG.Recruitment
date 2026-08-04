@@ -18,10 +18,14 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 StageName = entity.StageName,
                 StageType = entity.StageType,
                 DisplayOrder = entity.DisplayOrder,
+                // Live-joined like Description/PassingCriteria below - defaults to true (matching
+                // PipelineStage.IsMandatory's own default) if the stage no longer exists.
+                IsMandatory = liveStage?.IsMandatory ?? true,
                 StageDescription = liveStage?.Description,
                 PassingCriteria = liveStage?.PassingCriteria,
                 RequiredDocuments = liveStage?.RequiredDocuments,
                 EstimatedDurationMinutes = liveStage?.EstimatedDurationMinutes,
+                MaxMarks = liveStage?.MaxMarks,
                 Status = entity.Status,
                 ScheduledDate = entity.ScheduledDate,
                 MeetingLink = entity.MeetingLink,

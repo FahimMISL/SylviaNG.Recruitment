@@ -11,7 +11,7 @@ namespace SylviaNG.Recruitment.Controllers
     // EP-10 US-086: HR-only, mirrors AppointmentLetterController's shape.
     [ApiController]
     [Route("recruitment/medical-letter")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,HR")]
     public class MedicalLetterController : ControllerBase
     {
         private readonly IMediator _mediator;

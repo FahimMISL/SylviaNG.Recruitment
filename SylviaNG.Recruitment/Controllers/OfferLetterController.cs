@@ -5,6 +5,7 @@ using SylviaNG.Recruitment.Application.Features.OfferLetters.Commands.OfferLette
 using SylviaNG.Recruitment.Application.Features.OfferLetters.Models;
 using SylviaNG.Recruitment.Application.Features.OfferLetters.Queries.OfferLetterGetAll;
 using SylviaNG.Recruitment.Application.Features.OfferLetters.Queries.OfferLetterGetById;
+using SylviaNG.Recruitment.Application.Features.OfferLetters.Queries.OfferLetterGetCandidateHireConflicts;
 
 namespace SylviaNG.Recruitment.Controllers
 {
@@ -12,7 +13,7 @@ namespace SylviaNG.Recruitment.Controllers
     // its own candidate-facing endpoints separately, not here.
     [ApiController]
     [Route("recruitment/offer-letter")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,HR")]
     public class OfferLetterController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -32,6 +33,12 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult<OfferLetterResponse>> GetById(long offerLetterId)
         {
             return Ok(await _mediator.Send(new OfferLetterGetByIdQuery(offerLetterId)));
+        }
+
+        [HttpGet("candidate-conflicts/{jobApplicationId}")]
+        public async Task<ActionResult<List<CandidateHireConflictResponse>>> GetCandidateHireConflicts(long jobApplicationId)
+        {
+            return Ok(await _mediator.Send(new OfferLetterGetCandidateHireConflictsQuery(jobApplicationId)));
         }
 
         [HttpPost("generate")]

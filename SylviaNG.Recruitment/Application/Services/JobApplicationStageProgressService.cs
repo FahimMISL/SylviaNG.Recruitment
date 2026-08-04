@@ -17,6 +17,19 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
+        // StageType is free text in the pipeline builder (ManageHiringPipelineComponent's
+        // "Suggested" list is just a picker, not a constraint) - so an exam-driven auto-complete
+        // asking for the literal "TechnicalAssessment" string would silently no-op if whoever
+        // built this pipeline instead typed "OnlineTest" or "CodingTest" from that same suggested
+        // list. A pipeline only ever has one exam/test-taking stage in practice, so widening the
+        // match to every assessment-flavored suggestion carries no ambiguity risk (unlike, say,
+        // widening "TechnicalInterview" across a multi-round interview pipeline, which could
+        // complete the wrong round - left untouched on purpose).
+        private static readonly string[] TechnicalAssessmentStageTypeAliases =
+        {
+            "TechnicalAssessment", "OnlineTest", "CodingTest", "WrittenTest", "AptitudeTest", "PsychometricTest", "PracticalAssessment",
+        };
+
         public JobApplicationStageProgressService(
             IJobApplicationRepository jobApplicationRepository,
             IHiringPipelineRepository hiringPipelineRepository,
@@ -82,9 +95,47 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task UpdateStageAsync(long jobApplicationId, long pipelineStageId, PipelineStageProgressUpdateRequest request)
         {
-            var progress = (await _stageProgressRepository.GetByJobApplicationIdAsync(jobApplicationId))
-                .FirstOrDefault(p => p.PipelineStageId == pipelineStageId)
+            var allProgress = await _stageProgressRepository.GetByJobApplicationIdAsync(jobApplicationId);
+            var progress = allProgress.FirstOrDefault(p => p.PipelineStageId == pipelineStageId)
                 ?? throw new NotFoundException("JobApplicationStageProgress", pipelineStageId);
+
+            PipelineStage? targetStage = null;
+            if (request.Status.HasValue || request.Score.HasValue)
+            {
+                var owningApplication = await _jobApplicationRepository.GetByIdWithIncludeAsync(
+                    a => a.JobApplicationId == jobApplicationId,
+                    a => a.JobPosting);
+
+                if (owningApplication?.JobPosting.HiringPipelineId != null)
+                {
+                    var pipeline = await _hiringPipelineRepository.GetByIdWithStagesAsync(owningApplication.JobPosting.HiringPipelineId.Value);
+                    targetStage = pipeline?.Stages.FirstOrDefault(s => s.PipelineStageId == pipelineStageId);
+
+                    // Same mandatory-stage-order gate as BulkAdvanceToStageAsync, now also
+                    // enforced on the single-stage manual Update path - previously this was the
+                    // only way to move a stage forward, and it had no ordering check at all, so a
+                    // mandatory earlier stage could be silently skipped. Only checked when
+                    // actually advancing into InProgress/Completed; editing notes/score without
+                    // touching status, or moving backward, never trips this (mirrors
+                    // EnsureMandatoryStagesCompleted's own doc comment on the bulk path).
+                    if (pipeline != null && targetStage != null && request.Status is StageProgressStatusEnum.InProgress or StageProgressStatusEnum.Completed)
+                        EnsureMandatoryStagesCompleted(pipeline, allProgress, targetStage);
+                }
+            }
+
+            // Score has no client-side or server-side bound today - HR can type -50 or 106 into
+            // what's meant to be a 0-100 (or 0-MaxMarks, for assessment-shaped stages) rating.
+            // MaxMarks null means the stage was never configured as a scored assessment, in which
+            // case Score is still conceptually a percentage - default the ceiling to 100.
+            if (request.Score.HasValue)
+            {
+                var maxMarks = targetStage?.MaxMarks ?? 100;
+                if (request.Score.Value < 0 || request.Score.Value > maxMarks)
+                    throw new FluentValidation.ValidationException(new[]
+                    {
+                        new FluentValidation.Results.ValidationFailure(nameof(request.Score), $"Score must be between 0 and {maxMarks}.")
+                    });
+            }
 
             var wasCompleted = progress.Status == StageProgressStatusEnum.Completed;
             var userName = _currentUserService.GetCurrentUserName();
@@ -219,6 +270,91 @@ namespace SylviaNG.Recruitment.Application.Services
             await _stageProgressRepository.AddAsync(targetProgress);
 
             return targetProgress;
+        }
+
+        public async Task AutoCompleteStageByTypeAsync(long jobApplicationId, string stageType, decimal score, string source)
+        {
+            var application = await _jobApplicationRepository.GetByIdWithIncludeAsync(
+                a => a.JobApplicationId == jobApplicationId,
+                a => a.JobPosting);
+            if (application?.JobPosting.HiringPipelineId == null)
+                return;
+
+            var pipeline = await _hiringPipelineRepository.GetByIdWithStagesAsync(application.JobPosting.HiringPipelineId.Value);
+            if (pipeline == null)
+                return;
+
+            var existingProgress = await _stageProgressRepository.GetByJobApplicationIdAsync(jobApplicationId);
+            if (existingProgress.Count == 0)
+            {
+                var newProgress = pipeline.Stages
+                    .Where(s => s.IsActive)
+                    .OrderBy(s => s.DisplayOrder)
+                    .Select(s => s.ToProgressEntity(jobApplicationId))
+                    .ToList();
+
+                await _stageProgressRepository.AddRangeAsync(newProgress);
+                existingProgress = newProgress;
+            }
+
+            var matchTypes = string.Equals(stageType, "TechnicalAssessment", StringComparison.OrdinalIgnoreCase)
+                ? TechnicalAssessmentStageTypeAliases
+                : new[] { stageType };
+
+            var progress = existingProgress
+                .Where(p => matchTypes.Any(t => string.Equals(p.StageType, t, StringComparison.OrdinalIgnoreCase)))
+                .Where(p => p.Status != StageProgressStatusEnum.Completed)
+                .OrderBy(p => p.DisplayOrder)
+                .FirstOrDefault();
+            if (progress == null)
+                return;
+
+            var targetStage = pipeline.Stages.FirstOrDefault(s => s.PipelineStageId == progress.PipelineStageId);
+            if (targetStage == null)
+                return;
+
+            try
+            {
+                EnsureMandatoryStagesCompleted(pipeline, existingProgress, targetStage);
+            }
+            catch (InvalidStatusTransitionException)
+            {
+                // An earlier mandatory stage isn't Completed yet - an auto-source score can't
+                // skip it either, same as the manual Update path. Leave the stage as-is; HR will
+                // see it's still blocked on the tracker.
+                return;
+            }
+
+            var alreadyPersisted = progress.JobApplicationStageProgressId != 0;
+
+            progress.Status = StageProgressStatusEnum.Completed;
+            progress.Score = score;
+            progress.CompletedAt = DateTime.UtcNow;
+            progress.LastUpdatedByUserName = source;
+
+            if (alreadyPersisted)
+                _stageProgressRepository.Update(progress);
+
+            await TryAutoProgressAsync(jobApplicationId, progress, source);
+
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task EnsureStagePrerequisitesMetAsync(long jobApplicationId, string stageType)
+        {
+            var application = await _jobApplicationRepository.GetByIdWithIncludeAsync(
+                a => a.JobApplicationId == jobApplicationId,
+                a => a.JobPosting);
+            if (application?.JobPosting.HiringPipelineId == null)
+                return;
+
+            var pipeline = await _hiringPipelineRepository.GetByIdWithStagesAsync(application.JobPosting.HiringPipelineId.Value);
+            var targetStage = pipeline?.Stages.FirstOrDefault(s => string.Equals(s.StageType, stageType, StringComparison.OrdinalIgnoreCase));
+            if (pipeline == null || targetStage == null)
+                return;
+
+            var existingProgress = await _stageProgressRepository.GetByJobApplicationIdAsync(jobApplicationId);
+            EnsureMandatoryStagesCompleted(pipeline, existingProgress, targetStage);
         }
 
         private static void EnsureMandatoryStagesCompleted(HiringPipeline pipeline, List<JobApplicationStageProgress> existingProgress, PipelineStage targetStage)
