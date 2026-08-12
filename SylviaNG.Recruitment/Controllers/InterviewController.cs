@@ -1,6 +1,6 @@
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SylviaNG.Recruitment.Application.Common.Authorization;
 using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewBulkCancel;
 using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewBulkReschedule;
 using SylviaNG.Recruitment.Application.Features.Interviews.Commands.InterviewBulkSchedule;
@@ -17,10 +17,11 @@ using SylviaNG.Recruitment.SharedKernel.Pagination;
 
 namespace SylviaNG.Recruitment.Controllers
 {
-    /// <summary>Interview scheduling/rescheduling/cancellation, single and bulk (EP-08 US-063/US-064/US-065).</summary>
+    /// <summary>Interview scheduling/rescheduling/cancellation, single and bulk (EP-08 US-063/US-064/US-065).
+    /// EP-15/US-112: gated per-action via RequirePermission (Interviews module) instead of a
+    /// single controller-level [Authorize(Roles="Admin,HR")].</summary>
     [ApiController]
     [Route("recruitment/interview")]
-    [Authorize(Roles = "Admin,HR")]
     public class InterviewController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -32,6 +33,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Searched/filtered/paged interview list.</summary>
         [HttpGet("paged")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.View)]
         public async Task<ActionResult<PagedResult<InterviewResponse>>> GetPaged(
             [FromQuery] PagedRequest request,
             [FromQuery] long? jobPostingId,
@@ -45,6 +47,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Get an interview by ID.</summary>
         [HttpGet("{interviewId}")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.View)]
         public async Task<ActionResult<InterviewResponse>> GetById(long interviewId)
         {
             var result = await _mediator.Send(new InterviewGetByIdQuery(interviewId));
@@ -53,6 +56,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Every interview scheduled for one job application - feeds the candidate's pipeline-progress tracker.</summary>
         [HttpGet("job-application/{jobApplicationId}")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.View)]
         public async Task<ActionResult<List<InterviewResponse>>> GetByJobApplication(long jobApplicationId)
         {
             var result = await _mediator.Send(new InterviewGetByJobApplicationQuery(jobApplicationId));
@@ -61,6 +65,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Schedule a single interview.</summary>
         [HttpPost]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.Create)]
         public async Task<ActionResult<long>> Schedule([FromBody] InterviewScheduleRequest request)
         {
             var id = await _mediator.Send(new InterviewScheduleCommand(request));
@@ -69,6 +74,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Schedule interviews for several candidates at once, staggered from a shared start time.</summary>
         [HttpPost("bulk")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.Create)]
         public async Task<ActionResult<List<long>>> BulkSchedule([FromBody] InterviewBulkScheduleRequest request)
         {
             var ids = await _mediator.Send(new InterviewBulkScheduleCommand(request));
@@ -77,6 +83,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Reschedule a single interview to a new date/time (and optionally a new venue/room/meeting link).</summary>
         [HttpPatch("{interviewId}/reschedule")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.Edit)]
         public async Task<ActionResult> Reschedule(long interviewId, [FromBody] InterviewRescheduleRequest request)
         {
             await _mediator.Send(new InterviewRescheduleCommand(interviewId, request));
@@ -85,6 +92,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Reschedule several interviews at once, staggered from a shared start time.</summary>
         [HttpPatch("bulk/reschedule")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.Edit)]
         public async Task<ActionResult> BulkReschedule([FromBody] InterviewBulkRescheduleRequest request)
         {
             await _mediator.Send(new InterviewBulkRescheduleCommand(request));
@@ -93,6 +101,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Cancel a single interview.</summary>
         [HttpPatch("{interviewId}/cancel")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.Edit)]
         public async Task<ActionResult> Cancel(long interviewId, [FromBody] InterviewCancelRequest request)
         {
             await _mediator.Send(new InterviewCancelCommand(interviewId, request));
@@ -101,6 +110,7 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>Cancel several interviews at once.</summary>
         [HttpPatch("bulk/cancel")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.Edit)]
         public async Task<ActionResult> BulkCancel([FromBody] InterviewBulkCancelRequest request)
         {
             await _mediator.Send(new InterviewBulkCancelCommand(request));
@@ -110,6 +120,7 @@ namespace SylviaNG.Recruitment.Controllers
         /// <summary>Mark a completed interview's outcome (Passed/Failed) - also transitions Status
         /// to Completed. Passed gates whether the next configured round can be scheduled (US-070).</summary>
         [HttpPatch("{interviewId}/result")]
+        [RequirePermission(AccessControlModuleEnum.Interviews, PermissionActionEnum.Approve)]
         public async Task<ActionResult> MarkResult(long interviewId, [FromBody] InterviewMarkResultRequest request)
         {
             await _mediator.Send(new InterviewMarkResultCommand(interviewId, request));

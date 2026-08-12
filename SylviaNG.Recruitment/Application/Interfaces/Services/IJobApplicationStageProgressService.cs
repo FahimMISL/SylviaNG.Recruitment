@@ -45,5 +45,23 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// that type configured.
         /// </summary>
         Task EnsureStagePrerequisitesMetAsync(long jobApplicationId, string stageType);
+
+        /// <summary>
+        /// Same gate as EnsureStagePrerequisitesMetAsync, but resolves the target stage by
+        /// PipelineStageId instead of StageType - for callers that already know exactly which
+        /// stage card they're scheduling against (e.g. the per-stage "Schedule Interview" link),
+        /// so a pipeline with several same-typed stages (two HrInterview rounds, say) gates on
+        /// the right one instead of whichever matches the type string first.
+        /// </summary>
+        Task EnsureStagePrerequisitesForStageAsync(long jobApplicationId, long pipelineStageId);
+
+        /// <summary>
+        /// Same effect as AutoCompleteStageByTypeAsync, but completes the given PipelineStageId
+        /// directly instead of searching by StageType - for callers that already know exactly
+        /// which stage produced the score (e.g. an Interview row's own PipelineStageId). Silently
+        /// no-ops if the stage is already Completed or an earlier mandatory stage isn't done yet,
+        /// same non-throwing contract as AutoCompleteStageByTypeAsync.
+        /// </summary>
+        Task AutoCompleteStageAsync(long jobApplicationId, long pipelineStageId, decimal score, string source);
     }
 }

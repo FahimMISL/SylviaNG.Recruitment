@@ -26,6 +26,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(s => s.Criteria.OrderBy(c => c.DisplayOrder))
+                .OrderByDescending(s => s.CreatedAt)
+                .ThenByDescending(s => s.ScorecardId)
                 .ToListAsync();
         }
 

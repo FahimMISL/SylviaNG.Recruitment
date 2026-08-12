@@ -8,6 +8,7 @@ using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -27,6 +28,33 @@ namespace SylviaNG.Recruitment.Application.Services
 
         // Matches the frontend gate in pipeline-progress-tracker.component.ts (blockingStageBeforeInterview).
         private const string TechnicalInterviewStageType = "TechnicalInterview";
+
+        private const string InterviewScheduledSystemActor = "system:interview-scheduled";
+
+        // JobApplication.ApplicationStatus is a separate HR-facing field from the pipeline stage
+        // rows - HR used to have to notice an interview was scheduled and manually move the
+        // status dropdown to InterviewScheduled. Auto-advancing it here (same pattern as
+        // OfferLetterService.AutoTransitionApplicationStatusAsync) removes that manual step for
+        // the routine forward path. Only fires from Shortlisted - a later round being scheduled
+        // after Interviewed/Offered must never regress the status back to InterviewScheduled.
+        private void TryAutoAdvanceToInterviewScheduled(JobApplication jobApplication)
+        {
+            if (jobApplication.ApplicationStatus != ApplicationStatusEnum.Shortlisted)
+                return;
+
+            var fromStatus = jobApplication.ApplicationStatus;
+            jobApplication.ApplicationStatus = ApplicationStatusEnum.InterviewScheduled;
+            _jobApplicationRepository.Update(jobApplication);
+            jobApplication.StatusHistory.Add(new ApplicationStatusHistory
+            {
+                JobApplicationId = jobApplication.JobApplicationId,
+                FromStatus = fromStatus,
+                ToStatus = ApplicationStatusEnum.InterviewScheduled,
+                ChangedByUserName = InterviewScheduledSystemActor,
+                ChangedAt = DateTime.UtcNow,
+                Note = "Auto-transitioned: interview scheduled.",
+            });
+        }
 
         public InterviewService(
             IInterviewRepository interviewRepository,
@@ -59,7 +87,10 @@ namespace SylviaNG.Recruitment.Application.Services
             var jobApplication = await _jobApplicationRepository.GetByIdAsync(request.JobApplicationId)
                 ?? throw new NotFoundException("JobApplication", request.JobApplicationId);
 
-            await _jobApplicationStageProgressService.EnsureStagePrerequisitesMetAsync(request.JobApplicationId, TechnicalInterviewStageType);
+            if (request.PipelineStageId.HasValue)
+                await _jobApplicationStageProgressService.EnsureStagePrerequisitesForStageAsync(request.JobApplicationId, request.PipelineStageId.Value);
+            else
+                await _jobApplicationStageProgressService.EnsureStagePrerequisitesMetAsync(request.JobApplicationId, TechnicalInterviewStageType);
 
             var entity = request.ToEntity();
             var panelistIds = request.PanelistEmployeeIds.Distinct().ToList();
@@ -74,6 +105,7 @@ namespace SylviaNG.Recruitment.Application.Services
             entity.PanelMembers = panelistIds.Select(id => new InterviewPanelMember { EmployeeId = id }).ToList();
 
             await _interviewRepository.AddAsync(entity);
+            TryAutoAdvanceToInterviewScheduled(jobApplication);
             await _unitOfWork.SaveChangesAsync();
 
             entity.JobApplication = jobApplication;
@@ -102,7 +134,10 @@ namespace SylviaNG.Recruitment.Application.Services
                 var jobApplication = await _jobApplicationRepository.GetByIdAsync(jobApplicationId)
                     ?? throw new NotFoundException("JobApplication", jobApplicationId);
 
-                await _jobApplicationStageProgressService.EnsureStagePrerequisitesMetAsync(jobApplicationId, TechnicalInterviewStageType);
+                if (request.PipelineStageId.HasValue)
+                    await _jobApplicationStageProgressService.EnsureStagePrerequisitesForStageAsync(jobApplicationId, request.PipelineStageId.Value);
+                else
+                    await _jobApplicationStageProgressService.EnsureStagePrerequisitesMetAsync(jobApplicationId, TechnicalInterviewStageType);
 
                 var entity = new Interview
                 {
@@ -124,6 +159,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 entity.PanelMembers = panelistIds.Select(id => new InterviewPanelMember { EmployeeId = id }).ToList();
 
                 await _interviewRepository.AddAsync(entity);
+                TryAutoAdvanceToInterviewScheduled(jobApplication);
                 entity.JobApplication = jobApplication;
                 created.Add(entity);
 
@@ -280,8 +316,12 @@ namespace SylviaNG.Recruitment.Application.Services
                 if (evaluations.Count > 0)
                 {
                     var averageWeightedScore = evaluations.Average(e => e.ToResponse().WeightedScore);
-                    await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
-                        interview.JobApplicationId, "TechnicalInterview", averageWeightedScore, "system:interview-evaluation");
+                    if (interview.PipelineStageId.HasValue)
+                        await _jobApplicationStageProgressService.AutoCompleteStageAsync(
+                            interview.JobApplicationId, interview.PipelineStageId.Value, averageWeightedScore, "system:interview-evaluation");
+                    else
+                        await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
+                            interview.JobApplicationId, "TechnicalInterview", averageWeightedScore, "system:interview-evaluation");
                 }
             }
         }
@@ -388,8 +428,12 @@ namespace SylviaNG.Recruitment.Application.Services
                     entity.InterviewRoomId.Value, entity.ScheduledStartAt, entity.ScheduledEndAt, excludeInterviewId);
 
                 if (overlapCount >= room.Capacity)
+                {
+                    var localStart = DateTimeUtility.ConvertUtcToLocal(entity.ScheduledStartAt);
+                    var localEnd = DateTimeUtility.ConvertUtcToLocal(entity.ScheduledEndAt);
                     throw new InvalidStatusTransitionException(
-                        $"InterviewRoom {room.RoomName} is at capacity ({room.Capacity}) for {entity.ScheduledStartAt:dd MMM yyyy HH:mm}-{entity.ScheduledEndAt:HH:mm}.");
+                        $"InterviewRoom {room.RoomName} is at capacity ({room.Capacity}) for {localStart:dd MMM yyyy hh:mm tt}-{localEnd:hh:mm tt}.");
+                }
             }
 
             if (panelistEmployeeIds.Count > 0)

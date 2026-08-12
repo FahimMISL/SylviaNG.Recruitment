@@ -29,12 +29,13 @@ namespace SylviaNG.Recruitment.Application.Mappings
             };
         }
 
-        public static QuestionGroupLookupResponse ToLookupResponse(this QuestionGroup entity)
+        public static QuestionGroupLookupResponse ToLookupResponse(this QuestionGroup entity, int activeQuestionCount)
         {
             return new QuestionGroupLookupResponse
             {
                 QuestionGroupId = entity.QuestionGroupId,
-                Name = entity.Name
+                Name = entity.Name,
+                ActiveQuestionCount = activeQuestionCount
             };
         }
     }

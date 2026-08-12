@@ -8,7 +8,7 @@ namespace SylviaNG.Recruitment.Application.Common.Settings
     {
         public const string SectionName = "Minio";
 
-        public string Endpoint { get; set; } = "localhost:9000";
+        public string Endpoint { get; set; } = "localhost:9100";
         public string AccessKey { get; set; } = "minioadmin";
         public string SecretKey { get; set; } = "minioadmin123";
         public bool UseSsl { get; set; } = false;

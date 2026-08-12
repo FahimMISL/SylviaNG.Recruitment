@@ -19,13 +19,22 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .FirstOrDefaultAsync(q => q.ExamQuestionId == examQuestionId);
         }
 
-        public async Task<List<ExamQuestion>> GetActiveByQuestionGroupIdAsync(long questionGroupId)
+        public async Task<List<ExamQuestion>> GetActiveByQuestionGroupIdsAsync(IReadOnlyList<long> questionGroupIds)
         {
             return await _dbSet
                 .Include(q => q.Options.OrderBy(o => o.DisplayOrder))
-                .Where(q => q.QuestionGroupId == questionGroupId && q.IsActive)
+                .Where(q => questionGroupIds.Contains(q.QuestionGroupId) && q.IsActive)
                 .OrderBy(q => q.ExamQuestionId)
                 .ToListAsync();
+        }
+
+        public async Task<Dictionary<long, int>> CountActiveByQuestionGroupIdsAsync(IReadOnlyList<long> questionGroupIds)
+        {
+            return await _dbSet
+                .Where(q => questionGroupIds.Contains(q.QuestionGroupId) && q.IsActive)
+                .GroupBy(q => q.QuestionGroupId)
+                .Select(g => new { QuestionGroupId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.QuestionGroupId, x => x.Count);
         }
 
         public async Task<PagedResult<ExamQuestion>> GetPaginatedAsync(
@@ -42,6 +51,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(q => questionType == null || q.QuestionType == questionType)
                 .Where(q => difficultyLevel == null || q.DifficultyLevel == difficultyLevel)
                 .Where(q => isActive == null || q.IsActive == isActive)
+                .OrderByDescending(q => q.CreatedAt)
+                .ThenByDescending(q => q.ExamQuestionId)
                 .AsQueryable();
 
             return await query.ToPaginatedResultAsync(request);

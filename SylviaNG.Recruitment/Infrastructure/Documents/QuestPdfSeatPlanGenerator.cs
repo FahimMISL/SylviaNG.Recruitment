@@ -5,6 +5,7 @@ using QuestPDF.Infrastructure;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Infrastructure.Documents.Shared;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Infrastructure.Documents
 {
@@ -72,7 +73,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
                 column.Item().PaddingBottom(6).Text(text =>
                 {
                     text.Span("Scheduled: ").SemiBold();
-                    text.Span($"{exam.ScheduledStartAt:dddd, dd MMM yyyy HH:mm} ({exam.DurationMinutes} min)");
+                    text.Span($"{DateTimeUtility.ConvertUtcToLocal(exam.ScheduledStartAt):dddd, dd MMM yyyy hh:mm tt} ({exam.DurationMinutes} min)");
                 });
 
                 if (exam.ExamVenue != null)

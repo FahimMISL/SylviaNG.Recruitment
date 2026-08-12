@@ -9,9 +9,8 @@ namespace SylviaNG.Recruitment.Application.Services
 {
     // EP-12 US-097: manual-entry-only fitment data (grade/designation/location/salary structure) per
     // JobApplication - no Payroll auto-fetch, EP-16 System Integrations is out of scope for this
-    // project. Standalone CRUD screen this round - OfferLetterService.GenerateAsync still takes
-    // Designation/OfferedSalary as HR-typed request fields, pre-populating that form from
-    // FitmentData is a deferred follow-on, not built here.
+    // project. OfferLetterFormComponent prefills Designation/OfferedSalary from this on the
+    // frontend; OfferLetterService.GenerateAsync itself still just takes them as request fields.
     public class FitmentDataService : IFitmentDataService
     {
         private readonly IFitmentDataRepository _fitmentDataRepository;

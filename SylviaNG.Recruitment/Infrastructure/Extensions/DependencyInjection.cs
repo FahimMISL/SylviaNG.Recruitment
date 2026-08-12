@@ -88,7 +88,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IJobApplicationStageProgressRepository, JobApplicationStageProgressRepository>();
             services.AddScoped<IShortlistFilterRepository, ShortlistFilterRepository>();
             services.AddScoped<IAutoShortlistRunRepository, AutoShortlistRunRepository>();
-            services.AddScoped<ICandidateRecommendationRepository, CandidateRecommendationRepository>();
             services.AddScoped<ISavedSearchRepository, SavedSearchRepository>();
             services.AddScoped<ICandidateProfileRepository, CandidateProfileRepository>();
             services.AddScoped<IEmployeeRepository, EmployeeRepository>();
@@ -304,6 +303,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // EP-09 Feature 2: candidate login OTP gate, layered on top of Keycloak's own
             // RequireEmailVerification link flow above - off by default (Enabled:false).
             services.Configure<OtpSettings>(configuration.GetSection(OtpSettings.SectionName));
+
+            // Signs the short-lived download tokens FilesController requires for private files
+            // (candidate documents) - see PrivateFileAccessTokenService.
+            services.Configure<PrivateFileAccessSettings>(configuration.GetSection(PrivateFileAccessSettings.SectionName));
 
             // Keycloak REST client (login token proxy + Admin REST user registration)
             services.Configure<KeycloakSettings>(configuration.GetSection(KeycloakSettings.SectionName));

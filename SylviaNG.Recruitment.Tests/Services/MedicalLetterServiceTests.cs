@@ -148,7 +148,7 @@ public class MedicalLetterServiceTests
         var response = await _service.GenerateAsync(ValidRequest());
 
         response.MedicalLetterId.Should().Be(42);
-        response.GeneratedPdfPath.Should().Be("uploads/documents/medical-letters/abc.pdf");
+        response.GeneratedPdfPath.Should().Be("recruitment/files/download?key=uploads%2Fdocuments%2Fmedical-letters%2Fabc.pdf");
         response.MedicalTestCenter.Should().Be("City Diagnostics");
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
         _notificationDispatchServiceMock.Verify(n => n.DispatchAsync(

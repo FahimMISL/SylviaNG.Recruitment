@@ -17,8 +17,8 @@ namespace SylviaNG.Recruitment.Application.Features.Exams.Models
         public ExamTypeEnum ExamType { get; set; }
         public long? ExamVenueId { get; set; }
         public string? ExamVenueName { get; set; }
-        public long? QuestionGroupId { get; set; }
-        public string? QuestionGroupName { get; set; }
+        public List<long> QuestionGroupIds { get; set; } = new();
+        public List<string> QuestionGroupNames { get; set; } = new();
         public DateTime? SeatPlanGeneratedAt { get; set; }
         public bool IsActive { get; set; }
         public bool ShowResultsToCandidate { get; set; }

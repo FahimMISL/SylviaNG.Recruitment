@@ -14,5 +14,6 @@ namespace SylviaNG.Recruitment.Application.Features.DocumentTracking.Models
         public string? RecipientEmail { get; set; }
         public DateTime GeneratedAt { get; set; }
         public DocumentAcceptanceStatusEnum AcceptanceStatus { get; set; }
+        public string? GeneratedPdfPath { get; set; }
     }
 }

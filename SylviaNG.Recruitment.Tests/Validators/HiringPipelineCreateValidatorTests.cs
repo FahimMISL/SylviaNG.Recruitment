@@ -120,7 +120,7 @@ public class HiringPipelineCreateValidatorTests
     }
 
     [Fact]
-    public void Validate_WithOnlyPassMarksSet_ShouldHaveNoError()
+    public void Validate_WithOnlyPassMarksSet_ShouldHaveError()
     {
         var request = ValidRequest();
         request.Stages[0].MaxMarks = null;
@@ -129,6 +129,20 @@ public class HiringPipelineCreateValidatorTests
 
         var result = _validator.Validate(command);
 
-        result.IsValid.Should().BeTrue();
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Max marks and pass marks must be provided together.");
+    }
+
+    [Fact]
+    public void Validate_WithAutoProgressionButNoPassMarks_ShouldHaveError()
+    {
+        var request = ValidRequest();
+        request.Stages[0].AutoProgressionTargetDisplayOrder = 1;
+        var command = new HiringPipelineCreateCommand(request);
+
+        var result = _validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Pass marks are required when automatic progression is configured.");
     }
 }

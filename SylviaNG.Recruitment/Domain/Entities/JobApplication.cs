@@ -41,6 +41,11 @@ public class JobApplication : Audit
     public long? WaiverRuleId { get; set; }
     public DateTime? WaivedAt { get; set; }
 
+    // Proof document for the claimed SpecialCategoryId (e.g. freedom-fighter certificate) -
+    // required for TryMatchAsync to actually waive the fee; without it the category is recorded
+    // but the applicant still pays. See JobApplicationService.SubmitAsync.
+    public string? WaiverProofDocumentUrl { get; set; }
+
     // Navigation properties
     public JobPosting JobPosting { get; set; } = null!;
     public CandidateProfile? CandidateProfile { get; set; }

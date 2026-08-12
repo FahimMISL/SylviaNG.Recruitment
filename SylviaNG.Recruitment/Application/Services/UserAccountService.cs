@@ -1,10 +1,14 @@
+using Microsoft.AspNetCore.Http;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.UserAccounts.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Mappings;
 using SylviaNG.Recruitment.Domain.Entities;
+using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using SylviaNG.Recruitment.SharedKernel.Utils;
+using System.Security.Claims;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -14,17 +18,20 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IRoleRepository _roleRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IKeycloakClient _keycloakClient;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public UserAccountService(
             IUserAccountRepository userAccountRepository,
             IRoleRepository roleRepository,
             IUnitOfWork unitOfWork,
-            IKeycloakClient keycloakClient)
+            IKeycloakClient keycloakClient,
+            IHttpContextAccessor httpContextAccessor)
         {
             _userAccountRepository = userAccountRepository;
             _roleRepository = roleRepository;
             _unitOfWork = unitOfWork;
             _keycloakClient = keycloakClient;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<long> CreateAsync(UserAccountCreateRequest request)
@@ -34,19 +41,18 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("UserAccount", "Email", request.Email);
 
             var roles = await ResolveRolesAsync(request.RoleIds);
-            var (firstName, lastName) = SplitFullName(request.FullName);
+            EnsureCallerCanAssign(roles);
+            var (firstName, lastName) = PersonNameUtility.SplitFullName(request.FullName);
 
-            // Keycloak invite flow: create the realm user under the first selected role, then
-            // fan the rest of the selected roles onto the same (now-existing) user - Keycloak's
-            // CreateUserAsync signature only takes one role at creation time.
-            await _keycloakClient.CreateUserAsync(
+            // The recipient receives a Keycloak action link to verify their address and choose
+            // their own password. An invitation is only successful after Keycloak accepted that
+            // email for delivery.
+            await _keycloakClient.InviteUserAsync(
                 username: request.Email,
                 email: request.Email,
                 firstName: firstName,
                 lastName: lastName,
-                password: request.Password,
-                realmRole: roles[0].Name,
-                requireEmailVerification: true);
+                realmRole: roles[0].Name);
 
             var keycloakUserId = await _keycloakClient.GetUserIdByUsernameAsync(request.Email);
 
@@ -75,7 +81,9 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = await _userAccountRepository.GetByIdWithRolesAsync(userAccountId)
                 ?? throw new NotFoundException("UserAccount", userAccountId);
 
+            EnsureCallerCanManage(entity);
             var roles = await ResolveRolesAsync(request.RoleIds);
+            EnsureCallerCanAssign(roles);
 
             entity.FullName = request.FullName;
             entity.RoleAssignments.Clear();
@@ -96,9 +104,11 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task SetActiveAsync(long userAccountId, bool isActive)
         {
-            var entity = await _userAccountRepository.GetByIdAsync(userAccountId)
+            var entity = await _userAccountRepository.GetByIdWithRolesAsync(userAccountId)
                 ?? throw new NotFoundException("UserAccount", userAccountId);
 
+            EnsureCallerIsNotDeactivatingSelf(entity, isActive);
+            EnsureCallerCanManage(entity);
             entity.IsActive = isActive;
             _userAccountRepository.Update(entity);
             await _unitOfWork.SaveChangesAsync();
@@ -118,6 +128,56 @@ namespace SylviaNG.Recruitment.Application.Services
             return entities.Select(e => e.ToResponse()).ToList();
         }
 
+        // RequirePermissionAttribute lets an Admin (or a custom role explicitly granted Admin
+        // Create/Edit) reach these actions, but RoleIds is caller-supplied - without this check
+        // any of them could hand SuperAdmin to a new or existing account (including their own),
+        // a straight privilege escalation. Only SuperAdmin may grant the SuperAdmin role.
+        private void EnsureCallerCanAssign(List<Role> roles)
+        {
+            // Candidate is self-service only (register/apply flow, provisions its own
+            // CandidateProfile on first login) - it must never be assignable through the
+            // staff invite/edit screen, which only manages the local UserAccount table.
+            if (roles.Any(r => r.Name == nameof(UserRoleEnum.Candidate)))
+                throw new ForbiddenException("The Candidate role cannot be assigned to a staff user account.");
+
+            if (!roles.Any(r => r.Name == nameof(UserRoleEnum.SuperAdmin)))
+                return;
+
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user is null || !user.IsInRole(nameof(UserRoleEnum.SuperAdmin)))
+                throw new ForbiddenException("Only SuperAdmin can assign the SuperAdmin role.");
+        }
+
+        // An Admin may manage ordinary staff accounts, but must never alter a SuperAdmin
+        // account. Without this check an Admin could deactivate the highest-privilege account.
+        private void EnsureCallerCanManage(UserAccount target)
+        {
+            if (!target.RoleAssignments.Any(a => a.Role.Name == nameof(UserRoleEnum.SuperAdmin)))
+                return;
+
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user is null || !user.IsInRole(nameof(UserRoleEnum.SuperAdmin)))
+                throw new ForbiddenException("Only SuperAdmin can manage a SuperAdmin account.");
+        }
+
+        // Deactivation is destructive: allowing it for the current principal can permanently
+        // lock the only available administrator out of the application.
+        private void EnsureCallerIsNotDeactivatingSelf(UserAccount target, bool isActive)
+        {
+            if (isActive)
+                return;
+
+            var user = _httpContextAccessor.HttpContext?.User;
+            var currentKeycloakUserId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? user?.FindFirst("sub")?.Value;
+
+            if (!string.IsNullOrEmpty(currentKeycloakUserId)
+                && currentKeycloakUserId == target.KeycloakUserId)
+            {
+                throw new ForbiddenException("You cannot deactivate your own account.");
+            }
+        }
+
         private async Task<List<Role>> ResolveRolesAsync(List<long> roleIds)
         {
             var distinctIds = roleIds.Distinct().ToList();
@@ -131,15 +191,6 @@ namespace SylviaNG.Recruitment.Application.Services
             }
 
             return roles;
-        }
-
-        private static (string FirstName, string LastName) SplitFullName(string fullName)
-        {
-            var trimmed = fullName.Trim();
-            var spaceIdx = trimmed.IndexOf(' ');
-            return spaceIdx < 0
-                ? (trimmed, string.Empty)
-                : (trimmed[..spaceIdx], trimmed[(spaceIdx + 1)..].Trim());
         }
     }
 }

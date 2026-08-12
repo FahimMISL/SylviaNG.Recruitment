@@ -12,7 +12,7 @@ namespace SylviaNG.Recruitment.Controllers
     // EP-10 US-085: HR-facing combined acceptance-status view over OfferLetters + AppointmentLetters.
     [ApiController]
     [Route("recruitment/document-tracking")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,HR")]
     public class DocumentTrackingController : ControllerBase
     {
         private readonly IMediator _mediator;

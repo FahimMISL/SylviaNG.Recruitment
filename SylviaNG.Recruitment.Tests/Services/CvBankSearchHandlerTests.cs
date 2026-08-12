@@ -24,7 +24,11 @@ public class CvBankSearchHandlerTests
             _candidateProfileRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object);
 
-        _jobApplicationRepositoryMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<JobApplication>());
+        _jobApplicationRepositoryMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<JobApplication>
+        {
+            new() { CandidateProfileId = 1, CandidateEmail = "alice@example.com", Source = ApplicationSourceEnum.External },
+            new() { CandidateProfileId = 2, CandidateEmail = "bilal@example.com", Source = ApplicationSourceEnum.External }
+        });
     }
 
     private static CandidateProfile MakeProfile(long id, string name, string email, params string[] skills)
@@ -73,6 +77,24 @@ public class CvBankSearchHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ExcludesProfileWithoutLinkedJobApplication()
+    {
+        var candidate = MakeProfile(1, "Alice", "alice@example.com");
+        var superAdmin = MakeProfile(2, "Super Admin", "superadmin@sylviang.local");
+        _candidateProfileRepositoryMock.Setup(r => r.GetAllActiveWithDetailsAsync())
+            .ReturnsAsync(new List<CandidateProfile> { candidate, superAdmin });
+        _jobApplicationRepositoryMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<JobApplication>
+        {
+            new() { CandidateProfileId = 1, CandidateEmail = "alice@example.com", Source = ApplicationSourceEnum.External }
+        });
+
+        var result = await _handler.Handle(new CvBankSearchQuery(new CvBankSearchRequest()), CancellationToken.None);
+
+        result.TotalCount.Should().Be(1);
+        result.Data.Should().ContainSingle(r => r.CandidateProfileId == 1);
+    }
+
+    [Fact]
     public async Task Handle_LocationFilter_ExcludesNonMatchingAddress()
     {
         var dhaka = MakeProfile(1, "Alice", "alice@example.com");
@@ -97,8 +119,8 @@ public class CvBankSearchHandlerTests
 
         _jobApplicationRepositoryMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<JobApplication>
         {
-            new() { CandidateEmail = "alice@example.com", Source = ApplicationSourceEnum.Internal },
-            new() { CandidateEmail = "bilal@example.com", Source = ApplicationSourceEnum.External }
+            new() { CandidateProfileId = 1, CandidateEmail = "alice@example.com", Source = ApplicationSourceEnum.Internal },
+            new() { CandidateProfileId = 2, CandidateEmail = "bilal@example.com", Source = ApplicationSourceEnum.External }
         });
 
         var result = await _handler.Handle(
@@ -116,7 +138,7 @@ public class CvBankSearchHandlerTests
 
         _jobApplicationRepositoryMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<JobApplication>
         {
-            new() { CandidateEmail = "alice@example.com", Source = ApplicationSourceEnum.External, ResumeExtractedText = "Kubernetes expert" }
+            new() { CandidateProfileId = 1, CandidateEmail = "alice@example.com", Source = ApplicationSourceEnum.External, ResumeExtractedText = "Kubernetes expert" }
         });
 
         var result = await _handler.Handle(new CvBankSearchQuery(new CvBankSearchRequest { BooleanQuery = "kubernetes" }), CancellationToken.None);

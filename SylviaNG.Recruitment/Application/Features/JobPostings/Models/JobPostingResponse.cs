@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Application.Features.JobPostingAttachments.Models;
 using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
@@ -34,5 +35,6 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public string? ApplicationFeeCurrency { get; set; }
         public long? HiringPipelineId { get; set; }
         public string? HiringPipelineName { get; set; }
+        public List<JobPostingAttachmentResponse> Attachments { get; set; } = new();
     }
 }

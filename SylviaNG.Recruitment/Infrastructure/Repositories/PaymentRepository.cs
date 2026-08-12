@@ -19,10 +19,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(p => p.JobApplication).ThenInclude(a => a.JobPosting)
                 .Where(p => filter.JobPostingId == null || p.JobApplication.JobPostingId == filter.JobPostingId)
                 .Where(p => filter.PaymentStatus == null || p.PaymentStatus == filter.PaymentStatus)
-                .Where(p => string.IsNullOrEmpty(filter.CandidateName) || p.JobApplication.CandidateName.Contains(filter.CandidateName))
-                .Where(p => string.IsNullOrEmpty(filter.CandidateEmail) || (p.JobApplication.CandidateEmail != null && p.JobApplication.CandidateEmail.Contains(filter.CandidateEmail)))
-                .Where(p => filter.DateFrom == null || (p.PaidAt ?? p.JobApplication.AppliedDate) >= filter.DateFrom)
-                .Where(p => filter.DateTo == null || (p.PaidAt ?? p.JobApplication.AppliedDate) <= filter.DateTo);
+                .Where(p => string.IsNullOrEmpty(filter.CandidateName) || p.JobApplication.CandidateName.ToLower().Contains(filter.CandidateName.ToLower()))
+                .Where(p => string.IsNullOrEmpty(filter.CandidateEmail) || (p.JobApplication.CandidateEmail != null && p.JobApplication.CandidateEmail.ToLower().Contains(filter.CandidateEmail.ToLower())))
+                .Where(p => filter.DateFrom == null || (p.PaidAt ?? p.JobApplication.AppliedDate) >= filter.DateFrom.Value.Date)
+                .Where(p => filter.DateTo == null || (p.PaidAt ?? p.JobApplication.AppliedDate) < filter.DateTo.Value.Date.AddDays(1));
         }
 
         public async Task<PagedResult<Payment>> GetPagedTransactionsAsync(PaymentTransactionFilterRequest filter, PagedRequest paging)

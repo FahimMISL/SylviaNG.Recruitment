@@ -25,6 +25,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(a => a.JobPostingId == jobPostingId)
                 .AsQueryable();
 
+            request.SearchProperties = [nameof(JobApplication.CandidateName), nameof(JobApplication.CandidateEmail)];
+
             return await query.ToPaginatedResultAsync(request);
         }
 
@@ -74,6 +76,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             var query = BuildDashboardFilterQuery(jobPostingId, status, source, dateFrom, dateTo)
                 .Include(a => a.JobPosting);
 
+            request.SearchProperties = [nameof(JobApplication.CandidateName), nameof(JobApplication.CandidateEmail)];
+
             return await query.ToPaginatedResultAsync(request);
         }
 
@@ -100,14 +104,16 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(a => jobPostingId == null || a.JobPostingId == jobPostingId)
                 .Where(a => status == null || a.ApplicationStatus == status)
                 .Where(a => source == null || a.Source == source)
-                .Where(a => dateFrom == null || a.AppliedDate == null || a.AppliedDate >= dateFrom)
-                .Where(a => dateTo == null || a.AppliedDate == null || a.AppliedDate <= dateTo);
+                .Where(a => dateFrom == null || (a.AppliedDate != null && a.AppliedDate >= dateFrom))
+                .Where(a => dateTo == null || (a.AppliedDate != null && a.AppliedDate <= dateTo));
         }
 
         public async Task<JobApplication?> GetByIdWithHistoryAsync(long jobApplicationId)
         {
             return await _dbSet
                 .Include(a => a.JobPosting)
+                .Include(a => a.SpecialCategory)
+                .Include(a => a.WaiverRule)
                 .Include(a => a.StatusHistory.OrderByDescending(h => h.ChangedAt))
                     .ThenInclude(h => h.Reason)
                 .FirstOrDefaultAsync(a => a.JobApplicationId == jobApplicationId);

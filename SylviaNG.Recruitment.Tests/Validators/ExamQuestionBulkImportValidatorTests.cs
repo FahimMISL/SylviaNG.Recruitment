@@ -11,11 +11,18 @@ public class ExamQuestionBulkImportValidatorTests
 {
     private readonly ExamQuestionBulkImportValidator _validator = new(Options.Create(new ExamQuestionImportSettings()));
 
+    // Leading bytes of a real .xlsx (OOXML = zip container, "PK\x03\x04"). The validator now
+    // magic-byte checks content against the extension (FileSignatureValidator), so a bare mock
+    // with no readable stream would NRE / fail the signature rule. A fresh stream is returned per
+    // call since the validator opens-and-disposes the stream once per rule.
+    private static readonly byte[] XlsxSignatureBytes = { 0x50, 0x4B, 0x03, 0x04, 0x00, 0x00, 0x00, 0x00 };
+
     private static IFormFile CreateFile(string fileName, long length)
     {
         var fileMock = new Mock<IFormFile>();
         fileMock.Setup(f => f.FileName).Returns(fileName);
         fileMock.Setup(f => f.Length).Returns(length);
+        fileMock.Setup(f => f.OpenReadStream()).Returns(() => new MemoryStream(XlsxSignatureBytes));
         return fileMock.Object;
     }
 

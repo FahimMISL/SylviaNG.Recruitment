@@ -35,6 +35,22 @@ namespace SylviaNG.Recruitment.Application.Features.HiringPipelines.Commands.Hir
                     .LessThanOrEqualTo(s => s.MaxMarks)
                     .When(s => s.MaxMarks.HasValue && s.PassMarks.HasValue)
                     .WithMessage("Pass marks must not exceed max marks.");
+
+                stage.RuleFor(s => s)
+                    .Must(s => s.MaxMarks.HasValue == s.PassMarks.HasValue)
+                    .WithMessage("Max marks and pass marks must be provided together.");
+
+                stage.RuleFor(s => s.MaxMarks)
+                    .GreaterThan(0).When(s => s.MaxMarks.HasValue)
+                    .WithMessage("Max marks must be greater than 0.");
+
+                stage.RuleFor(s => s.PassMarks)
+                    .GreaterThan(0).When(s => s.PassMarks.HasValue)
+                    .WithMessage("Pass marks must be greater than 0.");
+
+                stage.RuleFor(s => s.PassMarks)
+                    .NotNull().When(s => s.AutoProgressionTargetDisplayOrder.HasValue)
+                    .WithMessage("Pass marks are required when automatic progression is configured.");
             });
         }
     }

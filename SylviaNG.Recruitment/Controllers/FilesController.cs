@@ -25,13 +25,27 @@ namespace SylviaNG.Recruitment.Controllers
     {
         private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
 
+        // Keys containing this segment are private (candidate-uploaded documents, not public
+        // assets like logos/job-posting attachments/generated letters) - see
+        // CandidateDocumentService, which mints the token/expires pair on every authenticated
+        // "list my documents" call. Actual stored keys look like
+        // "uploads/job-postings/candidate-documents/{profileId}/{guid}.ext" (the configured
+        // FileStorage root prefixed onto the subFolder CandidateDocumentService.UploadAsync
+        // passes), so this must be a Contains check, not StartsWith.
+        private const string PrivateKeySegment = "/candidate-documents/";
+
         private readonly IFileStorageService _fileStorageService;
         private readonly IApplicationCvStorageService _applicationCvStorageService;
+        private readonly IPrivateFileAccessTokenService _privateFileAccessTokenService;
 
-        public FilesController(IFileStorageService fileStorageService, IApplicationCvStorageService applicationCvStorageService)
+        public FilesController(
+            IFileStorageService fileStorageService,
+            IApplicationCvStorageService applicationCvStorageService,
+            IPrivateFileAccessTokenService privateFileAccessTokenService)
         {
             _fileStorageService = fileStorageService;
             _applicationCvStorageService = applicationCvStorageService;
+            _privateFileAccessTokenService = privateFileAccessTokenService;
         }
 
         /// <summary>
@@ -41,12 +55,28 @@ namespace SylviaNG.Recruitment.Controllers
         /// falls back to IApplicationCvStorageService (CV uploads) on FileNotFoundException, since
         /// both providers can address different subfolder namespaces and there's no separate
         /// "which service" flag persisted anywhere.
+        ///
+        /// This endpoint is [AllowAnonymous] out of necessity - plain &lt;img src&gt;/&lt;a href&gt;
+        /// browser requests carry no Authorization header - which is fine for public assets but
+        /// not for private ones. Keys under PrivateKeyPrefix additionally require a valid,
+        /// unexpired token/expires pair (see IPrivateFileAccessTokenService) so a leaked/guessed
+        /// key alone isn't enough to read someone else's document.
         /// </summary>
         [HttpGet("download")]
-        public async Task<IActionResult> Download([FromQuery] string key)
+        public async Task<IActionResult> Download([FromQuery] string key, [FromQuery] string? token, [FromQuery] long? expires)
         {
             if (string.IsNullOrWhiteSpace(key))
                 return BadRequest("key is required.");
+
+            if (key.Contains(PrivateKeySegment, StringComparison.OrdinalIgnoreCase))
+            {
+                var expiresAt = expires.HasValue
+                    ? DateTimeOffset.FromUnixTimeSeconds(expires.Value)
+                    : DateTimeOffset.MinValue;
+
+                if (!_privateFileAccessTokenService.IsValid(key, token, expiresAt))
+                    return StatusCode(StatusCodes.Status403Forbidden);
+            }
 
             Stream stream;
             try

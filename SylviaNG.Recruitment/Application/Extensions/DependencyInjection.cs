@@ -32,11 +32,11 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IJobPostingService, JobPostingService>();
             services.AddScoped<IJobApplicationService, JobApplicationService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IPrivateFileAccessTokenService, PrivateFileAccessTokenService>();
             services.AddScoped<IJobPostingAttachmentService, JobPostingAttachmentService>();
             services.AddScoped<IHiringPipelineService, HiringPipelineService>();
             services.AddScoped<IJobApplicationStageProgressService, JobApplicationStageProgressService>();
             services.AddScoped<IShortlistFilterService, ShortlistFilterService>();
-            services.AddScoped<ICandidateRecommendationService, CandidateRecommendationService>();
             services.AddScoped<ISavedSearchService, SavedSearchService>();
             services.AddScoped<IShortlistFilterEvaluationService, ShortlistFilterEvaluationService>();
             services.AddScoped<IAutoShortlistRunService, AutoShortlistRunService>();
@@ -115,6 +115,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
             services.AddScoped<IPermissionService, PermissionService>();
             services.AddScoped<IImpersonationService, ImpersonationService>();
             services.AddScoped<IProfileFieldConfigService, ProfileFieldConfigService>();
+            services.AddScoped<ISuperAdminBootstrapService, SuperAdminBootstrapService>();
 
             // Provide access to HttpContext for request metadata enrichment
             services.AddHttpContextAccessor();

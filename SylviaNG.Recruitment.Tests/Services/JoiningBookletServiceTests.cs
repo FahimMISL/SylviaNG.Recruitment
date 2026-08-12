@@ -158,7 +158,7 @@ public class JoiningBookletServiceTests
 
         response.JoiningBookletId.Should().Be(42);
         response.RenderedBody.Should().Be("Dear John Smith, batch B1.");
-        response.GeneratedPdfPath.Should().Be("uploads/documents/joining-booklets/abc.pdf");
+        response.GeneratedPdfPath.Should().Be("recruitment/files/download?key=uploads%2Fdocuments%2Fjoining-booklets%2Fabc.pdf");
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
         _notificationDispatchServiceMock.Verify(n => n.DispatchAsync(
             RecruitmentEventEnum.JoiningBookletAvailable,

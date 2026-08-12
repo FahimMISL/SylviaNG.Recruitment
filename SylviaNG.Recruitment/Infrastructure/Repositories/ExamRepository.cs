@@ -16,7 +16,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             var query = _dbSet
                 .Include(e => e.ExamVenue)
-                .Include(e => e.QuestionGroup)
+                .Include(e => e.QuestionGroupLinks)
+                    .ThenInclude(l => l.QuestionGroup)
                 .AsQueryable();
 
             if (jobPostingId.HasValue)
@@ -28,29 +29,19 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             if (isActive.HasValue)
                 query = query.Where(e => e.IsActive == isActive.Value);
 
-            query = query.OrderByDescending(e => e.ScheduledStartAt);
+            request.SearchProperties = [nameof(Exam.Title)];
 
-            var totalCount = await query.CountAsync();
+            var orderedQuery = query.OrderByDescending(e => e.ScheduledStartAt);
 
-            var items = await query
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .ToListAsync();
-
-            return new PagedResult<Exam>
-            {
-                Data = items,
-                PageNumber = request.Page,
-                PageSize = request.PageSize,
-                TotalCount = totalCount
-            };
+            return await orderedQuery.ToPaginatedResultAsync(request);
         }
 
         public async Task<Exam?> GetByIdWithDetailsAsync(long examId)
         {
             return await _dbSet
                 .Include(e => e.ExamVenue)
-                .Include(e => e.QuestionGroup)
+                .Include(e => e.QuestionGroupLinks)
+                    .ThenInclude(l => l.QuestionGroup)
                 .FirstOrDefaultAsync(e => e.ExamId == examId);
         }
     }

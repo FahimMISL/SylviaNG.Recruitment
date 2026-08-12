@@ -19,6 +19,7 @@ public class ExportRequestServiceTests
     private readonly Mock<IExportRequestRepository> _exportRequestRepositoryMock;
     private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
+    private readonly Mock<IFileStorageService> _fileStorageServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExportRequestService _service;
 
@@ -27,6 +28,7 @@ public class ExportRequestServiceTests
         _exportRequestRepositoryMock = new Mock<IExportRequestRepository>();
         _jobApplicationServiceMock = new Mock<IJobApplicationService>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
+        _fileStorageServiceMock = new Mock<IFileStorageService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
@@ -34,6 +36,7 @@ public class ExportRequestServiceTests
             _exportRequestRepositoryMock.Object,
             _jobApplicationServiceMock.Object,
             _currentUserServiceMock.Object,
+            _fileStorageServiceMock.Object,
             _unitOfWorkMock.Object);
     }
 
@@ -135,14 +138,18 @@ public class ExportRequestServiceTests
             {
                 ExportRequestId = 1,
                 Status = ExportRequestStatusEnum.Completed,
-                Content = new byte[] { 1, 2, 3 },
+                ContentObjectKey = "exports/candidate-list-20260727.xlsx",
                 ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 FileName = "Candidate-List-Export-20260727.xlsx"
             });
+        _fileStorageServiceMock.Setup(f => f.OpenReadAsync("exports/candidate-list-20260727.xlsx"))
+            .ReturnsAsync(() => new MemoryStream(new byte[] { 1, 2, 3 }));
 
         var result = await _service.GetForDownloadAsync(1);
 
-        result.Content.Should().BeEquivalentTo(new byte[] { 1, 2, 3 });
+        using var buffer = new MemoryStream();
+        await result.Content.CopyToAsync(buffer);
+        buffer.ToArray().Should().BeEquivalentTo(new byte[] { 1, 2, 3 });
         result.FileName.Should().Be("Candidate-List-Export-20260727.xlsx");
     }
 

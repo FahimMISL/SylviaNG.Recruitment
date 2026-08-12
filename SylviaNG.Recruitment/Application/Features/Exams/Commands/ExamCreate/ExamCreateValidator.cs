@@ -31,8 +31,8 @@ namespace SylviaNG.Recruitment.Application.Features.Exams.Commands.ExamCreate
                 .NotNull().WithMessage("ExamVenueId is required for an in-person exam.")
                 .When(x => x.Request.ExamType == ExamTypeEnum.InPerson);
 
-            RuleFor(x => x.Request.QuestionGroupId)
-                .NotNull().WithMessage("QuestionGroupId is required for an online exam.")
+            RuleFor(x => x.Request.QuestionGroupIds)
+                .NotEmpty().WithMessage("At least one question group is required for an online exam.")
                 .When(x => x.Request.ExamType == ExamTypeEnum.Online);
         }
     }

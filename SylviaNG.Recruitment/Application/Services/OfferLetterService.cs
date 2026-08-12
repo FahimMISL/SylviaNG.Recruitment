@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using SylviaNG.Recruitment.Application.Common.Constants;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.OfferLetters.Models;
@@ -8,6 +9,7 @@ using SylviaNG.Recruitment.Application.Mappings;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -16,7 +18,6 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IOfferLetterRepository _offerLetterRepository;
         private readonly IDocumentTemplateRepository _documentTemplateRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
-        private readonly ICandidateRecommendationRepository _candidateRecommendationRepository;
         private readonly IPlaceholderSubstitutionService _placeholderSubstitutionService;
         private readonly IOfferLetterPdfGeneratorService _offerLetterPdfGeneratorService;
         private readonly IFileStorageService _fileStorageService;
@@ -44,7 +45,6 @@ namespace SylviaNG.Recruitment.Application.Services
             IOfferLetterRepository offerLetterRepository,
             IDocumentTemplateRepository documentTemplateRepository,
             IJobApplicationRepository jobApplicationRepository,
-            ICandidateRecommendationRepository candidateRecommendationRepository,
             IPlaceholderSubstitutionService placeholderSubstitutionService,
             IOfferLetterPdfGeneratorService offerLetterPdfGeneratorService,
             IFileStorageService fileStorageService,
@@ -59,7 +59,6 @@ namespace SylviaNG.Recruitment.Application.Services
             _offerLetterRepository = offerLetterRepository;
             _documentTemplateRepository = documentTemplateRepository;
             _jobApplicationRepository = jobApplicationRepository;
-            _candidateRecommendationRepository = candidateRecommendationRepository;
             _placeholderSubstitutionService = placeholderSubstitutionService;
             _offerLetterPdfGeneratorService = offerLetterPdfGeneratorService;
             _fileStorageService = fileStorageService;
@@ -74,19 +73,25 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<OfferLetterResponse> GenerateAsync(OfferLetterGenerateRequest request)
         {
-            // An offer follows the final selection decision, not the other way around - the
-            // recommendation itself is already gated on pipeline stage completion
-            // (CandidateRecommendationService.CreateAsync), so checking it here transitively
-            // enforces that too without duplicating the stage logic. Checked first, ahead of
-            // template validation, since it's the more fundamental business-rule gate.
-            var recommendation = await _candidateRecommendationRepository.GetLatestByJobApplicationIdAsync(request.JobApplicationId);
-            if (recommendation is not { Status: RecommendationStatusEnum.Accepted })
-                throw new FluentValidation.ValidationException(new[]
-                {
-                    new FluentValidation.Results.ValidationFailure(
-                        nameof(request.JobApplicationId),
-                        "An offer letter can only be generated once the candidate has an Accepted final selection recommendation.")
-                });
+            // An offer follows every evaluation stage being Completed - a passing candidate goes
+            // straight to the offer, no separate recommend/approve step in between. Checked first,
+            // ahead of template validation, since it's the more fundamental business-rule gate.
+            var progress = await _jobApplicationStageProgressService.GetByJobApplicationIdAsync(request.JobApplicationId);
+            if (progress.HasPipeline)
+            {
+                var incompleteRequiredStage = progress.Stages.FirstOrDefault(s =>
+                    s.IsMandatory
+                    && !PipelineStageTypes.PostDecision.Contains(s.StageType, StringComparer.OrdinalIgnoreCase)
+                    && s.Status != StageProgressStatusEnum.Completed);
+
+                if (incompleteRequiredStage != null)
+                    throw new FluentValidation.ValidationException(new[]
+                    {
+                        new FluentValidation.Results.ValidationFailure(
+                            nameof(request.JobApplicationId),
+                            $"An offer letter can only be generated once all required stages are Completed ('{incompleteRequiredStage.StageName}' is not yet Completed).")
+                    });
+            }
 
             var template = await _documentTemplateRepository.GetByIdAsync(request.DocumentTemplateId)
                 ?? throw new NotFoundException("DocumentTemplate", request.DocumentTemplateId);
@@ -310,7 +315,7 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 ["CandidateName"] = entity.JobApplication.CandidateName,
                 ["Designation"] = entity.Designation,
-                ["DecisionAt"] = entity.DecisionAt?.ToString("dd MMM yyyy HH:mm") ?? string.Empty,
+                ["DecisionAt"] = entity.DecisionAt.HasValue ? DateTimeUtility.ConvertUtcToLocal(entity.DecisionAt.Value).ToString("dd MMM yyyy hh:mm tt") : string.Empty,
                 ["DeclineReason"] = entity.DeclineReason ?? string.Empty,
             };
 

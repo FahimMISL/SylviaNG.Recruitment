@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Features.NotificationLogs.Models
 {
@@ -15,11 +17,14 @@ namespace SylviaNG.Recruitment.Application.Features.NotificationLogs.Models
 
         public string? RenderedSubject { get; set; }
         public NotificationStatusEnum DeliveryStatus { get; set; }
+        [JsonConverter(typeof(NullableLocalDateTimeJsonConverter))]
         public DateTime? SentAt { get; set; }
         public string? FailureReason { get; set; }
         public bool IsRead { get; set; }
+        [JsonConverter(typeof(NullableLocalDateTimeJsonConverter))]
         public DateTime? ReadAt { get; set; }
         public long? JobApplicationId { get; set; }
+        [JsonConverter(typeof(NullableLocalDateTimeJsonConverter))]
         public DateTime? CreatedAt { get; set; }
     }
 }

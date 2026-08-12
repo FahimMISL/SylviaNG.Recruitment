@@ -23,5 +23,9 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         // matching and F1 reconciliation reporting (JobApplicationService.SubmitAsync).
         public long? SpecialCategoryId { get; set; }
         public long? ReferralSourceId { get; set; }
+
+        // Proof of the claimed SpecialCategoryId - a matching WaiverRule only waives the fee
+        // when this is attached, otherwise the applicant still pays (JobApplicationService.SubmitAsync).
+        public IFormFile? WaiverProofDocument { get; set; }
     }
 }

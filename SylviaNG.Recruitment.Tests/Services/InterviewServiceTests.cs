@@ -20,6 +20,8 @@ public class InterviewServiceTests
     private readonly Mock<IInterviewRoomRepository> _interviewRoomRepositoryMock;
     private readonly Mock<IInterviewRoundConfigRepository> _interviewRoundConfigRepositoryMock;
     private readonly Mock<IEmployeeRepository> _employeeRepositoryMock;
+    private readonly Mock<IInterviewEvaluationRepository> _interviewEvaluationRepositoryMock;
+    private readonly Mock<IJobApplicationStageProgressService> _jobApplicationStageProgressServiceMock;
     private readonly Mock<IInterviewNotificationService> _interviewNotificationServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly InterviewService _service;
@@ -32,6 +34,8 @@ public class InterviewServiceTests
         _interviewRoomRepositoryMock = new Mock<IInterviewRoomRepository>();
         _interviewRoundConfigRepositoryMock = new Mock<IInterviewRoundConfigRepository>();
         _employeeRepositoryMock = new Mock<IEmployeeRepository>();
+        _interviewEvaluationRepositoryMock = new Mock<IInterviewEvaluationRepository>();
+        _jobApplicationStageProgressServiceMock = new Mock<IJobApplicationStageProgressService>();
         _interviewNotificationServiceMock = new Mock<IInterviewNotificationService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
@@ -43,6 +47,8 @@ public class InterviewServiceTests
             _interviewRoomRepositoryMock.Object,
             _interviewRoundConfigRepositoryMock.Object,
             _employeeRepositoryMock.Object,
+            _interviewEvaluationRepositoryMock.Object,
+            _jobApplicationStageProgressServiceMock.Object,
             _interviewNotificationServiceMock.Object,
             _unitOfWorkMock.Object,
             new Mock<ILogger<InterviewService>>().Object);
@@ -369,6 +375,10 @@ public class InterviewServiceTests
     {
         var interview = new Interview { InterviewId = 1, Status = InterviewStatusEnum.Scheduled };
         _interviewRepositoryMock.Setup(r => r.GetByIdWithDetailsAsync(1)).ReturnsAsync(interview);
+        // A Passed result triggers a panelist-evaluation lookup to drive the pipeline stage; no
+        // evaluations here means the stage-completion branch is skipped.
+        _interviewEvaluationRepositoryMock.Setup(r => r.GetByInterviewIdAsync(1))
+            .ReturnsAsync(new List<InterviewEvaluation>());
 
         await _service.MarkResultAsync(1, new InterviewMarkResultRequest { Result = InterviewResultEnum.Passed });
 

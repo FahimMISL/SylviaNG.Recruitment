@@ -37,12 +37,12 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPost
                 .MaximumLength(100).WithMessage("RequiredDistrict must not exceed 100 characters.");
 
             RuleFor(x => x.Request.MinAge)
-                .GreaterThan(0).When(x => x.Request.MinAge.HasValue)
-                .WithMessage("MinAge must be greater than 0.");
+                .InclusiveBetween(18, 80).When(x => x.Request.MinAge.HasValue)
+                .WithMessage("MinAge must be between 18 and 80.");
 
             RuleFor(x => x.Request.MaxAge)
-                .GreaterThan(0).When(x => x.Request.MaxAge.HasValue)
-                .WithMessage("MaxAge must be greater than 0.");
+                .InclusiveBetween(18, 80).When(x => x.Request.MaxAge.HasValue)
+                .WithMessage("MaxAge must be between 18 and 80.");
 
             RuleFor(x => x.Request)
                 .Must(r => !r.MinAge.HasValue || !r.MaxAge.HasValue || r.MinAge.Value <= r.MaxAge.Value)

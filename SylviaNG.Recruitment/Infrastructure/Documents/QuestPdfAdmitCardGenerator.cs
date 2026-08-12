@@ -5,6 +5,7 @@ using QuestPDF.Infrastructure;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Infrastructure.Documents.Shared;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Infrastructure.Documents
 {
@@ -80,7 +81,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Documents
                 var seatText = enrollment.SeatNumber ?? "To be assigned";
                 var examFields = new List<(string, string)>
                 {
-                    ("Exam Date/Time", $"{exam.ScheduledStartAt:dddd, dd MMM yyyy HH:mm}"),
+                    ("Exam Date/Time", $"{DateTimeUtility.ConvertUtcToLocal(exam.ScheduledStartAt):dddd, dd MMM yyyy hh:mm tt}"),
                     ("Duration", $"{exam.DurationMinutes} minutes"),
                     ("Venue", venueText)
                 };

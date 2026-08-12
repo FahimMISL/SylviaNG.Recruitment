@@ -47,6 +47,9 @@ namespace SylviaNG.Recruitment.Application.Services
             var target = await _userAccountRepository.GetByIdWithRolesAsync(request.TargetUserAccountId)
                 ?? throw new NotFoundException("UserAccount", request.TargetUserAccountId);
 
+            if (!target.IsActive)
+                throw new ForbiddenException("This user account has been deactivated and cannot be impersonated.");
+
             var targetSystemRoles = target.RoleAssignments
                 .Select(a => a.Role.Name)
                 .Where(name => ImpersonableSystemRoles.Contains(name))

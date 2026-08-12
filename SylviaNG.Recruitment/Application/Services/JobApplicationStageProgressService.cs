@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using SylviaNG.Recruitment.Application.Common.Constants;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.PipelineProgress.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
@@ -6,6 +8,7 @@ using SylviaNG.Recruitment.Application.Mappings;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -16,6 +19,9 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobApplicationStageProgressRepository _stageProgressRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly INotificationDispatchService _notificationDispatchService;
+        private readonly IApplicationSettingService _applicationSettingService;
+        private readonly ILogger<JobApplicationStageProgressService> _logger;
 
         // StageType is free text in the pipeline builder (ManageHiringPipelineComponent's
         // "Suggested" list is just a picker, not a constraint) - so an exam-driven auto-complete
@@ -30,18 +36,65 @@ namespace SylviaNG.Recruitment.Application.Services
             "TechnicalAssessment", "OnlineTest", "CodingTest", "WrittenTest", "AptitudeTest", "PsychometricTest", "PracticalAssessment",
         };
 
+        // JobApplication.ApplicationStatus is a separate HR-facing field from the pipeline stage
+        // rows above - HR used to have to notice "all stages Completed" and manually pick
+        // "Interviewed" from the status dropdown. Auto-advancing it here (mirrors
+        // OfferLetterService.AutoTransitionApplicationStatusAsync's Offered/Hired transitions)
+        // means that manual step never needs to happen for the routine forward path. Only fires
+        // from Shortlisted/InterviewScheduled - never regresses an application that's already
+        // moved past Interviewed (e.g. a second interview round being scheduled after Offered).
+        private static readonly ApplicationStatusEnum[] PreInterviewedApplicationStatuses =
+        {
+            ApplicationStatusEnum.Shortlisted, ApplicationStatusEnum.InterviewScheduled,
+        };
+
+        private const string InterviewedSystemActor = "system:pipeline-stages-completed";
+
+        private void TryAutoAdvanceToInterviewed(HiringPipeline pipeline, List<JobApplicationStageProgress> existingProgress, JobApplication? application)
+        {
+            if (application == null || !PreInterviewedApplicationStatuses.Contains(application.ApplicationStatus))
+                return;
+
+            var stillBlocking = pipeline.Stages.Any(s =>
+                s.IsActive && s.IsMandatory
+                && !PipelineStageTypes.PostDecision.Contains(s.StageType, StringComparer.OrdinalIgnoreCase)
+                && existingProgress.FirstOrDefault(p => p.PipelineStageId == s.PipelineStageId)?.Status != StageProgressStatusEnum.Completed);
+
+            if (stillBlocking)
+                return;
+
+            var fromStatus = application.ApplicationStatus;
+            application.ApplicationStatus = ApplicationStatusEnum.Interviewed;
+            _jobApplicationRepository.Update(application);
+            application.StatusHistory.Add(new ApplicationStatusHistory
+            {
+                JobApplicationId = application.JobApplicationId,
+                FromStatus = fromStatus,
+                ToStatus = ApplicationStatusEnum.Interviewed,
+                ChangedByUserName = InterviewedSystemActor,
+                ChangedAt = DateTime.UtcNow,
+                Note = "Auto-transitioned: all evaluation stages Completed.",
+            });
+        }
+
         public JobApplicationStageProgressService(
             IJobApplicationRepository jobApplicationRepository,
             IHiringPipelineRepository hiringPipelineRepository,
             IJobApplicationStageProgressRepository stageProgressRepository,
             ICurrentUserService currentUserService,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            INotificationDispatchService notificationDispatchService,
+            IApplicationSettingService applicationSettingService,
+            ILogger<JobApplicationStageProgressService> logger)
         {
             _jobApplicationRepository = jobApplicationRepository;
             _hiringPipelineRepository = hiringPipelineRepository;
             _stageProgressRepository = stageProgressRepository;
             _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
+            _notificationDispatchService = notificationDispatchService;
+            _applicationSettingService = applicationSettingService;
+            _logger = logger;
         }
 
         public async Task<JobApplicationPipelineProgressResponse> GetByJobApplicationIdAsync(long jobApplicationId)
@@ -100,15 +153,17 @@ namespace SylviaNG.Recruitment.Application.Services
                 ?? throw new NotFoundException("JobApplicationStageProgress", pipelineStageId);
 
             PipelineStage? targetStage = null;
-            if (request.Status.HasValue || request.Score.HasValue)
+            JobApplication? owningApplication = null;
+            HiringPipeline? pipeline = null;
+            if (request.Status.HasValue || request.Score.HasValue || request.ScheduledDate.HasValue || request.MeetingLink != null)
             {
-                var owningApplication = await _jobApplicationRepository.GetByIdWithIncludeAsync(
+                owningApplication = await _jobApplicationRepository.GetByIdWithIncludeAsync(
                     a => a.JobApplicationId == jobApplicationId,
                     a => a.JobPosting);
 
                 if (owningApplication?.JobPosting.HiringPipelineId != null)
                 {
-                    var pipeline = await _hiringPipelineRepository.GetByIdWithStagesAsync(owningApplication.JobPosting.HiringPipelineId.Value);
+                    pipeline = await _hiringPipelineRepository.GetByIdWithStagesAsync(owningApplication.JobPosting.HiringPipelineId.Value);
                     targetStage = pipeline?.Stages.FirstOrDefault(s => s.PipelineStageId == pipelineStageId);
 
                     // Same mandatory-stage-order gate as BulkAdvanceToStageAsync, now also
@@ -138,6 +193,8 @@ namespace SylviaNG.Recruitment.Application.Services
             }
 
             var wasCompleted = progress.Status == StageProgressStatusEnum.Completed;
+            var prevScheduledDate = progress.ScheduledDate;
+            var prevMeetingLink = progress.MeetingLink;
             var userName = _currentUserService.GetCurrentUserName();
 
             progress.ApplyUpdate(request);
@@ -148,10 +205,68 @@ namespace SylviaNG.Recruitment.Application.Services
             // Auto-progression only fires on the transition INTO Completed (not on every
             // re-save while already Completed) - same non-bump semantics as CompletedAt itself
             // in PipelineProgressMapper.ApplyUpdate.
-            if (!wasCompleted && progress.Status == StageProgressStatusEnum.Completed && progress.Score.HasValue)
-                await TryAutoProgressAsync(jobApplicationId, progress, userName);
+            if (!wasCompleted && progress.Status == StageProgressStatusEnum.Completed)
+            {
+                if (progress.Score.HasValue)
+                    await TryAutoProgressAsync(jobApplicationId, progress, userName);
+
+                if (pipeline != null)
+                    TryAutoAdvanceToInterviewed(pipeline, allProgress, owningApplication);
+            }
+
+            // Any stage on this generic pipeline-progress card (CV Screening, Assessment,
+            // HR Interview, etc - not just the dedicated Interview entity/feature) can carry a
+            // ScheduledDate/MeetingLink. Previously nothing ever told the candidate one had been
+            // set, so HR could "Save" here and the candidate would never see the link. Reuses the
+            // existing InterviewScheduled/InterviewRescheduled events (same template family the
+            // dedicated Interview feature already sends) rather than adding a new event - only
+            // fires when the date or link actually changed, not on every unrelated field save
+            // (e.g. editing Notes alone).
+            var scheduleChanged =
+                (request.ScheduledDate.HasValue && request.ScheduledDate.Value != prevScheduledDate) ||
+                (request.MeetingLink != null && request.MeetingLink != prevMeetingLink);
+
+            if (scheduleChanged)
+                await NotifyStageScheduledAsync(progress, owningApplication, prevScheduledDate.HasValue);
 
             await _unitOfWork.SaveChangesAsync();
+        }
+
+        /// <summary>Never throws - a mail-server hiccup must not block the HR user's save, same
+        /// contract as every other DispatchAsync caller in this codebase.</summary>
+        private async Task NotifyStageScheduledAsync(JobApplicationStageProgress progress, JobApplication? owningApplication, bool wasAlreadyScheduled)
+        {
+            var candidateEmail = owningApplication?.CandidateEmail;
+            if (string.IsNullOrWhiteSpace(candidateEmail))
+                return;
+
+            try
+            {
+                var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["CandidateName"] = owningApplication?.CandidateName ?? string.Empty,
+                    // ScheduledDate is stored UTC (timestamptz) - convert back to local same as
+                    // every other display path (API JSON responses go through
+                    // LocalDateTimeJsonConverter); this hand-built email string bypassed that.
+                    ["ScheduledStartAt"] = progress.ScheduledDate.HasValue
+                        ? DateTimeUtility.ConvertUtcToLocal(progress.ScheduledDate.Value).ToString("dddd, dd MMM yyyy hh:mm tt")
+                        : string.Empty,
+                    ["ScheduledEndAt"] = string.Empty,
+                    ["LocationLabel"] = "Meeting Link",
+                    ["LocationValue"] = progress.MeetingLink ?? string.Empty,
+                    ["CancellationReason"] = string.Empty
+                };
+
+                await _notificationDispatchService.DispatchAsync(
+                    wasAlreadyScheduled ? RecruitmentEventEnum.InterviewRescheduled : RecruitmentEventEnum.InterviewScheduled,
+                    placeholders,
+                    new NotificationDispatchTargets(candidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), progress.JobApplicationId),
+                    persistImmediately: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching stage-scheduled notification for JobApplicationStageProgressId {JobApplicationStageProgressId}.", progress.JobApplicationStageProgressId);
+            }
         }
 
         public async Task BulkAdvanceToStageAsync(List<long> jobApplicationIds, long pipelineStageId)
@@ -168,7 +283,13 @@ namespace SylviaNG.Recruitment.Application.Services
         /// provisioning the row first if it doesn't exist yet. Shared by BulkAdvanceToStageAsync
         /// (HR-triggered) and TryAutoProgressAsync (score-triggered) - identical effect either
         /// way, just a different caller deciding when to fire it.</summary>
-        private async Task AdvanceApplicationToStageAsync(long jobApplicationId, long pipelineStageId, string? userName)
+        /// <param name="stampLastUpdatedBy">True for BulkAdvanceToStageAsync, where userName is
+        /// the HR user who deliberately chose to move the application here - a real action worth
+        /// recording. False for TryAutoProgressAsync, where userName is really the identity/source
+        /// that completed the PRIOR stage (e.g. "system:exam-score") - stamping that here would
+        /// read as "the system updated/scored this stage" when it's only just been activated and
+        /// nothing has actually happened on it yet.</param>
+        private async Task AdvanceApplicationToStageAsync(long jobApplicationId, long pipelineStageId, string? userName, bool stampLastUpdatedBy = true)
         {
             // A row provisioned just now by EnsureProgressRowAsync is still tracked as
             // Added (JobApplicationStageProgressId is the identity column's unset 0) -
@@ -183,7 +304,8 @@ namespace SylviaNG.Recruitment.Application.Services
                 progress.StageEnteredAt = DateTime.UtcNow;
 
             progress.Status = StageProgressStatusEnum.InProgress;
-            progress.LastUpdatedByUserName = userName;
+            if (stampLastUpdatedBy)
+                progress.LastUpdatedByUserName = userName;
 
             if (alreadyPersisted)
                 _stageProgressRepository.Update(progress);
@@ -218,7 +340,7 @@ namespace SylviaNG.Recruitment.Application.Services
             if (targetStage == null || targetStage.PipelineStageId == currentStage.PipelineStageId)
                 return;
 
-            await AdvanceApplicationToStageAsync(jobApplicationId, targetStage.PipelineStageId, userName);
+            await AdvanceApplicationToStageAsync(jobApplicationId, targetStage.PipelineStageId, userName, stampLastUpdatedBy: false);
         }
 
         /// <summary>Returns the progress row for this application at this stage, provisioning
@@ -327,6 +449,12 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var alreadyPersisted = progress.JobApplicationStageProgressId != 0;
 
+            // Direct Pending -> Completed skip (auto-completed by a score/event, never an
+            // explicit InProgress step) - backfill StageEnteredAt here too, same reasoning as
+            // PipelineProgressMapper.ApplyUpdate's manual-PATCH path, otherwise this row's
+            // StageEnteredAt stays null forever and breaks "Days in Current Stage"/"Last Updated"
+            // on the ATS dashboard whenever it ends up being the application's most-advanced stage.
+            progress.StageEnteredAt ??= DateTime.UtcNow;
             progress.Status = StageProgressStatusEnum.Completed;
             progress.Score = score;
             progress.CompletedAt = DateTime.UtcNow;
@@ -336,6 +464,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 _stageProgressRepository.Update(progress);
 
             await TryAutoProgressAsync(jobApplicationId, progress, source);
+            TryAutoAdvanceToInterviewed(pipeline, existingProgress, application);
 
             await _unitOfWork.SaveChangesAsync();
         }
@@ -355,6 +484,87 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var existingProgress = await _stageProgressRepository.GetByJobApplicationIdAsync(jobApplicationId);
             EnsureMandatoryStagesCompleted(pipeline, existingProgress, targetStage);
+        }
+
+        public async Task EnsureStagePrerequisitesForStageAsync(long jobApplicationId, long pipelineStageId)
+        {
+            var application = await _jobApplicationRepository.GetByIdWithIncludeAsync(
+                a => a.JobApplicationId == jobApplicationId,
+                a => a.JobPosting);
+            if (application?.JobPosting.HiringPipelineId == null)
+                return;
+
+            var pipeline = await _hiringPipelineRepository.GetByIdWithStagesAsync(application.JobPosting.HiringPipelineId.Value);
+            var targetStage = pipeline?.Stages.FirstOrDefault(s => s.PipelineStageId == pipelineStageId);
+            if (pipeline == null || targetStage == null)
+                return;
+
+            var existingProgress = await _stageProgressRepository.GetByJobApplicationIdAsync(jobApplicationId);
+            EnsureMandatoryStagesCompleted(pipeline, existingProgress, targetStage);
+        }
+
+        public async Task AutoCompleteStageAsync(long jobApplicationId, long pipelineStageId, decimal score, string source)
+        {
+            var application = await _jobApplicationRepository.GetByIdWithIncludeAsync(
+                a => a.JobApplicationId == jobApplicationId,
+                a => a.JobPosting);
+            if (application?.JobPosting.HiringPipelineId == null)
+                return;
+
+            var pipeline = await _hiringPipelineRepository.GetByIdWithStagesAsync(application.JobPosting.HiringPipelineId.Value);
+            if (pipeline == null)
+                return;
+
+            var existingProgress = await _stageProgressRepository.GetByJobApplicationIdAsync(jobApplicationId);
+            if (existingProgress.Count == 0)
+            {
+                var newProgress = pipeline.Stages
+                    .Where(s => s.IsActive)
+                    .OrderBy(s => s.DisplayOrder)
+                    .Select(s => s.ToProgressEntity(jobApplicationId))
+                    .ToList();
+
+                await _stageProgressRepository.AddRangeAsync(newProgress);
+                existingProgress = newProgress;
+            }
+
+            var progress = existingProgress.FirstOrDefault(p => p.PipelineStageId == pipelineStageId);
+            if (progress == null || progress.Status == StageProgressStatusEnum.Completed)
+                return;
+
+            var targetStage = pipeline.Stages.FirstOrDefault(s => s.PipelineStageId == pipelineStageId);
+            if (targetStage == null)
+                return;
+
+            try
+            {
+                EnsureMandatoryStagesCompleted(pipeline, existingProgress, targetStage);
+            }
+            catch (InvalidStatusTransitionException)
+            {
+                return;
+            }
+
+            var alreadyPersisted = progress.JobApplicationStageProgressId != 0;
+
+            // Direct Pending -> Completed skip (auto-completed by a score/event, never an
+            // explicit InProgress step) - backfill StageEnteredAt here too, same reasoning as
+            // PipelineProgressMapper.ApplyUpdate's manual-PATCH path, otherwise this row's
+            // StageEnteredAt stays null forever and breaks "Days in Current Stage"/"Last Updated"
+            // on the ATS dashboard whenever it ends up being the application's most-advanced stage.
+            progress.StageEnteredAt ??= DateTime.UtcNow;
+            progress.Status = StageProgressStatusEnum.Completed;
+            progress.Score = score;
+            progress.CompletedAt = DateTime.UtcNow;
+            progress.LastUpdatedByUserName = source;
+
+            if (alreadyPersisted)
+                _stageProgressRepository.Update(progress);
+
+            await TryAutoProgressAsync(jobApplicationId, progress, source);
+            TryAutoAdvanceToInterviewed(pipeline, existingProgress, application);
+
+            await _unitOfWork.SaveChangesAsync();
         }
 
         private static void EnsureMandatoryStagesCompleted(HiringPipeline pipeline, List<JobApplicationStageProgress> existingProgress, PipelineStage targetStage)

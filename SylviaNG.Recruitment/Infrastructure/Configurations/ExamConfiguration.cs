@@ -33,14 +33,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasForeignKey(e => e.ExamVenueId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasOne(e => e.QuestionGroup)
-                .WithMany()
-                .HasForeignKey(e => e.QuestionGroupId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             builder.HasIndex(e => e.JobPostingId);
             builder.HasIndex(e => e.ExamVenueId);
-            builder.HasIndex(e => e.QuestionGroupId);
         }
     }
 }

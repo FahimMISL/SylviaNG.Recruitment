@@ -96,7 +96,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<List<TalentPoolLookupResponse>> GetLookupAsync()
         {
-            var entities = await _talentPoolRepository.GetAllAsync();
+            var entities = await _talentPoolRepository.GetAllForLookupAsync();
             return entities.Select(e => e.ToLookupResponse()).ToList();
         }
 

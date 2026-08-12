@@ -16,6 +16,7 @@ public class ExamTakingServiceTests
     private readonly Mock<IExamEnrollmentRepository> _examEnrollmentRepositoryMock;
     private readonly Mock<IExamQuestionRepository> _examQuestionRepositoryMock;
     private readonly Mock<IExamAnswerRepository> _examAnswerRepositoryMock;
+    private readonly Mock<IJobApplicationStageProgressService> _jobApplicationStageProgressServiceMock;
     private readonly Mock<ICurrentCandidateService> _currentCandidateServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExamTakingService _service;
@@ -25,6 +26,7 @@ public class ExamTakingServiceTests
         _examEnrollmentRepositoryMock = new Mock<IExamEnrollmentRepository>();
         _examQuestionRepositoryMock = new Mock<IExamQuestionRepository>();
         _examAnswerRepositoryMock = new Mock<IExamAnswerRepository>();
+        _jobApplicationStageProgressServiceMock = new Mock<IJobApplicationStageProgressService>();
         _currentCandidateServiceMock = new Mock<ICurrentCandidateService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
@@ -35,6 +37,7 @@ public class ExamTakingServiceTests
             _examEnrollmentRepositoryMock.Object,
             _examQuestionRepositoryMock.Object,
             _examAnswerRepositoryMock.Object,
+            _jobApplicationStageProgressServiceMock.Object,
             _currentCandidateServiceMock.Object,
             _unitOfWorkMock.Object);
     }

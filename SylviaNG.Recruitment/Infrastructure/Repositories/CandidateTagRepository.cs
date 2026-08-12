@@ -12,7 +12,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         public async Task<List<CandidateTag>> GetAllByCandidateProfileIdAsync(long candidateProfileId)
         {
-            return await _dbSet.Where(t => t.CandidateProfileId == candidateProfileId).ToListAsync();
+            return await _dbSet
+                .Where(t => t.CandidateProfileId == candidateProfileId)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
         }
 
         public async Task<List<string>> GetDistinctTagNamesAsync(string? search, int limit)

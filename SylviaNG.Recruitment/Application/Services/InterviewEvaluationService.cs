@@ -7,6 +7,7 @@ using SylviaNG.Recruitment.Application.Mappings;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -136,7 +137,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 sheet.Cell(rowIndex, 5).Value = evaluation.WeightedScore;
                 sheet.Cell(rowIndex, 6).Value = evaluation.Recommendation?.ToString() ?? string.Empty;
                 sheet.Cell(rowIndex, 7).Value = evaluation.OverallComments ?? string.Empty;
-                sheet.Cell(rowIndex, 8).Value = evaluation.SubmittedAt.ToString("yyyy-MM-dd HH:mm");
+                sheet.Cell(rowIndex, 8).Value = DateTimeUtility.ConvertUtcToLocal(evaluation.SubmittedAt).ToString("yyyy-MM-dd hh:mm tt");
                 sheet.Cell(rowIndex, 9).Value = evaluation.SubmittedByUserName ?? string.Empty;
                 rowIndex++;
             }

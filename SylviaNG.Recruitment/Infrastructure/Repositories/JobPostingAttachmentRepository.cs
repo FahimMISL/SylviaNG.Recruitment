@@ -14,6 +14,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Where(a => a.JobPostingId == jobPostingId)
+                .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }
     }

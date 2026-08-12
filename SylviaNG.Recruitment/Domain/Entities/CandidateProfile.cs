@@ -82,6 +82,10 @@ public class CandidateProfile : Audit
     public Religion? Religion { get; set; }
     public BloodGroup? BloodGroup { get; set; }
     public Country? Country { get; set; }
+    // District only (not Division/Thana) - the only granularity JobEligibilityEvaluator and
+    // district-based shortlist filters/CV Bank search actually match against.
+    public District? PresentDistrict { get; set; }
+    public District? HomeDistrict { get; set; }
     public ICollection<CandidateEducation> Educations { get; set; } = new List<CandidateEducation>();
     public ICollection<CandidateWorkExperience> WorkExperiences { get; set; } = new List<CandidateWorkExperience>();
     public ICollection<CandidateSkill> Skills { get; set; } = new List<CandidateSkill>();

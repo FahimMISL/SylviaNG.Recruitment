@@ -17,7 +17,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         public async Task<List<DocumentTemplate>> GetAllOrderedAsync()
         {
-            return await _dbSet.OrderBy(t => t.Name).ToListAsync();
+            // Newest-first: a freshly created/edited template surfaces at the top of the admin list.
+            return await _dbSet.OrderByDescending(t => t.DocumentTemplateId).ToListAsync();
         }
 
         public async Task<int> CountUsageAsync(long documentTemplateId)

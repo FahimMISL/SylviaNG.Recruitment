@@ -63,5 +63,5 @@ deferred piece of work" (the MinIO swap). Requested now as the next scoped piece
   projection, even though the response mapper never included it. Dropping the column fixes this
   automatically.
 - **MinIO runs in Docker**, same `docker inspect`-else-`docker run` pattern as Postgres/Keycloak in
-  `start.bat`/`stop.bat` (`sylviang-minio-dev`, ports 9000 API / 9001 console,
+  `start.bat`/`stop.bat` (`sylviang-minio-dev-v2`, ports 9100 API / 9101 console,
   minioadmin/minioadmin123 dev creds).

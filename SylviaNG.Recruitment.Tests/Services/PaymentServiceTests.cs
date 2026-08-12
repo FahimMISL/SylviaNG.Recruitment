@@ -80,7 +80,7 @@ public class PaymentServiceTests
         _gatewayMock.Setup(g => g.InitiateSessionAsync(It.IsAny<SslCommerzSessionRequest>()))
             .ReturnsAsync(new SslCommerzSessionResult(true, "https://sandbox.sslcommerz.com/pay/abc", "session-key-1", null));
 
-        var result = await _service.InitiateAsync(1);
+        var result = await _service.InitiateAsync(1, "jane@example.com");
 
         result.Success.Should().BeTrue();
         result.GatewayRedirectUrl.Should().Be("https://sandbox.sslcommerz.com/pay/abc");
@@ -98,7 +98,7 @@ public class PaymentServiceTests
             .Setup(r => r.GetByIdWithIncludeAsync(It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, bool>>>(), It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, object>>[]>()))
             .ReturnsAsync(jobApplication);
 
-        var result = await _service.InitiateAsync(1);
+        var result = await _service.InitiateAsync(1, "jane@example.com");
 
         result.Success.Should().BeFalse();
         _gatewayMock.Verify(g => g.InitiateSessionAsync(It.IsAny<SslCommerzSessionRequest>()), Times.Never);
@@ -111,7 +111,7 @@ public class PaymentServiceTests
             .Setup(r => r.GetByIdWithIncludeAsync(It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, bool>>>(), It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, object>>[]>()))
             .ReturnsAsync((JobApplication?)null);
 
-        var act = () => _service.InitiateAsync(999);
+        var act = () => _service.InitiateAsync(999, "jane@example.com");
 
         await act.Should().ThrowAsync<NotFoundException>();
     }
@@ -128,7 +128,7 @@ public class PaymentServiceTests
         _gatewayMock.Setup(g => g.InitiateSessionAsync(It.IsAny<SslCommerzSessionRequest>()))
             .ReturnsAsync(new SslCommerzSessionResult(false, null, null, "Invalid store credentials."));
 
-        var result = await _service.InitiateAsync(1);
+        var result = await _service.InitiateAsync(1, "jane@example.com");
 
         result.Success.Should().BeFalse();
         result.FailureReason.Should().Be("Invalid store credentials.");
@@ -243,7 +243,7 @@ public class PaymentServiceTests
         var payment = new Payment { PaymentId = 2, JobApplicationId = 1, Amount = 500m, Currency = "BDT", PaymentStatus = PaymentStatusEnum.Success, PaidAt = DateTime.UtcNow };
         _paymentRepositoryMock.Setup(r => r.GetLatestByJobApplicationIdAsync(1)).ReturnsAsync(payment);
 
-        var result = await _service.GetStatusAsync(1);
+        var result = await _service.GetStatusAsync(1, string.Empty);
 
         result.ApplicationStatus.Should().Be("Applied");
         result.PaymentStatus.Should().Be("Success");
@@ -255,7 +255,7 @@ public class PaymentServiceTests
     {
         _jobApplicationRepositoryMock.Setup(r => r.GetByIdAsync(999)).ReturnsAsync((JobApplication?)null);
 
-        var act = () => _service.GetStatusAsync(999);
+        var act = () => _service.GetStatusAsync(999, string.Empty);
 
         await act.Should().ThrowAsync<NotFoundException>();
     }

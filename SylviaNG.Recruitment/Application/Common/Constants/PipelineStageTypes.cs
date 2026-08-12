@@ -39,7 +39,8 @@ namespace SylviaNG.Recruitment.Application.Common.Constants
             "Offer",
             "Joining",
             "Onboarding",
-            "Rejected"
+            "Rejected",
+            "Custom / General"
         };
 
         /// <summary>

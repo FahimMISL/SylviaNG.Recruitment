@@ -1,8 +1,10 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Models;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -52,6 +54,8 @@ public class CandidateProfileServiceTests
             _fileStorageServiceMock.Object,
             _coreGrpcClientMock.Object,
             _candidateProfilePdfGeneratorServiceMock.Object,
+            Mock.Of<IPrivateFileAccessTokenService>(),
+            Options.Create(new PrivateFileAccessSettings()),
             _unitOfWorkMock.Object,
             Mock.Of<ILogger<CandidateProfileService>>());
     }

@@ -38,7 +38,17 @@ namespace SylviaNG.Recruitment.Application.Services
             var educationLevels = new HashSet<EducationLevelEnum>(
                 profile.Educations?.Where(e => e.EducationLevel.HasValue).Select(e => e.EducationLevel!.Value) ?? Enumerable.Empty<EducationLevelEnum>());
 
-            var addressText = string.Join(" ", new[] { profile.PresentAddressDetail, profile.PermanentAddressDetail }.Where(a => !string.IsNullOrWhiteSpace(a)));
+            // District lives in a structured dropdown (PresentDistrictId/HomeDistrictId), separate
+            // from the free-text "house/road" detail lines - fold the resolved name in too, or a
+            // candidate whose District is correctly set (e.g. "Dhaka") but whose street-address
+            // text never spells it out fails every district-based check for no real reason.
+            var addressText = string.Join(" ", new[]
+            {
+                profile.PresentAddressDetail,
+                profile.PresentDistrict?.Name,
+                profile.PermanentAddressDetail,
+                profile.HomeDistrict?.Name,
+            }.Where(a => !string.IsNullOrWhiteSpace(a)));
 
             var tagNames = new HashSet<string>(
                 profile.Tags?.Select(t => t.TagName).Where(n => !string.IsNullOrWhiteSpace(n)) ?? Enumerable.Empty<string>(),

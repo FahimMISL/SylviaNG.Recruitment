@@ -72,8 +72,11 @@ namespace SylviaNG.Recruitment.Controllers
             return Ok();
         }
 
+        // Rendered by every HR-facing "Generate X Letter" form (Medical/Target/Appointment) to
+        // fill their live-preview textarea before submit - not template CRUD, so it belongs with
+        // GetAll/GetById's Admin,HR split above, not the Admin-only management actions below.
         [HttpPost("preview")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult<DocumentTemplatePreviewResponse>> Preview([FromBody] DocumentTemplatePreviewRequest request)
         {
             return Ok(await _mediator.Send(new DocumentTemplatePreviewQuery(request)));

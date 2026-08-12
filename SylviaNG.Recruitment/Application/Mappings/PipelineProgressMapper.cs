@@ -46,8 +46,15 @@ namespace SylviaNG.Recruitment.Application.Mappings
                     entity.CompletedAt = DateTime.UtcNow;
 
                 // Same non-bump semantics for StageEnteredAt on the transition into InProgress
-                // (US-109 "Days in Current Stage").
-                if (request.Status.Value == StageProgressStatusEnum.InProgress && entity.Status != StageProgressStatusEnum.InProgress)
+                // (US-109 "Days in Current Stage"). Also backfilled on a direct Pending ->
+                // Completed skip (HR can PATCH straight to Completed without ever setting
+                // InProgress) - otherwise this row's StageEnteredAt stays null forever, which
+                // breaks "Days in Current Stage"/"Last Updated" on the ATS dashboard whenever
+                // this ends up being the application's most-advanced stage (e.g. every stage
+                // Completed with none InProgress).
+                if (entity.StageEnteredAt == null
+                    && (request.Status.Value == StageProgressStatusEnum.InProgress || request.Status.Value == StageProgressStatusEnum.Completed)
+                    && entity.Status != request.Status.Value)
                     entity.StageEnteredAt = DateTime.UtcNow;
 
                 entity.Status = request.Status.Value;

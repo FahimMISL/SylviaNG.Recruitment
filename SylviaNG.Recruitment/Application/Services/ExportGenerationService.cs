@@ -158,8 +158,12 @@ namespace SylviaNG.Recruitment.Application.Services
         private static string[] BuildTrackerRow(
             JobApplication application, JobApplicationStageProgress? currentStage, int? defaultStaleDaysThreshold, DateTime now)
         {
-            int? daysInStage = currentStage?.StageEnteredAt.HasValue == true
-                ? (int)(now - currentStage.StageEnteredAt!.Value).TotalDays
+            // Fall back to CompletedAt for a stage that skipped InProgress and went straight
+            // Pending -> Completed in one step - see JobApplicationService.AttachStageProgressInfoAsync's
+            // matching fallback for the ATS dashboard's own copy of these columns.
+            var stageAnchor = currentStage?.StageEnteredAt ?? currentStage?.CompletedAt;
+            int? daysInStage = stageAnchor.HasValue
+                ? (int)(now - stageAnchor.Value).TotalDays
                 : null;
             var threshold = currentStage?.SlaDaysSnapshot ?? defaultStaleDaysThreshold;
             var isStale = daysInStage.HasValue && threshold.HasValue && daysInStage.Value > threshold.Value;
@@ -170,7 +174,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 application.CandidateName,
                 currentStage?.StageName ?? string.Empty,
                 application.ApplicationStatus.ToString(),
-                currentStage?.StageEnteredAt.HasValue == true ? currentStage.StageEnteredAt!.Value.ToString("yyyy-MM-dd HH:mm") : string.Empty,
+                stageAnchor.HasValue ? DateTimeUtility.ConvertUtcToLocal(stageAnchor.Value).ToString("yyyy-MM-dd hh:mm tt") : string.Empty,
                 daysInStage?.ToString() ?? string.Empty,
                 isStale ? "Yes" : "No",
                 currentStage?.LastUpdatedByUserName ?? string.Empty

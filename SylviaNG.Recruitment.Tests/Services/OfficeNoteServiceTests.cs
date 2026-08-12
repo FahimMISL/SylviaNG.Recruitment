@@ -177,7 +177,7 @@ public class OfficeNoteServiceTests
 
         response.OfficeNoteId.Should().Be(42);
         response.EnclosuresSummary.Should().Be("Offer Letter, Joining Booklet");
-        response.GeneratedPdfPath.Should().Be("uploads/documents/office-notes/office-note.pdf");
+        response.GeneratedPdfPath.Should().Be("recruitment/files/download?key=uploads%2Fdocuments%2Foffice-notes%2Foffice-note.pdf");
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
         _officeNoteRepositoryMock.Verify(r => r.AddAsync(It.Is<OfficeNote>(
             e => e.EnclosuresSummary == "Offer Letter, Joining Booklet" && e.Remarks == "Please expedite.")), Times.Once);

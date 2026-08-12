@@ -27,6 +27,13 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task CreateUserAsync(string username, string email, string firstName, string lastName, string password, string realmRole, bool requireEmailVerification);
 
         /// <summary>
+        /// Creates a staff account and sends a one-time Keycloak link requiring the recipient to
+        /// verify the address and choose their own password. Throws when the email cannot be
+        /// dispatched, so callers never report a successful invitation that cannot be used.
+        /// </summary>
+        Task InviteUserAsync(string username, string email, string firstName, string lastName, string realmRole);
+
+        /// <summary>
         /// Looks up a realm user's internal id by username via the Admin REST API.
         /// Throws NotFoundException if no user matches.
         /// </summary>

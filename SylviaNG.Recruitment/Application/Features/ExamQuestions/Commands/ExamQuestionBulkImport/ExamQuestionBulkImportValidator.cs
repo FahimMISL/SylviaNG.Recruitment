@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Settings;
+using SylviaNG.Recruitment.Application.Common.Validation;
 
 namespace SylviaNG.Recruitment.Application.Features.ExamQuestions.Commands.ExamQuestionBulkImport
 {
@@ -22,6 +23,11 @@ namespace SylviaNG.Recruitment.Application.Features.ExamQuestions.Commands.ExamQ
             RuleFor(x => x.File)
                 .Must(f => f != null && allowedExtensions.Contains(Path.GetExtension(f.FileName), StringComparer.OrdinalIgnoreCase))
                 .WithMessage($"File extension must be one of: {string.Join(", ", allowedExtensions)}.")
+                .When(x => x.File != null);
+
+            RuleFor(x => x.File)
+                .Must(f => f != null && FileSignatureValidator.MatchesExtension(f, Path.GetExtension(f.FileName)))
+                .WithMessage("File content does not match its extension.")
                 .When(x => x.File != null);
 
             RuleFor(x => x.File)

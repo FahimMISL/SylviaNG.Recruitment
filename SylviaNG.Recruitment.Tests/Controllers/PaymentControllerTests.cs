@@ -33,9 +33,9 @@ public class PaymentControllerTests
     public async Task Initiate_ShouldReturnOkWithServiceResult()
     {
         var expected = new PaymentInitiateResponse { Success = true, GatewayRedirectUrl = "https://sandbox.sslcommerz.com/pay/abc" };
-        _paymentServiceMock.Setup(s => s.InitiateAsync(1)).ReturnsAsync(expected);
+        _paymentServiceMock.Setup(s => s.InitiateAsync(1, "candidate@example.com")).ReturnsAsync(expected);
 
-        var result = await _controller.Initiate(1);
+        var result = await _controller.Initiate(1, "candidate@example.com");
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(expected);
@@ -45,9 +45,9 @@ public class PaymentControllerTests
     public async Task GetStatus_ShouldReturnOkWithServiceResult()
     {
         var expected = new PaymentStatusResponse { JobApplicationId = 1, ApplicationStatus = "Applied", PaymentStatus = "Success" };
-        _paymentServiceMock.Setup(s => s.GetStatusAsync(1)).ReturnsAsync(expected);
+        _paymentServiceMock.Setup(s => s.GetStatusAsync(1, "candidate@example.com")).ReturnsAsync(expected);
 
-        var result = await _controller.GetStatus(1);
+        var result = await _controller.GetStatus(1, "candidate@example.com");
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(expected);
@@ -89,12 +89,12 @@ public class PaymentControllerTests
     public async Task CallbackSuccess_WithKnownTransaction_ShouldRedirectToFrontendResultPageWithJobApplicationId()
     {
         var form = CreateForm(new Dictionary<string, string> { ["tran_id"] = "TRAN123" });
-        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(42L);
+        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
 
         var result = await _controller.CallbackSuccess(form);
 
         var redirect = result.Should().BeOfType<RedirectResult>().Subject;
-        redirect.Url.Should().Be("http://localhost:4600/careers/payment-result?jobApplicationId=42&status=success");
+        redirect.Url.Should().Be("http://localhost:4600/careers/payment-result?jobApplicationId=42&status=success&candidateEmail=candidate%40example.com");
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class PaymentControllerTests
         // not just redirect based on the request's own "status" field. This is what lets a
         // candidate see a confirmed result even if the async IPN never arrives.
         var form = CreateForm(new Dictionary<string, string> { ["tran_id"] = "TRAN123", ["val_id"] = "VAL123", ["status"] = "VALID" });
-        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(42L);
+        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
 
         await _controller.CallbackSuccess(form);
 
@@ -116,7 +116,7 @@ public class PaymentControllerTests
     public async Task CallbackFail_WithUnknownTransaction_ShouldRedirectWithoutJobApplicationId()
     {
         var form = CreateForm(new Dictionary<string, string> { ["tran_id"] = "UNKNOWN" });
-        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("UNKNOWN")).ReturnsAsync((long?)null);
+        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("UNKNOWN")).ReturnsAsync(((long, string?)?)null);
 
         var result = await _controller.CallbackFail(form);
 
@@ -128,12 +128,12 @@ public class PaymentControllerTests
     public async Task CallbackCancel_ShouldRedirectWithCancelStatus()
     {
         var form = CreateForm(new Dictionary<string, string> { ["tran_id"] = "TRAN123" });
-        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(42L);
+        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
 
         var result = await _controller.CallbackCancel(form);
 
         var redirect = result.Should().BeOfType<RedirectResult>().Subject;
-        redirect.Url.Should().Be("http://localhost:4600/careers/payment-result?jobApplicationId=42&status=cancel");
+        redirect.Url.Should().Be("http://localhost:4600/careers/payment-result?jobApplicationId=42&status=cancel&candidateEmail=candidate%40example.com");
     }
 
     [Fact]

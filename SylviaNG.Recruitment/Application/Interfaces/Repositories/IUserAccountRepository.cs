@@ -6,6 +6,7 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
     public interface IUserAccountRepository : IRepository<UserAccount>
     {
         Task<bool> ExistsByEmailAsync(string email, long? excludeId = null);
+        Task<bool> ExistsAnyWithRoleAsync(string roleName);
         Task<UserAccount?> GetByIdWithRolesAsync(long userAccountId);
         Task<List<UserAccount>> GetAllWithRolesAsync();
         Task<UserAccount?> GetByKeycloakUserIdWithRolesAsync(string keycloakUserId);

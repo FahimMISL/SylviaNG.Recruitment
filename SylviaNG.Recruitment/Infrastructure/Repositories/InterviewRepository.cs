@@ -39,22 +39,22 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             if (dateTo.HasValue)
                 query = query.Where(i => i.ScheduledStartAt <= dateTo.Value);
 
-            query = query.OrderByDescending(i => i.ScheduledStartAt);
-
-            var totalCount = await query.CountAsync();
-
-            var items = await query
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .ToListAsync();
-
-            return new PagedResult<Interview>
+            if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
-                Data = items,
-                PageNumber = request.Page,
-                PageSize = request.PageSize,
-                TotalCount = totalCount
-            };
+                // Interview has no searchable text field of its own - the generic
+                // ToPaginatedResultAsync SearchProperties mechanism only reflects over direct
+                // properties of T, so a cross-entity search on the linked candidate needs an
+                // explicit Where instead.
+                var normalizedSearchTerm = request.SearchTerm.Trim().ToLowerInvariant();
+
+                query = query.Where(i =>
+                    i.JobApplication.CandidateName.ToLower().Contains(normalizedSearchTerm) ||
+                    (i.JobApplication.CandidateEmail != null && i.JobApplication.CandidateEmail.ToLower().Contains(normalizedSearchTerm)));
+            }
+
+            var orderedQuery = query.OrderByDescending(i => i.ScheduledStartAt);
+
+            return await orderedQuery.ToPaginatedResultAsync(request);
         }
 
         public async Task<Interview?> GetByIdWithDetailsAsync(long interviewId)

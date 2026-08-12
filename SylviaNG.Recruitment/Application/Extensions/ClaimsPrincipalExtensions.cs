@@ -10,7 +10,7 @@ namespace SylviaNG.Recruitment.Application.Extensions
         // order realm_access.roles listed them - FindFirst(ClaimTypes.Role)
         // is not reliable. Mirrors AuthService.ResolveKnownRole's priority scan
         // so a request-time role check agrees with the role returned at login.
-        private static readonly UserRoleEnum[] RolePriority = { UserRoleEnum.Admin, UserRoleEnum.HR, UserRoleEnum.Candidate };
+        private static readonly UserRoleEnum[] RolePriority = { UserRoleEnum.SuperAdmin, UserRoleEnum.Admin, UserRoleEnum.HR, UserRoleEnum.Candidate };
 
         public static UserRoleEnum GetHighestRole(this ClaimsPrincipal user)
         {

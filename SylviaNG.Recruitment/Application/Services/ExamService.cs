@@ -14,17 +14,20 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IExamRepository _examRepository;
         private readonly IJobPostingRepository _jobPostingRepository;
         private readonly IExamVenueRepository _examVenueRepository;
+        private readonly IQuestionGroupRepository _questionGroupRepository;
         private readonly IUnitOfWork _unitOfWork;
 
         public ExamService(
             IExamRepository examRepository,
             IJobPostingRepository jobPostingRepository,
             IExamVenueRepository examVenueRepository,
+            IQuestionGroupRepository questionGroupRepository,
             IUnitOfWork unitOfWork)
         {
             _examRepository = examRepository;
             _jobPostingRepository = jobPostingRepository;
             _examVenueRepository = examVenueRepository;
+            _questionGroupRepository = questionGroupRepository;
             _unitOfWork = unitOfWork;
         }
 
@@ -42,13 +45,22 @@ namespace SylviaNG.Recruitment.Application.Services
                     ?? throw new NotFoundException("ExamVenue", request.ExamVenueId.Value);
             }
 
+            var questionGroupIds = new List<long>();
             if (request.ExamType == ExamTypeEnum.Online)
             {
-                if (!request.QuestionGroupId.HasValue)
-                    throw new InvalidStatusTransitionException("QuestionGroupId is required for an online exam.");
+                if (request.QuestionGroupIds == null || request.QuestionGroupIds.Count == 0)
+                    throw new InvalidStatusTransitionException("At least one question group is required for an online exam.");
+
+                questionGroupIds = request.QuestionGroupIds.Distinct().ToList();
+                var existingGroups = await _questionGroupRepository.GetByIdsAsync(questionGroupIds);
+                var missingIds = questionGroupIds.Except(existingGroups.Select(g => g.QuestionGroupId)).ToList();
+                if (missingIds.Count > 0)
+                    throw new NotFoundException("QuestionGroup", missingIds.First());
             }
 
             var entity = request.ToEntity();
+            foreach (var questionGroupId in questionGroupIds)
+                entity.QuestionGroupLinks.Add(new Domain.Entities.ExamQuestionGroup { QuestionGroupId = questionGroupId });
 
             await _examRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();

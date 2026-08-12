@@ -4,6 +4,7 @@ using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -99,8 +100,11 @@ namespace SylviaNG.Recruitment.Application.Services
             var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["CandidateName"] = interview.JobApplication?.CandidateName ?? string.Empty,
-                ["ScheduledStartAt"] = interview.ScheduledStartAt.ToString("dddd, dd MMM yyyy HH:mm"),
-                ["ScheduledEndAt"] = interview.ScheduledEndAt.ToString("HH:mm"),
+                // Both are stored UTC (timestamptz) - every other display path (API JSON
+                // responses) converts back to local via LocalDateTimeJsonConverter; this
+                // hand-built email string bypassed that entirely and showed raw UTC.
+                ["ScheduledStartAt"] = DateTimeUtility.ConvertUtcToLocal(interview.ScheduledStartAt).ToString("dddd, dd MMM yyyy hh:mm tt"),
+                ["ScheduledEndAt"] = DateTimeUtility.ConvertUtcToLocal(interview.ScheduledEndAt).ToString("hh:mm tt"),
                 ["LocationLabel"] = interview.InterviewType == InterviewTypeEnum.Virtual ? "Meeting Link" : "Venue",
                 ["LocationValue"] = interview.InterviewType == InterviewTypeEnum.Virtual
                     ? interview.MeetingLink ?? string.Empty
@@ -149,12 +153,12 @@ namespace SylviaNG.Recruitment.Application.Services
         }
 
         private static string BuildScheduledSms(Interview interview) =>
-            $"Your interview is scheduled on {interview.ScheduledStartAt:dd MMM yyyy HH:mm}.";
+            $"Your interview is scheduled on {DateTimeUtility.ConvertUtcToLocal(interview.ScheduledStartAt):dd MMM yyyy hh:mm tt}.";
 
         private static string BuildRescheduledSms(Interview interview) =>
-            $"Your interview has been rescheduled to {interview.ScheduledStartAt:dd MMM yyyy HH:mm}.";
+            $"Your interview has been rescheduled to {DateTimeUtility.ConvertUtcToLocal(interview.ScheduledStartAt):dd MMM yyyy hh:mm tt}.";
 
         private static string BuildCancelledSms(Interview interview) =>
-            $"Your interview scheduled on {interview.ScheduledStartAt:dd MMM yyyy HH:mm} has been cancelled.";
+            $"Your interview scheduled on {DateTimeUtility.ConvertUtcToLocal(interview.ScheduledStartAt):dd MMM yyyy hh:mm tt} has been cancelled.";
     }
 }

@@ -14,10 +14,6 @@ namespace SylviaNG.Recruitment.Application.Features.UserAccounts.Commands.UserAc
                 .NotEmpty().WithMessage("Full name is required.")
                 .MaximumLength(200).WithMessage("Full name must not exceed 200 characters.");
 
-            RuleFor(x => x.Request.Password)
-                .NotEmpty().WithMessage("Password is required.")
-                .MinimumLength(8).WithMessage("Password must be at least 8 characters.");
-
             RuleFor(x => x.Request.RoleIds)
                 .NotEmpty().WithMessage("At least one role must be assigned.");
         }

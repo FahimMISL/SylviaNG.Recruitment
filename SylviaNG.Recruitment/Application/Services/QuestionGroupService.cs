@@ -10,11 +10,16 @@ namespace SylviaNG.Recruitment.Application.Services
     public class QuestionGroupService : IQuestionGroupService
     {
         private readonly IQuestionGroupRepository _questionGroupRepository;
+        private readonly IExamQuestionRepository _examQuestionRepository;
         private readonly IUnitOfWork _unitOfWork;
 
-        public QuestionGroupService(IQuestionGroupRepository questionGroupRepository, IUnitOfWork unitOfWork)
+        public QuestionGroupService(
+            IQuestionGroupRepository questionGroupRepository,
+            IExamQuestionRepository examQuestionRepository,
+            IUnitOfWork unitOfWork)
         {
             _questionGroupRepository = questionGroupRepository;
+            _examQuestionRepository = examQuestionRepository;
             _unitOfWork = unitOfWork;
         }
 
@@ -69,14 +74,17 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<List<QuestionGroupResponse>> GetAllAsync()
         {
-            var entities = await _questionGroupRepository.GetAllAsync();
+            var entities = await _questionGroupRepository.GetAllNewestFirstAsync();
             return entities.Select(e => e.ToResponse()).ToList();
         }
 
         public async Task<List<QuestionGroupLookupResponse>> GetActiveLookupAsync()
         {
             var entities = await _questionGroupRepository.GetActiveAsync();
-            return entities.Select(e => e.ToLookupResponse()).ToList();
+            var counts = await _examQuestionRepository.CountActiveByQuestionGroupIdsAsync(
+                entities.Select(e => e.QuestionGroupId).ToList());
+
+            return entities.Select(e => e.ToLookupResponse(counts.GetValueOrDefault(e.QuestionGroupId))).ToList();
         }
     }
 }

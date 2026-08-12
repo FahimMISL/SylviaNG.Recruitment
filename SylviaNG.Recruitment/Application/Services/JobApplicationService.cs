@@ -248,6 +248,12 @@ namespace SylviaNG.Recruitment.Application.Services
                     : null;
                 waiverRule = await _waiverRuleService.TryMatchAsync(
                     candidateProfile?.IsInternal ?? false, request.SpecialCategoryId, request.ReferralSourceId);
+
+                // A rule matching the claimed category isn't enough - the claim must carry
+                // proof, otherwise anyone could pick "Freedom Fighter" off the dropdown and
+                // skip the fee unverified. No document = no waiver, applicant still pays.
+                if (waiverRule != null && request.WaiverProofDocument == null)
+                    waiverRule = null;
             }
 
             // EP-17: HR applying on a candidate's behalf, or a matched fee-waiver rule, bypasses
@@ -266,6 +272,12 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 entity.WaiverRuleId = waiverRule.WaiverRuleId;
                 entity.WaivedAt = DateTime.UtcNow;
+
+                // Only stored once the rule actually matched - avoids keeping an upload for a
+                // category/rule combination that never resulted in a waiver.
+                var (_, waiverProofPath) = await _applicationCvStorageService.SaveAsync(
+                    request.WaiverProofDocument!.OpenReadStream(), request.WaiverProofDocument!.FileName, jobPosting.JobPostingId.ToString());
+                entity.WaiverProofDocumentUrl = waiverProofPath;
             }
 
             if (request.Resume != null)
@@ -344,7 +356,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 // leave PaymentRedirectUrl null so the frontend shows a manual retry path instead.
                 try
                 {
-                    var initiateResult = await _paymentService.InitiateAsync(entity.JobApplicationId);
+                    var initiateResult = await _paymentService.InitiateAsync(entity.JobApplicationId, entity.CandidateEmail ?? string.Empty);
                     if (initiateResult.Success)
                         response.PaymentRedirectUrl = initiateResult.GatewayRedirectUrl;
                 }
@@ -354,21 +366,28 @@ namespace SylviaNG.Recruitment.Application.Services
                 }
             }
 
-            // US-075/US-076: dispatch on submit. A payment-required submission gets no email here -
-            // the candidate hasn't paid yet, so sending "action required"/status here just races the
-            // SSLCommerz redirect and can arrive after they've already paid. The confirmation email
-            // fires from PaymentService.HandleIpnAsync once the IPN actually confirms payment.
-            if (!requiresPayment)
+            // US-075/US-076: dispatch on submit. A no-payment submission is confirmed immediately
+            // (ApplicationSubmitted). A payment-required submission instead gets a "complete your
+            // payment" action email to both the candidate and HR (CandidateActionRequired) - it does
+            // NOT send the ApplicationSubmitted confirmation here, since that still fires later from
+            // PaymentService.HandleIpnAsync once the IPN confirms payment, so the two never overlap.
+            try
             {
-                try
+                var placeholders = BuildBaseDispatchPlaceholders(entity, jobPosting.Title);
+                if (requiresPayment)
                 {
-                    var placeholders = BuildBaseDispatchPlaceholders(entity, jobPosting.Title);
+                    placeholders["FeeAmount"] = jobPosting.ApplicationFeeAmount?.ToString("N2") ?? string.Empty;
+                    placeholders["PaymentLink"] = response.PaymentRedirectUrl ?? string.Empty;
+                    await _notificationDispatchService.DispatchAsync(RecruitmentEventEnum.CandidateActionRequired, placeholders, await BuildDispatchTargetsAsync(entity));
+                }
+                else
+                {
                     await _notificationDispatchService.DispatchAsync(RecruitmentEventEnum.ApplicationSubmitted, placeholders, await BuildDispatchTargetsAsync(entity));
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Unexpected error dispatching submit notification for JobApplicationId {JobApplicationId}.", entity.JobApplicationId);
-                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching submit notification for JobApplicationId {JobApplicationId}.", entity.JobApplicationId);
             }
 
             return response;
@@ -519,12 +538,17 @@ namespace SylviaNG.Recruitment.Application.Services
                 response.AssignedHrUserName = current.LastUpdatedByUserName;
                 // Audit.UpdatedAt is never actually stamped anywhere in this codebase (confirmed -
                 // no interceptor, no manual stamp on this entity), so it's always null and useless
-                // here. StageEnteredAt is the one real timestamp this row carries.
-                response.LastUpdatedAt = current.StageEnteredAt;
+                // here. StageEnteredAt is the one real timestamp this row carries - fall back to
+                // CompletedAt for rows stamped before StageEnteredAt was backfilled on direct
+                // Pending->Completed transitions (see PipelineProgressMapper.ApplyUpdate /
+                // JobApplicationStageProgressService.AutoCompleteStage[ByType]Async), so a stage
+                // completed in one step without ever going InProgress doesn't show a blank dash.
+                var stageAnchor = current.StageEnteredAt ?? current.CompletedAt;
+                response.LastUpdatedAt = stageAnchor;
 
-                if (current.StageEnteredAt.HasValue)
+                if (stageAnchor.HasValue)
                 {
-                    var daysInStage = (int)(now - current.StageEnteredAt.Value).TotalDays;
+                    var daysInStage = (int)(now - stageAnchor.Value).TotalDays;
                     response.DaysInCurrentStage = daysInStage;
 
                     var threshold = current.SlaDaysSnapshot ?? defaultStaleDaysThreshold;
@@ -892,8 +916,14 @@ namespace SylviaNG.Recruitment.Application.Services
                 placeholders["FromStatus"] = fromStatus.ToString();
                 placeholders["ToStatus"] = request.ToStatus.ToString();
 
+                // Rejection gets its own event so a dedicated rejection template can be mapped
+                // separately; every other transition uses the generic status-changed event.
+                var dispatchEvent = request.ToStatus == ApplicationStatusEnum.Rejected
+                    ? RecruitmentEventEnum.ApplicationRejected
+                    : RecruitmentEventEnum.ApplicationStatusChanged;
+
                 await _notificationDispatchService.DispatchAsync(
-                    RecruitmentEventEnum.ApplicationStatusChanged,
+                    dispatchEvent,
                     placeholders,
                     await BuildDispatchTargetsAsync(entity),
                     persistImmediately: false);
@@ -948,9 +978,26 @@ namespace SylviaNG.Recruitment.Application.Services
             var email = await _currentCandidateService.GetCurrentEmailAsync();
             var applications = await _jobApplicationRepository.GetByCandidateAsync(profileId, email);
 
-            return applications
-                .Select(a => a.ToMyApplicationResponse(CanWithdraw(a.ApplicationStatus, a.JobPosting?.Status)))
-                .ToList();
+            var result = new List<MyApplicationResponse>();
+            foreach (var a in applications)
+            {
+                var response = a.ToMyApplicationResponse(CanWithdraw(a.ApplicationStatus, a.JobPosting?.Status));
+
+                // Merge in the generic pipeline-stage tracker's own schedule/meeting-link rows
+                // (see ToMyApplicationInterviewResponse(JobApplicationStageProgress) doc) - a
+                // second scheduling source alongside the dedicated Interview entity above.
+                // Same actionable-only filter as the dedicated Interview list above - a Completed
+                // stage's old ScheduledDate/MeetingLink is stale, not a second live meeting.
+                var stageProgress = await _jobApplicationStageProgressRepository.GetByJobApplicationIdAsync(a.JobApplicationId);
+                response.Interviews.AddRange(stageProgress
+                    .Where(p => p.ScheduledDate.HasValue && p.Status != StageProgressStatusEnum.Completed)
+                    .Select(p => p.ToMyApplicationInterviewResponse()));
+                response.Interviews = response.Interviews.OrderBy(i => i.ScheduledDate).ToList();
+
+                result.Add(response);
+            }
+
+            return result;
         }
 
         public async Task WithdrawMyApplicationAsync(long jobApplicationId)
@@ -1044,7 +1091,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var profileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
             var profile = await _candidateProfileRepository.GetByIdWithIncludeAsync(
                 p => p.CandidateProfileId == profileId,
-                p => p.Educations, p => p.WorkExperiences, p => p.Skills);
+                p => p.Educations, p => p.WorkExperiences, p => p.Skills, p => p.PresentDistrict, p => p.HomeDistrict);
 
             var facts = CandidateFactService.BuildFacts(profile);
             var unmetRequirements = JobEligibilityEvaluator.Evaluate(jobPosting, facts);

@@ -28,6 +28,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(a => a.ResumeUrl)
                 .HasMaxLength(500);
 
+            builder.Property(a => a.WaiverProofDocumentUrl)
+                .HasMaxLength(500);
+
             builder.Property(a => a.CoverLetter)
                 .HasColumnType("text");
 

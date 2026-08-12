@@ -134,12 +134,15 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<List<JobPostingResponse>> GetAllAsync()
         {
-            var entities = await _jobPostingRepository.GetAllWithIncludeAsync(j => j.Applications, j => j.HiringPipeline!, j => j.Department!);
+            var entities = await _jobPostingRepository.GetAllNewestFirstAsync();
             return entities.Select(e => e.ToResponse()).ToList();
         }
 
         public async Task<PagedResult<JobPostingResponse>> GetPaginatedAsync(PagedRequest request)
         {
+            // Job-posting search also supports enum values (status and circular type), so the
+            // repository applies the complete title/code/location/enum search expression.
+            request.SearchProperties = null;
             var pagedResult = await _jobPostingRepository.GetPaginatedAsync(request);
 
             return new PagedResult<JobPostingResponse>

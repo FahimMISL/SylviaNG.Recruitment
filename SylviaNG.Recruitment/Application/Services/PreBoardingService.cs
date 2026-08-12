@@ -6,6 +6,7 @@ using SylviaNG.Recruitment.Application.Mappings;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -98,7 +99,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["CandidateName"] = pool!.JobApplication.CandidateName,
-                ["SubmittedAt"] = submission.SubmittedAt?.ToString("dd MMM yyyy HH:mm") ?? string.Empty,
+                ["SubmittedAt"] = (submission.SubmittedAt.HasValue ? DateTimeUtility.ConvertUtcToLocal(submission.SubmittedAt.Value).ToString("dd MMM yyyy hh:mm tt") : string.Empty),
             };
 
             // Never throws - a missing EventTemplateMapping just logs a Skipped NotificationLog row.
@@ -133,7 +134,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["CandidateName"] = submission.FinalSelectionPool.JobApplication.CandidateName,
-                ["ValidatedAt"] = DateTime.UtcNow.ToString("dd MMM yyyy HH:mm"),
+                ["ValidatedAt"] = DateTimeUtility.ConvertUtcToLocal(DateTime.UtcNow).ToString("dd MMM yyyy hh:mm tt"),
             };
 
             // Never throws - a missing EventTemplateMapping just logs a Skipped NotificationLog row.

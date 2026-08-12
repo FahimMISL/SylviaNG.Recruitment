@@ -93,7 +93,8 @@ namespace SylviaNG.Recruitment.Application.Services
                 await _unitOfWork.SaveChangesAsync();
             }
 
-            var questions = await _examQuestionRepository.GetActiveByQuestionGroupIdAsync(enrollment.Exam.QuestionGroupId!.Value);
+            var questions = await _examQuestionRepository.GetActiveByQuestionGroupIdsAsync(enrollment.Exam.QuestionGroupLinks.Select(l => l.QuestionGroupId).ToList());
+            var normalizedMarks = NormalizeQuestionMarks(questions, enrollment.Exam.TotalMarks);
 
             return new ExamPaperResponse
             {
@@ -107,7 +108,7 @@ namespace SylviaNG.Recruitment.Application.Services
                     ExamQuestionId = q.ExamQuestionId,
                     QuestionText = q.QuestionText,
                     QuestionType = q.QuestionType,
-                    Marks = q.Marks,
+                    Marks = normalizedMarks[q.ExamQuestionId],
                     Options = q.Options
                         .OrderBy(o => o.DisplayOrder)
                         .Select(o => new ExamPaperOptionResponse
@@ -117,6 +118,36 @@ namespace SylviaNG.Recruitment.Application.Services
                         }).ToList(),
                 }).ToList(),
             };
+        }
+
+        /// <summary>A QuestionGroup's questions carry their own per-question Marks (set
+        /// independently when authored in the question bank), which rarely sum to the exam's
+        /// configured TotalMarks - HR picks a group without needing its question count or
+        /// per-question weights to add up to anything in particular. Scales every question's
+        /// Marks proportionally onto the 0-TotalMarks scale so what the candidate sees per
+        /// question (and what they're actually scored on) always sums to exactly TotalMarks,
+        /// regardless of how many questions the group has or how they're individually weighted.
+        /// The last question (stable ExamQuestionId order, same as the repository's own
+        /// ordering) absorbs whatever's left after rounding the rest to 2dp, so the total is
+        /// always exact rather than off by a few cents.</summary>
+        private static Dictionary<long, decimal> NormalizeQuestionMarks(List<ExamQuestion> questions, decimal targetTotalMarks)
+        {
+            var totalRawMarks = questions.Sum(q => q.Marks);
+            if (totalRawMarks <= 0)
+                return questions.ToDictionary(q => q.ExamQuestionId, _ => 0m);
+
+            var result = new Dictionary<long, decimal>();
+            decimal runningSum = 0;
+            for (var i = 0; i < questions.Count; i++)
+            {
+                var isLast = i == questions.Count - 1;
+                var marks = isLast
+                    ? targetTotalMarks - runningSum
+                    : Math.Round(questions[i].Marks / totalRawMarks * targetTotalMarks, 2);
+                result[questions[i].ExamQuestionId] = marks;
+                runningSum += marks;
+            }
+            return result;
         }
 
         public async Task<ExamSubmitResultResponse> SubmitExamAsync(long examEnrollmentId, ExamSubmitRequest request)
@@ -129,13 +160,14 @@ namespace SylviaNG.Recruitment.Application.Services
             if (enrollment.SubmittedAt != null)
                 throw new InvalidStatusTransitionException("This exam has already been submitted.");
 
-            var questions = await _examQuestionRepository.GetActiveByQuestionGroupIdAsync(enrollment.Exam.QuestionGroupId!.Value);
+            var questions = await _examQuestionRepository.GetActiveByQuestionGroupIdsAsync(enrollment.Exam.QuestionGroupLinks.Select(l => l.QuestionGroupId).ToList());
+            var normalizedMarks = NormalizeQuestionMarks(questions, enrollment.Exam.TotalMarks);
             var answersByQuestionId = request.Answers
                 .GroupBy(a => a.ExamQuestionId)
                 .ToDictionary(g => g.Key, g => g.First());
 
             var examAnswers = new List<ExamAnswer>();
-            decimal totalScore = 0;
+            decimal score = 0;
 
             foreach (var question in questions)
             {
@@ -157,8 +189,13 @@ namespace SylviaNG.Recruitment.Application.Services
                 var selectedIds = (answer?.SelectedOptionIds ?? new List<long>()).Distinct().ToHashSet();
                 var correctIds = question.Options.Where(o => o.IsCorrect).Select(o => o.ExamQuestionOptionId).ToHashSet();
                 var isCorrect = selectedIds.Count > 0 && selectedIds.SetEquals(correctIds);
-                var marksAwarded = isCorrect ? question.Marks : 0m;
-                totalScore += marksAwarded;
+                // Scored on the same normalized marks the candidate was shown per question on the
+                // paper (StartExamAsync) - not the question bank's raw Marks - so what HR sees per
+                // answer afterward matches what the candidate saw while taking it, and the sum
+                // always lands on the exam's configured TotalMarks regardless of how many
+                // questions the group has or how they're individually weighted.
+                var marksAwarded = isCorrect ? normalizedMarks[question.ExamQuestionId] : 0m;
+                score += marksAwarded;
 
                 examAnswers.Add(new ExamAnswer
                 {
@@ -173,22 +210,22 @@ namespace SylviaNG.Recruitment.Application.Services
             await _examAnswerRepository.AddRangeAsync(examAnswers);
 
             enrollment.SubmittedAt = DateTime.UtcNow;
-            enrollment.Score = totalScore;
-            enrollment.IsPassed = totalScore >= enrollment.Exam.PassMarks;
+            enrollment.Score = score;
+            enrollment.IsPassed = score >= enrollment.Exam.PassMarks;
             enrollment.ScoreSource = ScoreSourceEnum.AutoScored;
             enrollment.ScoredAt = DateTime.UtcNow;
             _examEnrollmentRepository.Update(enrollment);
 
             await _unitOfWork.SaveChangesAsync();
 
-            // totalScore only counts auto-gradable questions - if any Subjective question exists,
-            // it contributed 0 here and is still awaiting HR grading (via UploadScoreAsync/
+            // score only counts auto-gradable questions - if any Subjective question exists, it
+            // contributed 0 here and is still awaiting HR grading (via UploadScoreAsync/
             // ExamScoreImportService, which overwrite Score/IsPassed with the true final value).
             // Only safe to drive the pipeline stage from this score when there's nothing left ungraded.
             var hasUngradedSubjective = questions.Any(q => q.QuestionType == QuestionTypeEnum.Subjective);
             if (!hasUngradedSubjective)
                 await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
-                    enrollment.JobApplicationId, "TechnicalAssessment", totalScore, "system:exam-score");
+                    enrollment.JobApplicationId, "TechnicalAssessment", score, "system:exam-score");
 
             var resultsVisible = enrollment.Exam.ShowResultsToCandidate;
 

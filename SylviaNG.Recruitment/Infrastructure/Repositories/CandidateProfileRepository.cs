@@ -30,7 +30,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             // collections - without the Includes they're always empty here, undercounting
             // every candidate's completeness in the list regardless of their real data.
             var query = _dbSet
-                .Where(c => c.IsActive)
+                // Staff accounts can receive an unused profile row when they access shared
+                // profile endpoints. The Candidates list is for applicants, so include only
+                // profiles that are linked to at least one job application.
+                .Where(c => c.IsActive && c.JobApplications.Any())
                 .Include(c => c.Educations).ThenInclude(e => e.Degree)
                 .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
                 .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)
@@ -41,6 +44,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(c => c.Gender)
                 .Include(c => c.Country)
                 .AsSplitQuery()
+                .OrderByDescending(c => c.CreatedAt)
+                .ThenByDescending(c => c.CandidateProfileId)
                 .AsQueryable();
 
             if (talentPoolIds != null && talentPoolIds.Count > 0)
@@ -61,11 +66,19 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         public async Task<List<CandidateProfile>> GetByEmailsAsync(IEnumerable<string> emails)
         {
             var emailSet = emails.ToList();
+            // CalculateCompleteness (used by both the profile-completeness apply-gate and
+            // shortlist/CV-Bank matching) reads Certifications and Documents too - without these
+            // Includes those two sections always read as empty here, undercounting completeness
+            // and silently diverging from GetMyProfileAsync's full Include list (US-007 AC4 gap).
             return await _dbSet
                 .Include(c => c.Educations)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
+                .Include(c => c.Certifications)
+                .Include(c => c.Documents)
                 .Include(c => c.Tags)
+                .Include(c => c.PresentDistrict)
+                .Include(c => c.HomeDistrict)
                 .Where(c => emailSet.Contains(c.Email))
                 .ToListAsync();
         }
@@ -82,6 +95,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(c => c.Documents)
                 .Include(c => c.Gender)
                 .Include(c => c.Country)
+                .Include(c => c.PresentDistrict)
+                .Include(c => c.HomeDistrict)
                 .Where(c => c.IsActive)
                 .ToListAsync();
         }
@@ -98,6 +113,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Include(c => c.Certifications)
                 .Include(c => c.Gender)
                 .Include(c => c.Country)
+                .Include(c => c.PresentDistrict)
+                .Include(c => c.HomeDistrict)
                 .Where(c => idSet.Contains(c.CandidateProfileId))
                 .ToListAsync();
         }

@@ -102,7 +102,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ApplicationFeeAmount = entity.ApplicationFeeAmount,
                 ApplicationFeeCurrency = entity.ApplicationFeeCurrency,
                 HiringPipelineId = entity.HiringPipelineId,
-                HiringPipelineName = entity.HiringPipeline?.Name
+                HiringPipelineName = entity.HiringPipeline?.Name,
+                Attachments = entity.Attachments?.Where(a => a.IsActive).Select(a => a.ToResponse()).ToList() ?? new()
             };
         }
 
@@ -192,6 +193,10 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ApplicationStatus = entity.ApplicationStatus,
                 AppliedDate = entity.AppliedDate,
                 Source = entity.Source,
+                SpecialCategoryName = entity.SpecialCategory?.Name,
+                WaiverProofDocumentUrl = FileUrlBuilder.BuildDownloadUrl(entity.WaiverProofDocumentUrl),
+                WaiverRuleName = entity.WaiverRule?.Name,
+                WaivedAt = entity.WaivedAt,
                 StatusHistory = entity.StatusHistory.Select(h => h.ToResponse()).ToList()
             };
         }
@@ -208,11 +213,30 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 AppliedDate = entity.AppliedDate,
                 ApplicationStatus = entity.ApplicationStatus,
                 CanWithdraw = canWithdraw,
+                // Only actionable upcoming interviews - a Completed/NoShow/Cancelled row's join
+                // link is stale (the meeting already happened or won't) and just adds another
+                // clickable link for the candidate to mistake for the real upcoming one.
                 Interviews = entity.Interviews
-                    .Where(i => i.Status != InterviewStatusEnum.Cancelled)
+                    .Where(i => i.Status is InterviewStatusEnum.Scheduled or InterviewStatusEnum.Rescheduled)
                     .OrderBy(i => i.ScheduledStartAt)
                     .Select(i => i.ToMyApplicationInterviewResponse())
                     .ToList()
+            };
+        }
+
+        /// <summary>Same candidate-facing shape as the dedicated Interview entity above, but
+        /// sourced from the generic pipeline-stage tracker (JobApplicationStageProgress) - a
+        /// separate scheduling path HR can use straight off any stage card (CV Screening,
+        /// Assessment, HR Interview, etc), not just the dedicated "Schedule Interview" feature.
+        /// Candidates previously had no view into this at all.</summary>
+        public static MyApplicationInterviewResponse ToMyApplicationInterviewResponse(this JobApplicationStageProgress entity)
+        {
+            return new MyApplicationInterviewResponse
+            {
+                InterviewId = entity.JobApplicationStageProgressId,
+                ScheduledDate = entity.ScheduledDate,
+                MeetingLink = entity.MeetingLink,
+                Round = entity.StageName
             };
         }
 

@@ -79,7 +79,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<AutoShortlistResult> AutoShortlistResults { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<ApplicationSetting> ApplicationSettings { get; set; }
-        public DbSet<CandidateRecommendation> CandidateRecommendations { get; set; }
         public DbSet<CandidateTalentPool> CandidateTalentPools { get; set; }
         public DbSet<QuestionGroup> QuestionGroups { get; set; }
         public DbSet<ExamQuestion> ExamQuestions { get; set; }

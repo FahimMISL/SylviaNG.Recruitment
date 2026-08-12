@@ -26,6 +26,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(v => v.Rooms)
+                .OrderByDescending(v => v.CreatedAt)
+                .ThenByDescending(v => v.InterviewVenueId)
                 .ToListAsync();
         }
 

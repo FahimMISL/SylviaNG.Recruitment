@@ -66,6 +66,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(e => e.Exam)
+                    .ThenInclude(ex => ex.QuestionGroupLinks)
                 .Include(e => e.JobApplication)
                 .Include(e => e.Answers)
                 .FirstOrDefaultAsync(e => e.ExamEnrollmentId == examEnrollmentId);

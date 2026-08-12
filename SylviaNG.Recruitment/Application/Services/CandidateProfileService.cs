@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Helpers;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Externals;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
@@ -22,6 +24,8 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IFileStorageService _fileStorageService;
         private readonly ICoreGrpcClient _coreGrpcClient;
         private readonly ICandidateProfilePdfGeneratorService _candidateProfilePdfGeneratorService;
+        private readonly IPrivateFileAccessTokenService _privateFileAccessTokenService;
+        private readonly PrivateFileAccessSettings _privateFileAccessSettings;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<CandidateProfileService> _logger;
 
@@ -34,6 +38,8 @@ namespace SylviaNG.Recruitment.Application.Services
             IFileStorageService fileStorageService,
             ICoreGrpcClient coreGrpcClient,
             ICandidateProfilePdfGeneratorService candidateProfilePdfGeneratorService,
+            IPrivateFileAccessTokenService privateFileAccessTokenService,
+            IOptions<PrivateFileAccessSettings> privateFileAccessSettings,
             IUnitOfWork unitOfWork,
             ILogger<CandidateProfileService> logger)
         {
@@ -45,6 +51,8 @@ namespace SylviaNG.Recruitment.Application.Services
             _fileStorageService = fileStorageService;
             _coreGrpcClient = coreGrpcClient;
             _candidateProfilePdfGeneratorService = candidateProfilePdfGeneratorService;
+            _privateFileAccessTokenService = privateFileAccessTokenService;
+            _privateFileAccessSettings = privateFileAccessSettings.Value;
             _unitOfWork = unitOfWork;
             _logger = logger;
         }
@@ -88,6 +96,23 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var response = entity.ToDetailResponse(applications, poolMemberships);
             (response.DepartmentName, response.DesignationName) = await ResolveOrgNamesAsync(entity);
+
+            // ToDetailResponse builds Documents via CandidateDocument's plain (unsigned)
+            // ToResponse() - FilesController requires a token/expires pair for these keys (see
+            // its PrivateKeySegment check), so this HR-facing view needs the same token minted
+            // as CandidateDocumentService's own "me/documents" path, keyed back to each
+            // document's raw FilePath since CandidateDocumentResponse itself doesn't carry it.
+            var filePathsById = entity.Documents.ToDictionary(d => d.CandidateDocumentId, d => d.FilePath);
+            foreach (var document in response.Documents)
+            {
+                if (filePathsById.TryGetValue(document.CandidateDocumentId, out var filePath))
+                {
+                    document.DownloadUrl = PrivateFileUrlSecurer.Secure(
+                        document.DownloadUrl, filePath, _privateFileAccessTokenService, _privateFileAccessSettings.ExpiryMinutes)
+                        ?? document.DownloadUrl;
+                }
+            }
+
             return response;
         }
 

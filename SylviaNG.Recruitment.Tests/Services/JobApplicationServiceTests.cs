@@ -167,7 +167,9 @@ public class JobApplicationServiceTests
         result.Should().NotBeNull();
         result.JobApplicationId.Should().Be(10);
         result.Source.Should().Be(source);
-        result.ResumeUrl.Should().Be("uploads/applications/1/abc123.pdf");
+        // The response maps the stored path through the file-download proxy (MinIO migration), while
+        // the persisted entity keeps the raw relative path (asserted via savedEntity elsewhere).
+        result.ResumeUrl.Should().Be("recruitment/files/download?key=uploads%2Fapplications%2F1%2Fabc123.pdf");
         savedEntity.Should().NotBeNull();
         savedEntity!.Source.Should().Be(source);
         savedEntity.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
@@ -996,7 +998,7 @@ public class JobApplicationServiceTests
 
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _paymentServiceMock.Setup(p => p.InitiateAsync(10))
+        _paymentServiceMock.Setup(p => p.InitiateAsync(10, "jane@example.com"))
             .ReturnsAsync(new PaymentInitiateResponse { Success = true, GatewayRedirectUrl = "https://sandbox.sslcommerz.com/pay/abc" });
 
         var request = CreateRequest(resume: null);
@@ -1008,7 +1010,7 @@ public class JobApplicationServiceTests
         savedEntity!.ApplicationStatus.Should().Be(ApplicationStatusEnum.AwaitingPayment);
         result.PaymentRequired.Should().BeTrue();
         result.PaymentRedirectUrl.Should().Be("https://sandbox.sslcommerz.com/pay/abc");
-        _paymentServiceMock.Verify(p => p.InitiateAsync(10), Times.Once);
+        _paymentServiceMock.Verify(p => p.InitiateAsync(10, "jane@example.com"), Times.Once);
     }
 
     [Fact]
@@ -1051,7 +1053,7 @@ public class JobApplicationServiceTests
         savedEntity.WaivedAt.Should().NotBeNull();
         result.PaymentRequired.Should().BeFalse();
         result.PaymentRedirectUrl.Should().BeNull();
-        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>()), Times.Never);
+        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
         savedEntity.StatusHistory.Should().ContainSingle(h => h.ChangedByUserName == "system:fee-waiver" && h.ToStatus == ApplicationStatusEnum.Applied);
     }
 
@@ -1087,7 +1089,7 @@ public class JobApplicationServiceTests
         savedEntity!.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
         result.PaymentRequired.Should().BeFalse();
         result.PaymentRedirectUrl.Should().BeNull();
-        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>()), Times.Never);
+        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -1117,7 +1119,7 @@ public class JobApplicationServiceTests
         // Assert
         savedEntity!.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
         result.PaymentRequired.Should().BeFalse();
-        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>()), Times.Never);
+        _paymentServiceMock.Verify(p => p.InitiateAsync(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -1144,7 +1146,7 @@ public class JobApplicationServiceTests
 
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _paymentServiceMock.Setup(p => p.InitiateAsync(10))
+        _paymentServiceMock.Setup(p => p.InitiateAsync(10, "jane@example.com"))
             .ThrowsAsync(new SslCommerzUnavailableException("SSLCommerz gateway is unreachable."));
 
         var request = CreateRequest(resume: null);

@@ -1,7 +1,8 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SylviaNG.Recruitment.Application.Common.Authorization;
 using SylviaNG.Recruitment.Application.Features.PaymentReports.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
 
 namespace SylviaNG.Recruitment.Controllers
@@ -11,10 +12,12 @@ namespace SylviaNG.Recruitment.Controllers
     /// writes. Kept as a SEPARATE controller from PaymentController - that one is deliberately
     /// [AllowAnonymous] end to end for the SSLCommerz callback surface, and mixing that posture
     /// with authorized reporting endpoints on the same controller is easy to get wrong.
+    /// EP-15/US-112: gated via RequirePermission (Reports module, View) instead of
+    /// [Authorize(Roles="Admin,HR")] - every action here is read-only.
     /// </summary>
     [ApiController]
     [Route("recruitment/payment-report")]
-    [Authorize(Roles = "Admin,HR")]
+    [RequirePermission(AccessControlModuleEnum.Reports, PermissionActionEnum.View)]
     public class PaymentReportController : ControllerBase
     {
         private readonly IPaymentReportService _paymentReportService;

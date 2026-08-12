@@ -44,7 +44,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
 
         public Task DeleteAsync(string relativeFilePath)
         {
-            var physicalPath = Path.Combine(_environment.ContentRootPath, "wwwroot", relativeFilePath.TrimStart('/'));
+            var physicalPath = SafeLocalPathResolver.Resolve(_environment.ContentRootPath, relativeFilePath);
             if (File.Exists(physicalPath))
             {
                 File.Delete(physicalPath);
@@ -55,7 +55,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
 
         public Task<Stream> OpenReadAsync(string relativeFilePath)
         {
-            var physicalPath = Path.Combine(_environment.ContentRootPath, "wwwroot", relativeFilePath.TrimStart('/'));
+            var physicalPath = SafeLocalPathResolver.Resolve(_environment.ContentRootPath, relativeFilePath);
             Stream stream = new FileStream(physicalPath, FileMode.Open, FileAccess.Read);
             return Task.FromResult(stream);
         }

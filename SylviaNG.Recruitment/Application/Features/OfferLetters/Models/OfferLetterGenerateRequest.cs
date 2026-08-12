@@ -1,8 +1,9 @@
 namespace SylviaNG.Recruitment.Application.Features.OfferLetters.Models
 {
-    // No EP-12 fitment-data entity exists yet to source these from (EP-12 is scheduled after
-    // EP-10) - HR enters them directly at generation time. This request is the fitment-data hook
-    // for now.
+    // Still HR-typed fields, not sourced server-side from FitmentData - the frontend
+    // (OfferLetterFormComponent.loadFitmentData) prefills Designation/OfferedSalary from
+    // FitmentData when it exists so HR isn't retyping it, but keeps both editable since an offer
+    // can legitimately differ from the fitment record.
     public class OfferLetterGenerateRequest
     {
         public long JobApplicationId { get; set; }

@@ -1,8 +1,10 @@
 using System.Linq.Expressions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using FluentAssertions;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
@@ -20,6 +22,7 @@ public class ExamEnrollmentServiceTests
     private readonly Mock<IExamRoomRepository> _examRoomRepositoryMock;
     private readonly Mock<IExamNotificationService> _examNotificationServiceMock;
     private readonly Mock<IJobApplicationStageProgressService> _jobApplicationStageProgressServiceMock;
+    private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExamEnrollmentService _service;
@@ -32,6 +35,7 @@ public class ExamEnrollmentServiceTests
         _examRoomRepositoryMock = new Mock<IExamRoomRepository>();
         _examNotificationServiceMock = new Mock<IExamNotificationService>();
         _jobApplicationStageProgressServiceMock = new Mock<IJobApplicationStageProgressService>();
+        _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
@@ -43,7 +47,9 @@ public class ExamEnrollmentServiceTests
             _examRoomRepositoryMock.Object,
             _examNotificationServiceMock.Object,
             _jobApplicationStageProgressServiceMock.Object,
+            _notificationDispatchServiceMock.Object,
             _currentUserServiceMock.Object,
+            Options.Create(new PortalSettings()),
             _unitOfWorkMock.Object,
             new Mock<ILogger<ExamEnrollmentService>>().Object);
     }

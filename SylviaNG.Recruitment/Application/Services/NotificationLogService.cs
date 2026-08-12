@@ -12,6 +12,7 @@ using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -73,7 +74,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 sheet.Cell(rowIndex, 4).Value = response.RecruitmentEvent.ToString();
                 sheet.Cell(rowIndex, 5).Value = response.RenderedSubject ?? string.Empty;
                 sheet.Cell(rowIndex, 6).Value = response.DeliveryStatus.ToString();
-                sheet.Cell(rowIndex, 7).Value = response.SentAt.HasValue ? response.SentAt.Value.ToString("yyyy-MM-dd HH:mm") : string.Empty;
+                sheet.Cell(rowIndex, 7).Value = response.SentAt.HasValue ? DateTimeUtility.ConvertUtcToLocal(response.SentAt.Value).ToString("yyyy-MM-dd hh:mm tt") : string.Empty;
                 sheet.Cell(rowIndex, 8).Value = response.FailureReason ?? string.Empty;
                 rowIndex++;
             }

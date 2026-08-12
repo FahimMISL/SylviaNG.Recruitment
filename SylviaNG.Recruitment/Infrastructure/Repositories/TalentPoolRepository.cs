@@ -30,6 +30,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<TalentPool>> GetAllForLookupAsync()
+        {
+            return await _dbSet
+                .OrderBy(p => p.Name)
+                .ToListAsync();
+        }
+
         public async Task<TalentPool?> GetByIdWithCandidatesAsync(long talentPoolId)
         {
             return await _dbSet

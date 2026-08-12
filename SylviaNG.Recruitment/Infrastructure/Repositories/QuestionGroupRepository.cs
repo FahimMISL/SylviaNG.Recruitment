@@ -15,11 +15,26 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.AnyAsync(g => g.Name == name && (!excludeId.HasValue || g.QuestionGroupId != excludeId.Value));
         }
 
+        public async Task<List<QuestionGroup>> GetAllNewestFirstAsync()
+        {
+            return await _dbSet
+                .OrderByDescending(g => g.CreatedAt)
+                .ThenByDescending(g => g.QuestionGroupId)
+                .ToListAsync();
+        }
+
         public async Task<List<QuestionGroup>> GetActiveAsync()
         {
             return await _dbSet
                 .Where(g => g.IsActive)
                 .OrderBy(g => g.Name)
+                .ToListAsync();
+        }
+
+        public async Task<List<QuestionGroup>> GetByIdsAsync(IReadOnlyList<long> questionGroupIds)
+        {
+            return await _dbSet
+                .Where(g => questionGroupIds.Contains(g.QuestionGroupId))
                 .ToListAsync();
         }
     }

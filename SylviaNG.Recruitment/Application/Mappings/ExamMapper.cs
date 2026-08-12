@@ -20,7 +20,6 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PassMarks = request.PassMarks,
                 ExamType = request.ExamType,
                 ExamVenueId = request.ExamVenueId,
-                QuestionGroupId = request.QuestionGroupId,
                 IsActive = true,
                 ShowResultsToCandidate = request.ShowResultsToCandidate,
             };
@@ -40,8 +39,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ExamType = entity.ExamType,
                 ExamVenueId = entity.ExamVenueId,
                 ExamVenueName = entity.ExamVenue?.VenueName,
-                QuestionGroupId = entity.QuestionGroupId,
-                QuestionGroupName = entity.QuestionGroup?.Name,
+                QuestionGroupIds = entity.QuestionGroupLinks.Select(l => l.QuestionGroupId).ToList(),
+                QuestionGroupNames = entity.QuestionGroupLinks.Select(l => l.QuestionGroup.Name).ToList(),
                 SeatPlanGeneratedAt = entity.SeatPlanGeneratedAt,
                 IsActive = entity.IsActive,
                 ShowResultsToCandidate = entity.ShowResultsToCandidate,

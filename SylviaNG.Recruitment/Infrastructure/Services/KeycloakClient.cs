@@ -146,6 +146,53 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             }
         }
 
+        public async Task InviteUserAsync(string username, string email, string firstName, string lastName, string realmRole)
+        {
+            var adminToken = await AdminTokenAsync();
+            var userPayload = new
+            {
+                username,
+                email,
+                firstName,
+                lastName,
+                enabled = true,
+                emailVerified = false,
+                requiredActions = new[] { "VERIFY_EMAIL", "UPDATE_PASSWORD" }
+            };
+
+            using var createRequest = new HttpRequestMessage(HttpMethod.Post, AdminUsersEndpoint)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(userPayload), Encoding.UTF8, "application/json")
+            };
+            createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+            var createResponse = await SendAsync(createRequest);
+
+            if (createResponse.StatusCode == HttpStatusCode.Conflict)
+                throw new DuplicateException("User", "Email", email);
+
+            if (!createResponse.IsSuccessStatusCode)
+            {
+                var body = await createResponse.Content.ReadAsStringAsync();
+                _logger.LogError("Keycloak invitation user creation failed ({Status}): {Body}", (int)createResponse.StatusCode, body);
+                throw new KeycloakUnavailableException($"Keycloak invitation user creation returned {(int)createResponse.StatusCode}.");
+            }
+
+            var userId = createResponse.Headers.Location?.Segments.Last()?.TrimEnd('/')
+                ?? throw new KeycloakUnavailableException("Keycloak did not return the invited user's id.");
+
+            try
+            {
+                await AssignRealmRoleAsync(adminToken, userId, realmRole);
+                await SendInviteEmailAsync(adminToken, userId, email);
+            }
+            catch
+            {
+                // Avoid leaving a user that cannot receive the only way to set a password.
+                await DeleteUserSafelyAsync(adminToken, userId, email);
+                throw;
+            }
+        }
+
         public async Task<string> GetUserIdByUsernameAsync(string username)
         {
             var adminToken = await AdminTokenAsync();
@@ -346,6 +393,39 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Keycloak send-verify-email failed for {Email}.", email);
+            }
+        }
+
+        private async Task SendInviteEmailAsync(string adminToken, string userId, string email)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"{AdminUsersEndpoint}/{userId}/execute-actions-email")
+            {
+                Content = new StringContent(JsonSerializer.Serialize(new[] { "VERIFY_EMAIL", "UPDATE_PASSWORD" }), Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+            var response = await SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+                return;
+
+            var body = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Keycloak invitation email failed for {Email} ({Status}): {Body}", email, (int)response.StatusCode, body);
+            throw new KeycloakUnavailableException("Invitation email could not be sent. Configure the Keycloak realm SMTP settings and try again.");
+        }
+
+        private async Task DeleteUserSafelyAsync(string adminToken, string userId, string email)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Delete, $"{AdminUsersEndpoint}/{userId}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+                var response = await SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                    _logger.LogError("Could not roll back failed invitation for {Email} ({Status}).", email, (int)response.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not roll back failed invitation for {Email}.", email);
             }
         }
 

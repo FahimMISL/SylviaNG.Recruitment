@@ -1,15 +1,18 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SylviaNG.Recruitment.Application.Common.Authorization;
 using SylviaNG.Recruitment.Application.Features.Analytics.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Controllers
 {
     /// <summary>EP-14 US-106/US-107/US-108/US-110: recruitment funnel, time-to-hire, candidate
-    /// source, and interview performance analytics reports.</summary>
+    /// source, and interview performance analytics reports. EP-15/US-112: gated via
+    /// RequirePermission (Reports module, View) instead of [Authorize(Roles="Admin,HR")] - every
+    /// action here is read-only, so one controller-level attribute is enough.</summary>
     [ApiController]
     [Route("recruitment/analytics")]
-    [Authorize(Roles = "Admin,HR")]
+    [RequirePermission(AccessControlModuleEnum.Reports, PermissionActionEnum.View)]
     public class AnalyticsReportController : ControllerBase
     {
         private readonly IAnalyticsReportService _analyticsReportService;

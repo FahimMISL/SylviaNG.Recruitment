@@ -149,7 +149,7 @@ public class TargetLetterServiceTests
         var response = await _service.GenerateAsync(ValidRequest());
 
         response.TargetLetterId.Should().Be(42);
-        response.GeneratedPdfPath.Should().Be("uploads/documents/target-letters/abc.pdf");
+        response.GeneratedPdfPath.Should().Be("recruitment/files/download?key=uploads%2Fdocuments%2Ftarget-letters%2Fabc.pdf");
         response.Kpis.Should().Be("Close 5 deals/quarter");
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
         _notificationDispatchServiceMock.Verify(n => n.DispatchAsync(

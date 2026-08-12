@@ -17,7 +17,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         public async Task<List<NotificationTemplate>> GetAllOrderedAsync()
         {
-            return await _dbSet.OrderBy(t => t.Name).ToListAsync();
+            // Newest-first: a freshly created/edited template surfaces at the top of the admin list.
+            return await _dbSet.OrderByDescending(t => t.NotificationTemplateId).ToListAsync();
         }
 
         public async Task<int> CountMappingUsageAsync(long notificationTemplateId)

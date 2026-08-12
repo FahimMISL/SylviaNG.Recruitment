@@ -710,15 +710,17 @@
 ### US-045 — Advanced Boolean Search Across CV Bank
 
 **As an** HR / Recruiter,  
-**I want to** search across all candidate profiles and CVs using Boolean operators (AND, OR, NOT) and keyword combinations,  
-**so that** I can find specific candidates from the entire talent database for any role.
+**I want to** search across applicant profiles and CVs using Boolean operators (AND, OR, NOT) and keyword combinations,  
+**so that** I can find specific candidates from the applicant talent database for any role.
 
 **Priority:** Should Have  
 **Size:** L
 
+**Implementation status:** Completed. CV Bank includes only profiles linked to a job application; unused staff or other non-applicant profiles are excluded.
+
 **Acceptance Criteria:**
 
-- AC1: The search interface supports full-text Boolean queries against all candidate profile fields and CV content.
+- AC1: The search interface supports full-text Boolean queries against all eligible applicant profile fields and CV content.
 - AC2: Operators AND, OR, and NOT are supported and interpreted correctly.
 - AC3: Search results display a relevance ranking.
 - AC4: HR can filter results further by education, experience range, location, and candidate type.

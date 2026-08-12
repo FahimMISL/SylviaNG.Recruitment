@@ -5,10 +5,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 
 /// <summary>
 /// A scheduled exam for a set of shortlisted candidates against a job posting (US-055).
-/// In-person exams require ExamVenueId; online exams require QuestionGroupId (reference only -
-/// the exam-taking/auto-scoring engine is a later feature, US-058). SeatPlanGeneratedAt is the
-/// only persisted "has a seat plan run" marker - seat assignments themselves live on
-/// ExamEnrollment, there is no separate SeatPlan entity (US-056).
+/// In-person exams require ExamVenueId; online exams require at least one QuestionGroup
+/// (reference only - the exam-taking/auto-scoring engine is a later feature, US-058). An online
+/// exam can draw from multiple groups (e.g. a "General Aptitude" pool plus a role-specific
+/// "Technical" pool combined into one paper). SeatPlanGeneratedAt is the only persisted "has a
+/// seat plan run" marker - seat assignments themselves live on ExamEnrollment, there is no
+/// separate SeatPlan entity (US-056).
 /// </summary>
 public class Exam : Audit
 {
@@ -21,7 +23,6 @@ public class Exam : Audit
     public decimal PassMarks { get; set; }
     public ExamTypeEnum ExamType { get; set; }
     public long? ExamVenueId { get; set; }
-    public long? QuestionGroupId { get; set; }
     public DateTime? SeatPlanGeneratedAt { get; set; }
     public bool IsActive { get; set; } = true;
 
@@ -32,6 +33,6 @@ public class Exam : Audit
     // Navigation properties
     public JobPosting JobPosting { get; set; } = null!;
     public ExamVenue? ExamVenue { get; set; }
-    public QuestionGroup? QuestionGroup { get; set; }
+    public ICollection<ExamQuestionGroup> QuestionGroupLinks { get; set; } = new List<ExamQuestionGroup>();
     public ICollection<ExamEnrollment> Enrollments { get; set; } = new List<ExamEnrollment>();
 }

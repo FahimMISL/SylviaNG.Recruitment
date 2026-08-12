@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Moq;
+using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -34,7 +35,7 @@ public class CurrentCandidateServiceTests
             _unitOfWorkMock.Object);
     }
 
-    private void SetUpAuthenticatedUser(string subjectId, string name, string email, string? role = null)
+    private void SetUpAuthenticatedUser(string subjectId, string name, string email, string? role = "Candidate")
     {
         var claims = new List<Claim>
         {
@@ -194,5 +195,17 @@ public class CurrentCandidateServiceTests
         // Assert
         id.Should().BeNull();
         _candidateProfileRepositoryMock.Verify(r => r.GetByKeycloakSubjectIdAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetOrCreateCurrentProfileIdAsync_WhenAuthenticatedAsStaff_ShouldRejectWithoutReadingOrCreatingProfile()
+    {
+        SetUpAuthenticatedUser("staff-subject", "Super Admin", "superadmin@sylviang.local", role: "SuperAdmin");
+
+        var act = () => _service.GetOrCreateCurrentProfileIdAsync();
+
+        await act.Should().ThrowAsync<ForbiddenException>();
+        _candidateProfileRepositoryMock.Verify(r => r.GetByKeycloakSubjectIdAsync(It.IsAny<string>()), Times.Never);
+        _candidateProfileRepositoryMock.Verify(r => r.AddAsync(It.IsAny<CandidateProfile>()), Times.Never);
     }
 }

@@ -181,13 +181,6 @@ public enum WaiverCandidateTypeEnum
     External
 }
 
-public enum RecommendationStatusEnum
-{
-    Pending,
-    Accepted,
-    Rejected
-}
-
 public enum QuestionTypeEnum
 {
     McqSingle,
@@ -319,7 +312,12 @@ public enum RecruitmentEventEnum
 
     /// <summary>Account Settings email change (all 3 roles): OTP sent to the NEW address to prove
     /// ownership before the Keycloak email actually switches.</summary>
-    EmailChangeRequested
+    EmailChangeRequested,
+
+    /// <summary>Candidate's application moved to Rejected. Fired instead of ApplicationStatusChanged
+    /// for that specific transition so a dedicated rejection template can be mapped separately from
+    /// the generic status-change copy. Appended (not inserted) to keep existing enum ordinals stable.</summary>
+    ApplicationRejected
 }
 
 /// <summary>EP-13 US-104: what kind of data an ExportRequest generates. Left as an enum since

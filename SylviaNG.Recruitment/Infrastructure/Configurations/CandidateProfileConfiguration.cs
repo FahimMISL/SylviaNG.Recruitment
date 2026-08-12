@@ -35,11 +35,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             // Present/Home address hierarchy - reference data only, no navigation back from
             // Division/District/Thana (a candidate profile isn't part of their aggregate).
+            // District is the exception: PresentDistrict/HomeDistrict are exposed so
+            // CandidateFactService can resolve the candidate's actual district name for
+            // district-based eligibility/shortlist/CV-Bank matching (same FK column, no schema change).
             builder.HasOne<Division>().WithMany().HasForeignKey(c => c.PresentDivisionId).OnDelete(DeleteBehavior.SetNull);
-            builder.HasOne<District>().WithMany().HasForeignKey(c => c.PresentDistrictId).OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(c => c.PresentDistrict).WithMany().HasForeignKey(c => c.PresentDistrictId).OnDelete(DeleteBehavior.SetNull);
             builder.HasOne<Thana>().WithMany().HasForeignKey(c => c.PresentThanaId).OnDelete(DeleteBehavior.SetNull);
             builder.HasOne<Division>().WithMany().HasForeignKey(c => c.HomeDivisionId).OnDelete(DeleteBehavior.SetNull);
-            builder.HasOne<District>().WithMany().HasForeignKey(c => c.HomeDistrictId).OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(c => c.HomeDistrict).WithMany().HasForeignKey(c => c.HomeDistrictId).OnDelete(DeleteBehavior.SetNull);
             builder.HasOne<Thana>().WithMany().HasForeignKey(c => c.HomeThanaId).OnDelete(DeleteBehavior.SetNull);
 
             // Dynamic admin-managed lookups (replace the old Gender/MaritalStatus/Religion/

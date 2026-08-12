@@ -24,8 +24,12 @@ namespace SylviaNG.Recruitment.Application.Services
     public class AuthService : IAuthService
     {
         // Highest-privilege first: when a Keycloak user carries several known roles,
-        // the response's single Role field reports the strongest one.
-        private static readonly UserRoleEnum[] RolePriority = { UserRoleEnum.Admin, UserRoleEnum.HR, UserRoleEnum.Candidate };
+        // the response's single Role field reports the strongest one. SuperAdmin was missing
+        // here entirely - a SuperAdmin user's Role came back empty on login, so every
+        // role-gated frontend menu item (including their own Access Control entry) silently
+        // failed to show, even though the backend's own RequirePermission/[Authorize] checks
+        // already recognized the SuperAdmin claim correctly.
+        private static readonly UserRoleEnum[] RolePriority = { UserRoleEnum.SuperAdmin, UserRoleEnum.Admin, UserRoleEnum.HR, UserRoleEnum.Candidate };
 
         private const string OtpCachePrefix = "candidate-login-otp:";
 
@@ -34,6 +38,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly OtpSettings _otpSettings;
         private readonly ICandidateLoginOtpRepository _candidateLoginOtpRepository;
         private readonly IPasswordResetOtpRepository _passwordResetOtpRepository;
+        private readonly IUserAccountRepository _userAccountRepository;
         private readonly INotificationDispatchService _notificationDispatchService;
         private readonly IMemoryCache _memoryCache;
         private readonly IUnitOfWork _unitOfWork;
@@ -45,6 +50,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IOptions<OtpSettings> otpSettings,
             ICandidateLoginOtpRepository candidateLoginOtpRepository,
             IPasswordResetOtpRepository passwordResetOtpRepository,
+            IUserAccountRepository userAccountRepository,
             INotificationDispatchService notificationDispatchService,
             IMemoryCache memoryCache,
             IUnitOfWork unitOfWork,
@@ -55,6 +61,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _otpSettings = otpSettings.Value;
             _candidateLoginOtpRepository = candidateLoginOtpRepository;
             _passwordResetOtpRepository = passwordResetOtpRepository;
+            _userAccountRepository = userAccountRepository;
             _notificationDispatchService = notificationDispatchService;
             _memoryCache = memoryCache;
             _unitOfWork = unitOfWork;
@@ -65,6 +72,8 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var tokenResult = await _keycloakClient.TokenAsync(request.Username, request.Password);
             var response = BuildResponseFromKeycloakToken(tokenResult);
+
+            await EnsureAccountActiveAsync(tokenResult.AccessToken);
 
             // EP-09 Feature 2: OTP gate applies only to a Candidate's first-ever successful login,
             // not every login - once they've completed one OTP challenge, subsequent logins skip
@@ -236,7 +245,29 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task<LoginResponse> RefreshAsync(string refreshToken)
         {
             var tokenResult = await _keycloakClient.RefreshTokenAsync(refreshToken);
-            return BuildResponseFromKeycloakToken(tokenResult);
+            var response = BuildResponseFromKeycloakToken(tokenResult);
+
+            await EnsureAccountActiveAsync(tokenResult.AccessToken);
+
+            return response;
+        }
+
+        /// <summary>
+        /// Blocks Admin/HR/SuperAdmin accounts that have been deactivated via the User Accounts
+        /// screen (<see cref="IUserAccountService.SetActiveAsync"/>). Keycloak has no notion of
+        /// this flag, so a valid token exchange alone doesn't reflect it - checked here on every
+        /// login and refresh instead. Candidates have no UserAccount row, so they pass through.
+        /// </summary>
+        private async Task EnsureAccountActiveAsync(string accessToken)
+        {
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
+            var keycloakUserId = jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+            if (string.IsNullOrEmpty(keycloakUserId))
+                return;
+
+            var account = await _userAccountRepository.GetByKeycloakUserIdWithRolesAsync(keycloakUserId);
+            if (account is not null && !account.IsActive)
+                throw new ForbiddenException("This account has been deactivated. Contact an administrator.");
         }
 
         public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)

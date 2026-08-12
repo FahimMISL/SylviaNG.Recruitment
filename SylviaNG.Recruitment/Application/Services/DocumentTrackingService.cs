@@ -89,6 +89,9 @@ namespace SylviaNG.Recruitment.Application.Services
             if (filter.AcceptanceStatus.HasValue)
                 items = items.Where(i => i.AcceptanceStatus == filter.AcceptanceStatus.Value).ToList();
 
+            if (filter.JobApplicationId.HasValue)
+                items = items.Where(i => i.JobApplicationId == filter.JobApplicationId.Value).ToList();
+
             items = items.OrderByDescending(i => i.GeneratedAt).ToList();
 
             var totalCount = items.Count;
@@ -156,6 +159,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 OfferLetterStatusEnum.Declined => DocumentAcceptanceStatusEnum.Declined,
                 _ => DocumentAcceptanceStatusEnum.Pending,
             },
+            GeneratedPdfPath = entity.GeneratedPdfPath,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(AppointmentLetter entity) => new()
@@ -167,6 +171,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+            GeneratedPdfPath = entity.GeneratedPdfPath,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(JoiningBooklet entity) => new()
@@ -178,6 +183,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+            GeneratedPdfPath = entity.GeneratedPdfPath,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(MedicalLetter entity) => new()
@@ -189,6 +195,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+            GeneratedPdfPath = entity.GeneratedPdfPath,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(TargetLetter entity) => new()
@@ -200,6 +207,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+            GeneratedPdfPath = entity.GeneratedPdfPath,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(OfficeNote entity) => new()
@@ -211,6 +219,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
+            GeneratedPdfPath = entity.GeneratedPdfPath,
         };
     }
 }

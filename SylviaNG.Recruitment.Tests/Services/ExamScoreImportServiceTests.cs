@@ -3,8 +3,11 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
@@ -18,6 +21,8 @@ public class ExamScoreImportServiceTests
 {
     private readonly Mock<IExamRepository> _examRepositoryMock;
     private readonly Mock<IExamEnrollmentRepository> _examEnrollmentRepositoryMock;
+    private readonly Mock<IJobApplicationStageProgressService> _jobApplicationStageProgressServiceMock;
+    private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExamScoreImportService _service;
@@ -26,6 +31,8 @@ public class ExamScoreImportServiceTests
     {
         _examRepositoryMock = new Mock<IExamRepository>();
         _examEnrollmentRepositoryMock = new Mock<IExamEnrollmentRepository>();
+        _jobApplicationStageProgressServiceMock = new Mock<IJobApplicationStageProgressService>();
+        _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
@@ -36,8 +43,12 @@ public class ExamScoreImportServiceTests
         _service = new ExamScoreImportService(
             _examRepositoryMock.Object,
             _examEnrollmentRepositoryMock.Object,
+            _jobApplicationStageProgressServiceMock.Object,
+            _notificationDispatchServiceMock.Object,
             _currentUserServiceMock.Object,
-            _unitOfWorkMock.Object);
+            Options.Create(new PortalSettings()),
+            _unitOfWorkMock.Object,
+            new Mock<ILogger<ExamScoreImportService>>().Object);
     }
 
     private const string Header = "ExamEnrollmentId,CandidateName,Score";

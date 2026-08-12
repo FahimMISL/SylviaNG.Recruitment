@@ -39,6 +39,7 @@ public class AuthServiceTests
             otpSettings,
             Mock.Of<ICandidateLoginOtpRepository>(),
             Mock.Of<IPasswordResetOtpRepository>(),
+            Mock.Of<IUserAccountRepository>(),
             Mock.Of<INotificationDispatchService>(),
             Mock.Of<IMemoryCache>(),
             Mock.Of<IUnitOfWork>(),

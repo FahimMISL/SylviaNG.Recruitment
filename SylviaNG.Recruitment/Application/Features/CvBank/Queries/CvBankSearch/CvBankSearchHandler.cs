@@ -37,12 +37,18 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch
             var booleanQuery = ParseBooleanQuery(request.BooleanQuery);
 
             var profiles = await _candidateProfileRepository.GetAllActiveWithDetailsAsync();
-            var (sourcesByEmail, resumeTextByEmail) = await BuildJobApplicationLookupsAsync();
+            var (candidateProfileIdsWithApplications, sourcesByEmail, resumeTextByEmail) = await BuildJobApplicationLookupsAsync();
 
             var matches = new List<(CandidateProfile Profile, CandidateFactService.CandidateFacts Facts, int RelevanceScore)>();
 
             foreach (var profile in profiles)
             {
+                // CV Bank is an applicant bank, not a directory of every user who has opened a
+                // profile. Require the durable CandidateProfileId application link; this also
+                // excludes historical staff profiles such as Super Admin.
+                if (!candidateProfileIdsWithApplications.Contains(profile.CandidateProfileId))
+                    continue;
+
                 var facts = CandidateFactService.BuildFacts(profile);
 
                 if (!PassesStructuredFilters(profile, facts, request, sourcesByEmail))
@@ -153,11 +159,15 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch
             return string.Join(" \n ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
         }
 
-        private async Task<(Dictionary<string, HashSet<ApplicationSourceEnum>> SourcesByEmail, Dictionary<string, string> ResumeTextByEmail)>
+        private async Task<(HashSet<long> CandidateProfileIdsWithApplications, Dictionary<string, HashSet<ApplicationSourceEnum>> SourcesByEmail, Dictionary<string, string> ResumeTextByEmail)>
             BuildJobApplicationLookupsAsync()
         {
             var applications = await _jobApplicationRepository.GetAllAsync();
 
+            var candidateProfileIdsWithApplications = applications
+                .Where(application => application.CandidateProfileId.HasValue)
+                .Select(application => application.CandidateProfileId!.Value)
+                .ToHashSet();
             var sourcesByEmail = new Dictionary<string, HashSet<ApplicationSourceEnum>>(StringComparer.OrdinalIgnoreCase);
             var resumeTextByEmail = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase);
 
@@ -178,7 +188,7 @@ namespace SylviaNG.Recruitment.Application.Features.CvBank.Queries.CvBankSearch
                 }
             }
 
-            return (sourcesByEmail, resumeTextByEmail.ToDictionary(kv => kv.Key, kv => kv.Value.ToString(), StringComparer.OrdinalIgnoreCase));
+            return (candidateProfileIdsWithApplications, sourcesByEmail, resumeTextByEmail.ToDictionary(kv => kv.Key, kv => kv.Value.ToString(), StringComparer.OrdinalIgnoreCase));
         }
 
         private static CvBankSearchResultResponse ToResponse(CandidateProfile profile, CandidateFactService.CandidateFacts facts, int relevanceScore)

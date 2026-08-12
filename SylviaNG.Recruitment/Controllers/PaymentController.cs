@@ -33,23 +33,26 @@ namespace SylviaNG.Recruitment.Controllers
 
         /// <summary>
         /// Opens (or re-opens, after a failed/cancelled attempt) an SSLCommerz checkout session
-        /// for an application awaiting payment.
+        /// for an application awaiting payment. candidateEmail (the email the applicant typed at
+        /// apply time) stands in for an ownership check, since jobApplicationId alone is a
+        /// sequential, guessable long and this action is [AllowAnonymous] - see IPaymentService.
         /// </summary>
         [HttpPost("initiate/{jobApplicationId}")]
-        public async Task<ActionResult<PaymentInitiateResponse>> Initiate(long jobApplicationId)
+        public async Task<ActionResult<PaymentInitiateResponse>> Initiate(long jobApplicationId, [FromQuery] string candidateEmail)
         {
-            var result = await _paymentService.InitiateAsync(jobApplicationId);
+            var result = await _paymentService.InitiateAsync(jobApplicationId, candidateEmail);
             return Ok(result);
         }
 
         /// <summary>
         /// Latest payment status for an application, polled by the frontend payment-result page
-        /// until the IPN handler resolves it to Success/Failed.
+        /// until the IPN handler resolves it to Success/Failed. Same email-ownership check as
+        /// Initiate.
         /// </summary>
         [HttpGet("status/{jobApplicationId}")]
-        public async Task<ActionResult<PaymentStatusResponse>> GetStatus(long jobApplicationId)
+        public async Task<ActionResult<PaymentStatusResponse>> GetStatus(long jobApplicationId, [FromQuery] string candidateEmail)
         {
-            var result = await _paymentService.GetStatusAsync(jobApplicationId);
+            var result = await _paymentService.GetStatusAsync(jobApplicationId, candidateEmail);
             return Ok(result);
         }
 
@@ -99,17 +102,20 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var (tranId, valId, rawPayload) = ExtractIpnFields(form);
 
-            long? jobApplicationId = null;
+            (long JobApplicationId, string? CandidateEmail)? application = null;
             if (!string.IsNullOrWhiteSpace(tranId))
             {
                 await _paymentService.HandleIpnAsync(tranId, valId, rawPayload);
-                jobApplicationId = await _paymentService.GetJobApplicationIdByTransactionIdAsync(tranId);
+                application = await _paymentService.GetJobApplicationIdByTransactionIdAsync(tranId);
             }
 
             var frontendBase = _settings.FrontendReturnBaseUrl.TrimEnd('/');
 
-            var query = jobApplicationId.HasValue
-                ? $"?jobApplicationId={jobApplicationId}&status={status}"
+            // candidateEmail rides along here (backend-resolved, not attacker-suppliable) so the
+            // frontend payment-result page can pass it straight back on its status poll - it has
+            // no other way to know it, since this redirect is the first time that page runs.
+            var query = application.HasValue
+                ? $"?jobApplicationId={application.Value.JobApplicationId}&status={status}&candidateEmail={Uri.EscapeDataString(application.Value.CandidateEmail ?? string.Empty)}"
                 : $"?status={status}";
 
             return Redirect($"{frontendBase}/careers/payment-result{query}");

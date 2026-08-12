@@ -43,7 +43,7 @@ Bundled per senior-approved EP-07 sequencing (55+56 → 58+59 → 57 → 60 → 
 - `pages/exam-management/` — new module: `exam-list/`, `schedule-exam/` (job-posting + exam-details form, then shortlisted-candidate picker), `exam-detail/` (roster, seat-plan generate/download, per-row reassign dialog and admit-card download), module + routing.
 - `pages/pages-routing.module.ts` — added `exams` lazy route.
 - `@core/constants/nav-menu-items.ts` — "Exams" nav item under Recruitment.
-- `.claude/launch.json` (repo root) — added a `backend` dev-server config (`dotnet run`, port 8888) alongside the existing `frontend` entry, for browser-based verification.
+- `.claude/launch.json` (repo root) — added a `backend` dev-server config (`dotnet run`, port 8188) alongside the existing `frontend` entry, for browser-based verification.
 
 ## Verification
 

@@ -187,7 +187,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                     UniversityLibraryItemId = matchedUniversity?.UniversityLibraryItemId,
                     EducationLevel = ParseEducationLevel(GetString(item, "educationLevel")),
                     PassingYear = ClampYear(GetInt(item, "passingYear")),
-                    Result = TruncateOrNull(GetString(item, "result"), 50),
+                    Result = SanitizeResult(TruncateOrNull(GetString(item, "result"), 50)),
                     MajorSubject = TruncateOrNull(GetString(item, "majorSubject"), 200)
                 });
             }
@@ -240,6 +240,20 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             if (string.IsNullOrWhiteSpace(value)) return null;
             var trimmed = value.Trim();
             return trimmed.Length > maxLength ? trimmed[..maxLength] : trimmed;
+        }
+
+        // Groq sometimes returns the CGPA/GPA as written on the resume, e.g. "3.70/4.00" -
+        // the Result field should only hold the candidate's own score (the scale is captured
+        // separately via GradingSystem), so drop a trailing "/<scale>" when the whole value is
+        // just that numeric fraction. Left untouched for non-numeric results (e.g. "First Class").
+        private static readonly System.Text.RegularExpressions.Regex ResultWithScaleRegex =
+            new(@"^(\d+(\.\d+)?)\s*/\s*\d+(\.\d+)?$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private static string? SanitizeResult(string? value)
+        {
+            if (value == null) return null;
+            var match = ResultWithScaleRegex.Match(value);
+            return match.Success ? match.Groups[1].Value : value;
         }
 
         private static DateTime? ParseDate(string? value)

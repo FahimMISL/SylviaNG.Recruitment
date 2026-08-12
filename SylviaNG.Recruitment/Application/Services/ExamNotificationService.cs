@@ -7,6 +7,7 @@ using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -114,7 +115,10 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 ["CandidateName"] = jobApplication.CandidateName,
                 ["ExamTitle"] = exam.Title,
-                ["ScheduledStartAt"] = exam.ScheduledStartAt.ToString("dddd, dd MMM yyyy HH:mm"),
+                // ScheduledStartAt is stored UTC (timestamptz) - every other display path
+                // (API JSON responses) converts back to local via LocalDateTimeJsonConverter;
+                // this hand-built email string bypassed that entirely and showed raw UTC.
+                ["ScheduledStartAt"] = DateTimeUtility.ConvertUtcToLocal(exam.ScheduledStartAt).ToString("dddd, dd MMM yyyy hh:mm tt"),
                 ["DurationMinutes"] = exam.DurationMinutes.ToString(),
                 ["VenueName"] = exam.ExamVenue?.VenueName ?? string.Empty,
                 ["VenueLocation"] = exam.ExamVenue?.Location ?? string.Empty,
@@ -158,7 +162,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 return;
             }
 
-            var summary = $"Your exam '{exam.Title}' is scheduled on {exam.ScheduledStartAt:dd MMM yyyy HH:mm}. " +
+            var summary = $"Your exam '{exam.Title}' is scheduled on {DateTimeUtility.ConvertUtcToLocal(exam.ScheduledStartAt):dd MMM yyyy hh:mm tt}. " +
                 (string.IsNullOrWhiteSpace(enrollment.SeatNumber) ? "Seat to be assigned. " : $"Seat: {enrollment.SeatNumber}. ") +
                 $"Download your admit card at {_portalSettings.FrontendBaseUrl}/my-applications.";
 

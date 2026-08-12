@@ -2,7 +2,10 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -30,21 +33,30 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IExamRepository _examRepository;
         private readonly IExamEnrollmentRepository _examEnrollmentRepository;
         private readonly IJobApplicationStageProgressService _jobApplicationStageProgressService;
+        private readonly INotificationDispatchService _notificationDispatchService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<ExamScoreImportService> _logger;
 
         public ExamScoreImportService(
             IExamRepository examRepository,
             IExamEnrollmentRepository examEnrollmentRepository,
             IJobApplicationStageProgressService jobApplicationStageProgressService,
+            INotificationDispatchService notificationDispatchService,
             ICurrentUserService currentUserService,
-            IUnitOfWork unitOfWork)
+            IOptions<PortalSettings> portalSettings,
+            IUnitOfWork unitOfWork,
+            ILogger<ExamScoreImportService> logger)
         {
             _examRepository = examRepository;
             _examEnrollmentRepository = examEnrollmentRepository;
             _jobApplicationStageProgressService = jobApplicationStageProgressService;
+            _notificationDispatchService = notificationDispatchService;
             _currentUserService = currentUserService;
+            _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         public async Task<ExamScoreImportTemplateResponse> GenerateTemplateAsync(long examId)
@@ -109,6 +121,9 @@ namespace SylviaNG.Recruitment.Application.Services
             var exam = await _examRepository.GetByIdAsync(examId)
                 ?? throw new NotFoundException("Exam", examId);
 
+            // GetByExamIdAsync already includes JobApplication (with CandidateProfile), so
+            // CandidateName/CandidateEmail are loaded for the ExamResultPublished dispatch below -
+            // the score-finalize loop notifies each candidate.
             var enrollments = await _examEnrollmentRepository.GetByExamIdAsync(examId);
             var enrollmentsById = enrollments.ToDictionary(e => e.ExamEnrollmentId);
 
@@ -173,10 +188,40 @@ namespace SylviaNG.Recruitment.Application.Services
                 await _unitOfWork.SaveChangesAsync();
 
             // Same authoritative-finalize reasoning as ExamEnrollmentService.UploadScoreAsync -
-            // this bulk import IS the HR finalize action for these rows.
+            // this bulk import IS the HR finalize action for these rows. Also mirrors its
+            // ExamResultPublished dispatch: notify each candidate their result is available, but only
+            // when the exam is configured to show results. Never throws per row - a mail failure must
+            // not abort the remaining finalizations already committed above.
             foreach (var enrollment in updatedEnrollments)
+            {
                 await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
                     enrollment.JobApplicationId, "TechnicalAssessment", enrollment.Score!.Value, "system:exam-score");
+
+                if (exam.ShowResultsToCandidate && !string.IsNullOrWhiteSpace(enrollment.JobApplication.CandidateEmail))
+                {
+                    try
+                    {
+                        var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["CandidateName"] = enrollment.JobApplication.CandidateName,
+                            ["ExamTitle"] = exam.Title,
+                            ["Score"] = enrollment.Score!.Value.ToString("N2"),
+                            ["TotalMarks"] = exam.TotalMarks.ToString("N2"),
+                            ["PassMarks"] = exam.PassMarks.ToString("N2"),
+                            ["ResultStatus"] = enrollment.IsPassed == true ? "Passed" : "Failed",
+                            ["PortalLink"] = $"{_portalSettings.FrontendBaseUrl}/exam-attempt/{enrollment.ExamEnrollmentId}"
+                        };
+                        await _notificationDispatchService.DispatchAsync(
+                            RecruitmentEventEnum.ExamResultPublished,
+                            placeholders,
+                            new NotificationDispatchTargets(enrollment.JobApplication.CandidateEmail, null, enrollment.JobApplicationId));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to dispatch ExamResultPublished notification for ExamEnrollmentId {ExamEnrollmentId}.", enrollment.ExamEnrollmentId);
+                    }
+                }
+            }
 
             return response;
         }

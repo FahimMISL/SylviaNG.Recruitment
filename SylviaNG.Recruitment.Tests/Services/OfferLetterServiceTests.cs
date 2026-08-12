@@ -6,6 +6,7 @@ using SylviaNG.Recruitment.Application.Common.Email;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.OfferLetters.Models;
+using SylviaNG.Recruitment.Application.Features.PipelineProgress.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
@@ -28,6 +29,7 @@ public class OfferLetterServiceTests
     private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
     private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<IFinalSelectionPoolService> _finalSelectionPoolServiceMock;
+    private readonly Mock<IJobApplicationStageProgressService> _jobApplicationStageProgressServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly OfferLetterService _service;
 
@@ -46,8 +48,14 @@ public class OfferLetterServiceTests
         _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
         _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _finalSelectionPoolServiceMock = new Mock<IFinalSelectionPoolService>();
+        _jobApplicationStageProgressServiceMock = new Mock<IJobApplicationStageProgressService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
+        // Default: no pipeline configured, so GenerateAsync's stage-completion gate is a no-op.
+        // Tests exercising that gate override this.
+        _jobApplicationStageProgressServiceMock
+            .Setup(s => s.GetByJobApplicationIdAsync(It.IsAny<long>()))
+            .ReturnsAsync(new JobApplicationPipelineProgressResponse { HasPipeline = false });
 
         _service = new OfferLetterService(
             _offerLetterRepositoryMock.Object,
@@ -60,6 +68,7 @@ public class OfferLetterServiceTests
             _notificationDispatchServiceMock.Object,
             _applicationSettingServiceMock.Object,
             _finalSelectionPoolServiceMock.Object,
+            _jobApplicationStageProgressServiceMock.Object,
             Options.Create(new PortalSettings()),
             _unitOfWorkMock.Object);
     }
@@ -182,11 +191,13 @@ public class OfferLetterServiceTests
         var response = await _service.GenerateAsync(ValidRequest());
 
         response.OfferLetterId.Should().Be(42);
-        response.GeneratedPdfPath.Should().Be("uploads/job-postings/documents/offer-letters/abc123.pdf");
+        // Response path is mapped through the file-download proxy (MinIO migration).
+        response.GeneratedPdfPath.Should().Be("recruitment/files/download?key=uploads%2Fjob-postings%2Fdocuments%2Foffer-letters%2Fabc123.pdf");
         response.Status.Should().Be(OfferLetterStatusEnum.Generated);
         response.CandidateName.Should().Be("John Smith");
         response.DocumentTemplateName.Should().Be("Standard Offer Letter");
-        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+        // Two saves: the offer letter itself, then the auto-transition of the application to Offered.
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Exactly(2));
     }
 
     [Fact]

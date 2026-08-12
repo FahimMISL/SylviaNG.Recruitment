@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.ForgotPassword;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Login;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Refresh;
@@ -14,6 +15,7 @@ namespace SylviaNG.Recruitment.Controllers
 {
     [ApiController]
     [Route("recruitment/auth")]
+    [EnableRateLimiting("auth")]
     public class AuthController : ControllerBase
     {
         private readonly IMediator _mediator;

@@ -28,6 +28,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet
                 .Include(p => p.Stages.OrderBy(s => s.DisplayOrder))
                 .Include(p => p.JobPostings)
+                .OrderByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.HiringPipelineId)
                 .ToListAsync();
         }
 

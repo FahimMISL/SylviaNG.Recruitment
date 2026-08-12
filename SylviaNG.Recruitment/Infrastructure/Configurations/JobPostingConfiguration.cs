@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SylviaNG.Recruitment.Domain.Entities;
-using SylviaNG.Recruitment.Domain.Enums;
 
 namespace SylviaNG.Recruitment.Infrastructure.Configurations
 {
@@ -82,64 +81,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             // Note: JobPostingAttachment relationship (FK + cascade delete) is configured
             // in JobPostingAttachmentConfiguration.
-
-            // Seed data
-            builder.HasData(
-                new
-                {
-                    JobPostingId = 1L,
-                    DepartmentId = 1L,
-                    Title = "Senior Software Engineer",
-                    Description = "We are looking for a Senior Software Engineer to join our team.",
-                    Requirements = "5+ years of experience in .NET, C#, and SQL Server.",
-                    NumberOfPositions = 2,
-                    EmploymentType = EmploymentTypeEnum.FullTime,
-                    Status = JobStatusEnum.Open,
-                    MinSalary = 80000m,
-                    MaxSalary = 120000m,
-                    PostingDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    ClosingDate = new DateTime(2025, 6, 30, 0, 0, 0, DateTimeKind.Utc),
-                    IsActive = true,
-                    JobPostingCode = "JOB-2026-000001",
-                    CircularType = CircularTypeEnum.Both,
-                    TenantId = "default_tenant",
-                    Remarks = (string?)null,
-                    CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    CreatedBy = 1L,
-                    UpdatedAt = (DateTime?)null,
-                    UpdatedBy = (long?)null,
-                    DeletedAt = (DateTime?)null,
-                    DeletedBy = (long?)null,
-                    AuditStatus = 1
-                },
-                new
-                {
-                    JobPostingId = 2L,
-                    DepartmentId = 1L,
-                    Title = "UI/UX Designer",
-                    Description = "Looking for a creative UI/UX Designer.",
-                    Requirements = "3+ years of experience in Figma and Adobe XD.",
-                    NumberOfPositions = 1,
-                    EmploymentType = EmploymentTypeEnum.FullTime,
-                    Status = JobStatusEnum.Open,
-                    MinSalary = 50000m,
-                    MaxSalary = 80000m,
-                    PostingDate = new DateTime(2025, 2, 1, 0, 0, 0, DateTimeKind.Utc),
-                    ClosingDate = new DateTime(2025, 7, 31, 0, 0, 0, DateTimeKind.Utc),
-                    IsActive = true,
-                    JobPostingCode = "JOB-2026-000002",
-                    CircularType = CircularTypeEnum.Both,
-                    TenantId = "default_tenant",
-                    Remarks = (string?)null,
-                    CreatedAt = new DateTime(2025, 2, 1, 0, 0, 0, DateTimeKind.Utc),
-                    CreatedBy = 1L,
-                    UpdatedAt = (DateTime?)null,
-                    UpdatedBy = (long?)null,
-                    DeletedAt = (DateTime?)null,
-                    DeletedBy = (long?)null,
-                    AuditStatus = 1
-                }
-            );
         }
     }
 }

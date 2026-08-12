@@ -15,6 +15,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.AnyAsync(u => u.Email == email && (!excludeId.HasValue || u.UserAccountId != excludeId.Value));
         }
 
+        public async Task<bool> ExistsAnyWithRoleAsync(string roleName)
+        {
+            return await _dbSet.AnyAsync(u => u.RoleAssignments.Any(a => a.Role.Name == roleName));
+        }
+
         public async Task<UserAccount?> GetByIdWithRolesAsync(long userAccountId)
         {
             return await _dbSet
@@ -26,7 +31,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(u => u.RoleAssignments).ThenInclude(a => a.Role).ThenInclude(r => r.Permissions)
-                .OrderBy(u => u.FullName)
+                .OrderByDescending(u => u.CreatedAt)
+                .ThenByDescending(u => u.UserAccountId)
                 .ToListAsync();
         }
 

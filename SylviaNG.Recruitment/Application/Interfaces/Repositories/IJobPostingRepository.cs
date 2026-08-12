@@ -10,6 +10,9 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         Task<bool> ExistsByTitleAsync(string title, long? excludeId = null);
         Task<PagedResult<JobPosting>> GetPaginatedAsync(PagedRequest request);
 
+        /// <summary>Full (non-paginated) list, newest-created first.</summary>
+        Task<List<JobPosting>> GetAllNewestFirstAsync();
+
         /// <summary>
         /// Paginated, audience-filtered browse used by the career portal (external/public) and
         /// internal job board. Only Open postings whose CircularType is in <paramref name="allowedCircularTypes"/>

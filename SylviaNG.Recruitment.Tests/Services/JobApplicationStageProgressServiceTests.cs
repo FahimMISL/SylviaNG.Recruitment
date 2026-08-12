@@ -324,7 +324,9 @@ public class JobApplicationStageProgressServiceTests
 
         // Assert
         _stageProgressRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplicationStageProgress>()), Times.Never);
-        _hiringPipelineRepositoryMock.Verify(r => r.GetByIdWithStagesAsync(5), Times.Once);
+        // Two reads: the mandatory-order/MaxMarks gate, then the auto-progress attempt (which finds
+        // no configured target and adds nothing).
+        _hiringPipelineRepositoryMock.Verify(r => r.GetByIdWithStagesAsync(5), Times.Exactly(2));
     }
 
     [Fact]
@@ -341,7 +343,10 @@ public class JobApplicationStageProgressServiceTests
 
         // Assert
         row.Score.Should().Be(95);
-        _hiringPipelineRepositoryMock.Verify(r => r.GetByIdWithStagesAsync(It.IsAny<long>()), Times.Never);
+        // Re-saving an already-Completed stage must not re-trigger auto-progression. The service now
+        // reads the pipeline unconditionally (mandatory-order + MaxMarks gate), so the real proxy for
+        // "did not auto-advance" is that no next-stage row was added.
+        _stageProgressRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobApplicationStageProgress>()), Times.Never);
     }
 
     [Fact]

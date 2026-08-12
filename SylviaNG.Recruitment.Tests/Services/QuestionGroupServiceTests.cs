@@ -31,6 +31,24 @@ public class QuestionGroupServiceTests
     };
 
     [Fact]
+    public async Task GetAllAsync_ShouldReturnNewestGroupsFirst_UsingIdAsATieBreaker()
+    {
+        var createdAt = new DateTime(2026, 8, 6, 12, 0, 0, DateTimeKind.Utc);
+        var newest = new QuestionGroup { QuestionGroupId = 3, Name = "Newest", CreatedAt = createdAt };
+        var sameTimeOlderId = new QuestionGroup { QuestionGroupId = 2, Name = "Same time", CreatedAt = createdAt };
+        var older = new QuestionGroup { QuestionGroupId = 1, Name = "Older", CreatedAt = createdAt.AddMinutes(-1) };
+
+        _questionGroupRepositoryMock
+            .Setup(r => r.GetAllNewestFirstAsync())
+            .ReturnsAsync(new List<QuestionGroup> { newest, sameTimeOlderId, older });
+
+        var result = await _service.GetAllAsync();
+
+        result.Select(g => g.Name).Should().ContainInOrder("Newest", "Same time", "Older");
+        _questionGroupRepositoryMock.Verify(r => r.GetAllNewestFirstAsync(), Times.Once);
+    }
+
+    [Fact]
     public async Task CreateAsync_WithUniqueName_ShouldSaveAndReturnId()
     {
         _questionGroupRepositoryMock.Setup(r => r.ExistsByNameAsync("Aptitude", null)).ReturnsAsync(false);

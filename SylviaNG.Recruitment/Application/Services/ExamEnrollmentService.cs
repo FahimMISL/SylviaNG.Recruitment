@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.ExamEnrollments.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -18,7 +20,9 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IExamRoomRepository _examRoomRepository;
         private readonly IExamNotificationService _examNotificationService;
         private readonly IJobApplicationStageProgressService _jobApplicationStageProgressService;
+        private readonly INotificationDispatchService _notificationDispatchService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly PortalSettings _portalSettings;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<ExamEnrollmentService> _logger;
 
@@ -29,7 +33,9 @@ namespace SylviaNG.Recruitment.Application.Services
             IExamRoomRepository examRoomRepository,
             IExamNotificationService examNotificationService,
             IJobApplicationStageProgressService jobApplicationStageProgressService,
+            INotificationDispatchService notificationDispatchService,
             ICurrentUserService currentUserService,
+            IOptions<PortalSettings> portalSettings,
             IUnitOfWork unitOfWork,
             ILogger<ExamEnrollmentService> logger)
         {
@@ -39,7 +45,9 @@ namespace SylviaNG.Recruitment.Application.Services
             _examRoomRepository = examRoomRepository;
             _examNotificationService = examNotificationService;
             _jobApplicationStageProgressService = jobApplicationStageProgressService;
+            _notificationDispatchService = notificationDispatchService;
             _currentUserService = currentUserService;
+            _portalSettings = portalSettings.Value;
             _unitOfWork = unitOfWork;
             _logger = logger;
         }
@@ -162,6 +170,35 @@ namespace SylviaNG.Recruitment.Application.Services
             // stage from it instead of leaving HR to separately re-type the same number there.
             await _jobApplicationStageProgressService.AutoCompleteStageByTypeAsync(
                 enrollment.JobApplicationId, "TechnicalAssessment", score, "system:exam-score");
+
+            // Notify the candidate their result is available, but only when this exam is configured
+            // to show results to candidates - otherwise the score stays HR-internal. Never throws: a
+            // missing mapping logs a Skipped row and a mail failure must not roll back the finalized
+            // score already saved above.
+            if (enrollment.Exam.ShowResultsToCandidate && !string.IsNullOrWhiteSpace(enrollment.JobApplication.CandidateEmail))
+            {
+                try
+                {
+                    var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["CandidateName"] = enrollment.JobApplication.CandidateName,
+                        ["ExamTitle"] = enrollment.Exam.Title,
+                        ["Score"] = score.ToString("N2"),
+                        ["TotalMarks"] = enrollment.Exam.TotalMarks.ToString("N2"),
+                        ["PassMarks"] = enrollment.Exam.PassMarks.ToString("N2"),
+                        ["ResultStatus"] = enrollment.IsPassed == true ? "Passed" : "Failed",
+                        ["PortalLink"] = $"{_portalSettings.FrontendBaseUrl}/exam-attempt/{enrollment.ExamEnrollmentId}"
+                    };
+                    await _notificationDispatchService.DispatchAsync(
+                        RecruitmentEventEnum.ExamResultPublished,
+                        placeholders,
+                        new NotificationDispatchTargets(enrollment.JobApplication.CandidateEmail, null, enrollment.JobApplicationId));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to dispatch ExamResultPublished notification for ExamEnrollmentId {ExamEnrollmentId}.", enrollment.ExamEnrollmentId);
+                }
+            }
         }
 
         public async Task BulkMoveToStageAsync(long examId, List<long> examEnrollmentIds, long pipelineStageId)

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -81,13 +82,21 @@ namespace SylviaNG.Recruitment.Application.Services
 
         private async Task<CandidateProfile> GetOrCreateCurrentProfileAsync()
         {
+            var user = _httpContextAccessor.HttpContext?.User
+                ?? throw new UnauthorizedAccessException("No authenticated user in the current request.");
+
+            // A CandidateProfile is candidate-owned data. Do this check before returning an
+            // existing profile too, so a staff account can neither create nor use a stale profile
+            // that may have been provisioned before this guard existed.
+            if (!user.IsInRole("Candidate"))
+                throw new ForbiddenException("Only Candidate users can access a candidate profile.");
+
             var subjectId = GetCurrentKeycloakSubjectId();
 
             var existing = await _candidateProfileRepository.GetByKeycloakSubjectIdAsync(subjectId);
             if (existing != null)
                 return existing;
 
-            var user = _httpContextAccessor.HttpContext!.User;
             var fullName = user.FindFirst(ClaimTypes.Name)?.Value ?? user.FindFirst("name")?.Value ?? string.Empty;
             var email = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst("email")?.Value ?? string.Empty;
 

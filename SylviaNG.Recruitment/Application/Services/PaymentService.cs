@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.Payments.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Externals;
@@ -6,6 +7,7 @@ using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using System.Data;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -39,12 +41,15 @@ namespace SylviaNG.Recruitment.Application.Services
             _logger = logger;
         }
 
-        public async Task<PaymentInitiateResponse> InitiateAsync(long jobApplicationId)
+        public async Task<PaymentInitiateResponse> InitiateAsync(long jobApplicationId, string candidateEmail)
         {
             var jobApplication = await _jobApplicationRepository.GetByIdWithIncludeAsync(
                 a => a.JobApplicationId == jobApplicationId,
                 a => a.JobPosting)
                 ?? throw new NotFoundException("JobApplication", jobApplicationId);
+
+            if (!EmailMatches(jobApplication.CandidateEmail, candidateEmail))
+                throw new NotFoundException("JobApplication", jobApplicationId);
 
             if (jobApplication.ApplicationStatus == ApplicationStatusEnum.Applied
                 || await _paymentRepository.HasSuccessfulPaymentAsync(jobApplicationId))
@@ -152,12 +157,26 @@ namespace SylviaNG.Recruitment.Application.Services
             payment.PaidAt = DateTime.UtcNow;
             _paymentRepository.Update(payment);
 
+            // Serializable so a concurrent caller for the same tran_id (the async IPN and a
+            // browser-return callback can both land at once - see PaymentController's callback
+            // comments) can't both read AwaitingPayment before either commits and both apply the
+            // Applied transition. There's no concurrency token on JobApplication, so plain Read
+            // Committed (EF's/UnitOfWork's default) would let a keyed UPDATE from the loser
+            // through unnoticed; Serializable makes Postgres detect the read-write conflict and
+            // fail the loser with a serialization error (SqlState 40001) at Commit/SaveChanges,
+            // which is then treated as a no-op since the winner already recorded the transition.
+            await _unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable);
+
             var jobApplication = await _jobApplicationRepository.GetByIdWithIncludeAsync(
                 a => a.JobApplicationId == payment.JobApplicationId,
                 a => a.JobPosting);
-            if (jobApplication != null && jobApplication.ApplicationStatus == ApplicationStatusEnum.AwaitingPayment)
+
+            var didTransition = jobApplication != null && jobApplication.ApplicationStatus == ApplicationStatusEnum.AwaitingPayment;
+            ApplicationStatusEnum fromStatus = default;
+
+            if (jobApplication != null && didTransition)
             {
-                var fromStatus = jobApplication.ApplicationStatus;
+                fromStatus = jobApplication.ApplicationStatus;
                 jobApplication.ApplicationStatus = ApplicationStatusEnum.Applied;
                 _jobApplicationRepository.Update(jobApplication);
 
@@ -170,10 +189,31 @@ namespace SylviaNG.Recruitment.Application.Services
                     ChangedAt = DateTime.UtcNow,
                     Note = $"Payment confirmed via SSLCommerz (tran_id: {transactionId})"
                 });
+            }
 
-                // Candidate action-required email fires at submit time, not here (see
-                // JobApplicationService.SubmitAsync) - it must not claim payment is done before it
-                // is. This is the actual "you paid, application confirmed" notification.
+            try
+            {
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitTransactionAsync();
+            }
+            catch (Exception ex) when (
+                ex is DbUpdateException { InnerException: Npgsql.PostgresException { SqlState: "40001" } }
+                or Npgsql.PostgresException { SqlState: "40001" })
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                _logger.LogInformation(
+                    "Concurrent IPN/callback for tran_id {TransactionId} lost the race - the other request already recorded this payment.",
+                    transactionId);
+                return;
+            }
+
+            // Dispatched only after a successful commit, and only by whichever concurrent
+            // request actually won the transition, so a losing retry never sends a duplicate
+            // "payment confirmed" email. Candidate action-required email fires at submit time,
+            // not here (see JobApplicationService.SubmitAsync) - it must not claim payment is
+            // done before it is; this is the actual "you paid, application confirmed" notification.
+            if (jobApplication != null && didTransition)
+            {
                 try
                 {
                     var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -198,14 +238,15 @@ namespace SylviaNG.Recruitment.Application.Services
                     _logger.LogError(ex, "Unexpected error dispatching payment-confirmation notification for JobApplicationId {JobApplicationId}.", jobApplication.JobApplicationId);
                 }
             }
-
-            await _unitOfWork.SaveChangesAsync();
         }
 
-        public async Task<PaymentStatusResponse> GetStatusAsync(long jobApplicationId)
+        public async Task<PaymentStatusResponse> GetStatusAsync(long jobApplicationId, string candidateEmail)
         {
             var jobApplication = await _jobApplicationRepository.GetByIdAsync(jobApplicationId)
                 ?? throw new NotFoundException("JobApplication", jobApplicationId);
+
+            if (!EmailMatches(jobApplication.CandidateEmail, candidateEmail))
+                throw new NotFoundException("JobApplication", jobApplicationId);
 
             var payment = await _paymentRepository.GetLatestByJobApplicationIdAsync(jobApplicationId);
 
@@ -220,10 +261,23 @@ namespace SylviaNG.Recruitment.Application.Services
             };
         }
 
-        public async Task<long?> GetJobApplicationIdByTransactionIdAsync(string transactionId)
+        public async Task<(long JobApplicationId, string? CandidateEmail)?> GetJobApplicationIdByTransactionIdAsync(string transactionId)
         {
             var payment = await _paymentRepository.GetByTransactionIdAsync(transactionId);
-            return payment?.JobApplicationId;
+            if (payment is null)
+                return null;
+
+            var jobApplication = await _jobApplicationRepository.GetByIdAsync(payment.JobApplicationId);
+            return (payment.JobApplicationId, jobApplication?.CandidateEmail);
         }
+
+        // Empty==empty is treated as a match so JobApplicationService's internal, already-trusted
+        // call right after creating the application (passing the just-saved entity's own
+        // CandidateEmail back at itself) never gets rejected just because a given apply path left
+        // CandidateEmail unset. The check only has teeth when the stored email is non-empty (the
+        // normal case, since frontend requires it) - that's the case an anonymous PaymentController
+        // caller with a guessed jobApplicationId can't satisfy without knowing the real email.
+        private static bool EmailMatches(string? actual, string? candidate) =>
+            string.Equals(actual?.Trim() ?? string.Empty, candidate?.Trim() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 }
