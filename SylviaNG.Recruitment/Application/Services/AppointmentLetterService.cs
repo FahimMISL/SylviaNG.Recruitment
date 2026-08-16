@@ -92,6 +92,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = new AppointmentLetter
             {
                 JobApplicationId = offerLetter.JobApplicationId,
+                CompanyId = offerLetter.JobApplication.CompanyId,
                 OfferLetterId = offerLetter.OfferLetterId,
                 DocumentTemplateId = request.DocumentTemplateId,
                 FinalBody = request.FinalBody,
@@ -120,7 +121,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.AppointmentLetterGenerated,
                 placeholders,
-                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, hrEmail, offerLetter.JobApplicationId),
+                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, hrEmail, offerLetter.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
 
             return entity.ToResponse();

@@ -24,6 +24,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.HasIndex(e => e.Status);
             builder.HasIndex(e => e.ExpiresAt);
+            builder.HasIndex(e => e.CompanyId);
         }
     }
 }

@@ -9,11 +9,14 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// moments, no separate SeatPlan entity. SeatNumber uniqueness within an exam is an app-layer
 /// check (ExamEnrollmentService), not a DB constraint - same convention as ExamRoom.RoomName.
 /// </summary>
-public class ExamEnrollment : Audit
+public class ExamEnrollment : Audit, ICompanyScoped
 {
     public long ExamEnrollmentId { get; set; }
     public long ExamId { get; set; }
     public long JobApplicationId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId at enrollment time.
+    public long? CompanyId { get; set; }
 
     public long? ExamRoomId { get; set; }
     public string? SeatNumber { get; set; }

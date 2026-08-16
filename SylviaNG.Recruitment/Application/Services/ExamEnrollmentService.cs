@@ -82,6 +82,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 {
                     ExamId = examId,
                     JobApplicationId = jobApplicationId,
+                    CompanyId = jobApplication.CompanyId,
                     EnrolledAt = DateTime.UtcNow,
                 };
 

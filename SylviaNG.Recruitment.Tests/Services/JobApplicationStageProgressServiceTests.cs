@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.PipelineProgress.Models;
@@ -19,6 +20,8 @@ public class JobApplicationStageProgressServiceTests
     private readonly Mock<IJobApplicationStageProgressRepository> _stageProgressRepositoryMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
+    private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly JobApplicationStageProgressService _service;
 
     public JobApplicationStageProgressServiceTests()
@@ -28,6 +31,8 @@ public class JobApplicationStageProgressServiceTests
         _stageProgressRepositoryMock = new Mock<IJobApplicationStageProgressRepository>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
+        _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
 
         _currentUserServiceMock.Setup(s => s.GetCurrentUserName()).Returns("abir");
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
@@ -37,7 +42,10 @@ public class JobApplicationStageProgressServiceTests
             _hiringPipelineRepositoryMock.Object,
             _stageProgressRepositoryMock.Object,
             _currentUserServiceMock.Object,
-            _unitOfWorkMock.Object);
+            _unitOfWorkMock.Object,
+            _notificationDispatchServiceMock.Object,
+            _applicationSettingServiceMock.Object,
+            Mock.Of<ILogger<JobApplicationStageProgressService>>());
     }
 
     private static JobApplication CreateApplication(long id, long? hiringPipelineId)

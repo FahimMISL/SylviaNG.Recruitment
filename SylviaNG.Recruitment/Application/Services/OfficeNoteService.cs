@@ -123,6 +123,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = new OfficeNote
             {
                 JobApplicationId = request.JobApplicationId,
+                CompanyId = jobApplication.CompanyId,
                 DocumentTemplateId = request.DocumentTemplateId,
                 Remarks = request.Remarks,
                 EnclosuresSummary = enclosuresSummary,

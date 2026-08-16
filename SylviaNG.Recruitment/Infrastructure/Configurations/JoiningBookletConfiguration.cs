@@ -17,6 +17,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.HasIndex(j => j.JobApplicationId);
             builder.HasIndex(j => j.OfferLetterId);
+            builder.HasIndex(j => j.CompanyId);
 
             builder.HasOne(j => j.JobApplication)
                 .WithMany(a => a.JoiningBooklets)

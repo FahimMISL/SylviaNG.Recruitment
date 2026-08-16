@@ -31,6 +31,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             // here would either cascade-delete in-flight candidate progress or block edits
             // to any pipeline that already has a tracked candidate.
             builder.HasIndex(p => new { p.JobApplicationId, p.PipelineStageId }).IsUnique();
+            builder.HasIndex(p => p.CompanyId);
 
             builder.HasOne(p => p.JobApplication)
                 .WithMany(a => a.StageProgress)

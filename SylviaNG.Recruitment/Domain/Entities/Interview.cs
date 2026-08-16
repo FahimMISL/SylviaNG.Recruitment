@@ -12,11 +12,15 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// JobApplicationStageProgress.PipelineStageId, since pipeline templates can be edited/removed
 /// independently of in-flight interview schedules.
 /// </summary>
-public class Interview : Audit
+public class Interview : Audit, ICompanyScoped
 {
     public long InterviewId { get; set; }
     public long JobApplicationId { get; set; }
     public long? PipelineStageId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId at scheduling time (see
+    // InterviewService.ScheduleAsync/BulkScheduleAsync).
+    public long? CompanyId { get; set; }
 
     public InterviewTypeEnum InterviewType { get; set; }
     public long? InterviewVenueId { get; set; }

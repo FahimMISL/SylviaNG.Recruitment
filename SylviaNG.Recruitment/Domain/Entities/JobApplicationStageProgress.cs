@@ -11,11 +11,15 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// edits entirely. StageName/StageType/DisplayOrder are snapshotted at first-provision time
 /// so a candidate's tracker stays stable even if the pipeline template changes later.
 /// </summary>
-public class JobApplicationStageProgress : Audit
+public class JobApplicationStageProgress : Audit, ICompanyScoped
 {
     public long JobApplicationStageProgressId { get; set; }
     public long JobApplicationId { get; set; }
     public long PipelineStageId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId, backfills the dashboard's
+    // pendingApprovalsCount widget onto the caller's own company.
+    public long? CompanyId { get; set; }
     public string StageName { get; set; } = string.Empty;
     public string StageType { get; set; } = string.Empty;
     public int DisplayOrder { get; set; }

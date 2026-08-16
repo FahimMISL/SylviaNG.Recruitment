@@ -19,11 +19,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(b => b.LogoFilePath).HasMaxLength(300);
             builder.Property(b => b.LogoContentType).HasMaxLength(100);
 
-            builder.Property(b => b.CompanyName).HasMaxLength(200);
-            builder.Property(b => b.AddressLine).HasMaxLength(200);
-            builder.Property(b => b.Phone).HasMaxLength(100);
-            builder.Property(b => b.Email).HasMaxLength(100);
-            builder.Property(b => b.Website).HasMaxLength(200);
+            // SetNull, not Restrict: Repository<T>.Delete is a hard delete, so a mandatory link
+            // would permanently block deleting a Company that ever had a branding row.
+            builder.HasOne(b => b.Company)
+                .WithMany()
+                .HasForeignKey(b => b.CompanyId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             builder.Property(b => b.PrimaryColor).HasMaxLength(20);
             builder.Property(b => b.SecondaryColor).HasMaxLength(20);
@@ -41,20 +42,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.Property(b => b.DocumentReferenceFormat).IsRequired().HasMaxLength(200);
 
-            // Single MISL row seeded for now - Audit.TenantId already scopes it per tenant for
-            // later SaaS use, same singleton-row convention as ApplicationSettingConfiguration.
+            // Seeded fallback row (CompanyId null) - only reachable in an unrestricted context
+            // (SuperAdmin/system, no CurrentCompanyId) per ICompanyScoped's query filter. Every
+            // real Company gets its own row lazily created by CompanyBrandingService on first save.
             builder.HasData(new
             {
                 CompanyBrandingId = 1L,
+                CompanyId = (long?)null,
                 LogoFileName = (string?)null,
                 LogoStoredFileName = (string?)null,
                 LogoFilePath = (string?)null,
                 LogoContentType = (string?)null,
-                CompanyName = "Millennium Information Solution Ltd.",
-                AddressLine = "Administrative Building-01, Level-18, Grameen Bank Head Office, Mirpur-2, Dhaka-1216",
-                Phone = "09601 789 789",
-                Email = "info@mislbd.com",
-                Website = (string?)null,
                 PrimaryColor = "#7A2E2E",
                 SecondaryColor = "#1F2937",
                 AccentColor = "#DC2626",

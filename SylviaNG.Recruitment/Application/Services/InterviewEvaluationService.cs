@@ -59,6 +59,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = new InterviewEvaluation
             {
                 InterviewId = interviewId,
+                CompanyId = interview.CompanyId,
                 ScorecardId = request.ScorecardId,
                 EmployeeId = request.EmployeeId,
                 OverallComments = request.OverallComments,

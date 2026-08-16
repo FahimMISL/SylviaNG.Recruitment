@@ -37,7 +37,7 @@ public class ExamCreateValidatorTests
         var request = ValidInPersonRequest();
         request.ExamType = ExamTypeEnum.Online;
         request.ExamVenueId = null;
-        request.QuestionGroupId = 5;
+        request.QuestionGroupIds = new List<long> { 5 };
         var command = new ExamCreateCommand(request);
 
         var result = _validator.Validate(command);
@@ -156,12 +156,12 @@ public class ExamCreateValidatorTests
         var request = ValidInPersonRequest();
         request.ExamType = ExamTypeEnum.Online;
         request.ExamVenueId = null;
-        request.QuestionGroupId = null;
+        request.QuestionGroupIds = null;
         var command = new ExamCreateCommand(request);
 
         var result = _validator.Validate(command);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().ContainSingle(e => e.PropertyName == "Request.QuestionGroupId");
+        result.Errors.Should().ContainSingle(e => e.PropertyName == "Request.QuestionGroupIds");
     }
 }

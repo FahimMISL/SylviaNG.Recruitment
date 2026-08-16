@@ -14,7 +14,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 FullName = entity.FullName,
                 IsActive = entity.IsActive,
                 RoleIds = entity.RoleAssignments.Select(a => a.RoleId).ToList(),
-                RoleNames = entity.RoleAssignments.Select(a => a.Role.Name).ToList()
+                RoleNames = entity.RoleAssignments.Select(a => a.Role.Name).ToList(),
+                CompanyId = entity.CompanyId,
+                CompanyName = entity.Company?.Name
             };
         }
     }

@@ -118,7 +118,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private async Task<NotificationDispatchTargets> BuildDispatchTargetsAsync(JobApplication entity)
         {
             var hrEmail = await _applicationSettingService.GetHrNotificationEmailAsync();
-            return new NotificationDispatchTargets(entity.CandidateEmail, hrEmail, entity.JobApplicationId);
+            return new NotificationDispatchTargets(entity.CandidateEmail, hrEmail, entity.JobApplicationId, NotifyActiveHrUsers: true);
         }
 
         private static Dictionary<string, string> BuildBaseDispatchPlaceholders(JobApplication entity, string jobPostingTitle)
@@ -147,6 +147,11 @@ namespace SylviaNG.Recruitment.Application.Services
             entity.ApplicationStatus = ApplicationStatusEnum.Applied;
             entity.AppliedDate = DateTime.UtcNow;
             entity.CandidateProfileId = candidateProfileId ?? await ResolveCandidateProfileIdAsync(request.CandidateEmail);
+
+            // Multi-tenant: denormalized from the parent posting - a candidate applying has no
+            // company of their own, so this is the only source of truth for which tenant owns
+            // this application.
+            entity.CompanyId = jobPosting.CompanyId;
 
             await _jobApplicationRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
@@ -1091,7 +1096,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var profileId = await _currentCandidateService.GetOrCreateCurrentProfileIdAsync();
             var profile = await _candidateProfileRepository.GetByIdWithIncludeAsync(
                 p => p.CandidateProfileId == profileId,
-                p => p.Educations, p => p.WorkExperiences, p => p.Skills, p => p.PresentDistrict, p => p.HomeDistrict);
+                p => p.Educations, p => p.WorkExperiences, p => p.Skills, p => p.PresentDistrict!, p => p.HomeDistrict!);
 
             var facts = CandidateFactService.BuildFacts(profile);
             var unmetRequirements = JobEligibilityEvaluator.Evaluate(jobPosting, facts);

@@ -8,8 +8,8 @@ namespace SylviaNG.Recruitment.Controllers
     /// <summary>
     /// Tenant-wide recruitment settings (US-007 AC4: minimum profile completeness required to
     /// submit an application). No class-level [Authorize] beyond the global AuthorizeFilter - GET
-    /// is readable by any authenticated role so the candidate UI can show "X% required", write is
-    /// Admin-only.
+    /// is readable by any authenticated role so the candidate UI can show "X% required"; Admin
+    /// and HR can update the settings.
     /// </summary>
     [ApiController]
     [Route("recruitment/application-settings")]
@@ -30,7 +30,7 @@ namespace SylviaNG.Recruitment.Controllers
         }
 
         [HttpPut]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,HR")]
         public async Task<ActionResult> Update([FromBody] ApplicationSettingUpdateRequest request)
         {
             await _applicationSettingService.UpdateAsync(request);

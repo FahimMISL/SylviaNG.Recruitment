@@ -471,3 +471,11 @@ public enum DocumentDividerStyleEnum
     Dotted,
     Dashed
 }
+
+/// <summary>Lifecycle of a tenant Company. Deactivating locks out every Admin/HR user
+/// belonging to it (see CompanyScopeMiddleware) without deleting their accounts or data.</summary>
+public enum CompanyStatusEnum
+{
+    Active,
+    Inactive
+}

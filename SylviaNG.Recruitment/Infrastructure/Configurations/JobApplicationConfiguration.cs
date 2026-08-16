@@ -53,6 +53,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.HasIndex(a => a.WaiverRuleId);
             builder.HasIndex(a => a.SpecialCategoryId);
             builder.HasIndex(a => a.ReferralSourceId);
+            builder.HasIndex(a => a.CompanyId);
 
             // Relationships
             builder.HasMany(a => a.Interviews)

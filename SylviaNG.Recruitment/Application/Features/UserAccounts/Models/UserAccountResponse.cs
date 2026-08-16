@@ -8,5 +8,7 @@ namespace SylviaNG.Recruitment.Application.Features.UserAccounts.Models
         public bool IsActive { get; set; }
         public List<long> RoleIds { get; set; } = new();
         public List<string> RoleNames { get; set; } = new();
+        public long? CompanyId { get; set; }
+        public string? CompanyName { get; set; }
     }
 }

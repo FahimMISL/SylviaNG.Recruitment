@@ -78,5 +78,15 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// assignment CreateUserAsync does internally, this targets an already-existing user id.
         /// </summary>
         Task AssignRealmRolesAsync(string keycloakUserId, IEnumerable<string> realmRoles);
+
+        /// <summary>
+        /// Deletes a realm user via the Admin REST API. Best-effort/non-throwing (logs and
+        /// swallows any failure) - same compensating-action shape InviteUserAsync already uses
+        /// internally when its own post-creation steps fail, exposed here so callers (e.g.
+        /// UserAccountService, if the local UserAccount row fails to persist after a successful
+        /// Keycloak invite) can roll back an orphaned Keycloak account rather than leaving one
+        /// with no matching local row and no way to be managed through the app.
+        /// </summary>
+        Task DeleteUserAsync(string keycloakUserId, string email);
     }
 }

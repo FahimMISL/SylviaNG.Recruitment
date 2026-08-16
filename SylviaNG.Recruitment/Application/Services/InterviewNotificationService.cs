@@ -115,7 +115,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var dispatchResult = await _notificationDispatchService.DispatchAsync(
                 recruitmentEvent,
                 placeholders,
-                new NotificationDispatchTargets(candidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), interview.JobApplicationId));
+                new NotificationDispatchTargets(candidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), interview.JobApplicationId, NotifyActiveHrUsers: true));
 
             if (dispatchResult.CandidateResult?.Success == true)
             {

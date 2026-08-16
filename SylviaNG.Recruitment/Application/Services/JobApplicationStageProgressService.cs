@@ -123,7 +123,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 var newProgress = pipeline.Stages
                     .Where(s => s.IsActive)
                     .OrderBy(s => s.DisplayOrder)
-                    .Select(s => s.ToProgressEntity(jobApplicationId))
+                    .Select(s => s.ToProgressEntity(jobApplicationId, application.CompanyId))
                     .ToList();
 
                 await _stageProgressRepository.AddRangeAsync(newProgress);
@@ -260,7 +260,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 await _notificationDispatchService.DispatchAsync(
                     wasAlreadyScheduled ? RecruitmentEventEnum.InterviewRescheduled : RecruitmentEventEnum.InterviewScheduled,
                     placeholders,
-                    new NotificationDispatchTargets(candidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), progress.JobApplicationId),
+                    new NotificationDispatchTargets(candidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), progress.JobApplicationId, NotifyActiveHrUsers: true),
                     persistImmediately: false);
             }
             catch (Exception ex)
@@ -371,7 +371,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 var newProgress = pipeline.Stages
                     .Where(s => s.IsActive)
                     .OrderBy(s => s.DisplayOrder)
-                    .Select(s => s.ToProgressEntity(jobApplicationId))
+                    .Select(s => s.ToProgressEntity(jobApplicationId, application.CompanyId))
                     .ToList();
 
                 await _stageProgressRepository.AddRangeAsync(newProgress);
@@ -388,7 +388,7 @@ namespace SylviaNG.Recruitment.Application.Services
             if (targetProgress != null)
                 return targetProgress;
 
-            targetProgress = targetStage.ToProgressEntity(jobApplicationId);
+            targetProgress = targetStage.ToProgressEntity(jobApplicationId, application.CompanyId);
             await _stageProgressRepository.AddAsync(targetProgress);
 
             return targetProgress;
@@ -412,7 +412,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 var newProgress = pipeline.Stages
                     .Where(s => s.IsActive)
                     .OrderBy(s => s.DisplayOrder)
-                    .Select(s => s.ToProgressEntity(jobApplicationId))
+                    .Select(s => s.ToProgressEntity(jobApplicationId, application.CompanyId))
                     .ToList();
 
                 await _stageProgressRepository.AddRangeAsync(newProgress);
@@ -521,7 +521,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 var newProgress = pipeline.Stages
                     .Where(s => s.IsActive)
                     .OrderBy(s => s.DisplayOrder)
-                    .Select(s => s.ToProgressEntity(jobApplicationId))
+                    .Select(s => s.ToProgressEntity(jobApplicationId, application.CompanyId))
                     .ToList();
 
                 await _stageProgressRepository.AddRangeAsync(newProgress);

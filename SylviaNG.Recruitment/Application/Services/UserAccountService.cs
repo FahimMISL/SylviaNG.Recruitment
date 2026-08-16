@@ -16,6 +16,7 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IUserAccountRepository _userAccountRepository;
         private readonly IRoleRepository _roleRepository;
+        private readonly ICompanyRepository _companyRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IKeycloakClient _keycloakClient;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -23,12 +24,14 @@ namespace SylviaNG.Recruitment.Application.Services
         public UserAccountService(
             IUserAccountRepository userAccountRepository,
             IRoleRepository roleRepository,
+            ICompanyRepository companyRepository,
             IUnitOfWork unitOfWork,
             IKeycloakClient keycloakClient,
             IHttpContextAccessor httpContextAccessor)
         {
             _userAccountRepository = userAccountRepository;
             _roleRepository = roleRepository;
+            _companyRepository = companyRepository;
             _unitOfWork = unitOfWork;
             _keycloakClient = keycloakClient;
             _httpContextAccessor = httpContextAccessor;
@@ -42,6 +45,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var roles = await ResolveRolesAsync(request.RoleIds);
             EnsureCallerCanAssign(roles);
+            var companyId = await ResolveAndAuthorizeCompanyAsync(roles, request.CompanyId);
             var (firstName, lastName) = PersonNameUtility.SplitFullName(request.FullName);
 
             // The recipient receives a Keycloak action link to verify their address and choose
@@ -67,13 +71,68 @@ namespace SylviaNG.Recruitment.Application.Services
                 Email = request.Email,
                 FullName = request.FullName,
                 IsActive = true,
+                CompanyId = companyId,
                 RoleAssignments = roles.Select(r => new UserRoleAssignment { RoleId = r.RoleId }).ToList()
             };
 
-            await _userAccountRepository.AddAsync(entity);
-            await _unitOfWork.SaveChangesAsync();
+            try
+            {
+                await _userAccountRepository.AddAsync(entity);
+                await _unitOfWork.SaveChangesAsync();
+            }
+            catch
+            {
+                // The Keycloak account (and its already-sent invite email) can't be left behind
+                // with no local UserAccount row - it would be an orphaned account nobody can
+                // manage through this app (RequirePermissionAttribute fails it closed with no
+                // local row, so it's locked out either way, but cleanup here beats a silent
+                // half-created account). Best-effort/non-throwing - see IKeycloakClient.DeleteUserAsync.
+                await _keycloakClient.DeleteUserAsync(keycloakUserId, request.Email);
+                throw;
+            }
 
             return entity.UserAccountId;
+        }
+
+        // Multi-tenant: SuperAdmin has no company (returns null, ignoring any CompanyId passed
+        // in) - every other role (Admin/HR/custom) must belong to exactly one, real, active
+        // Company. A non-SuperAdmin caller (a Company Admin inviting HR) is locked to their own
+        // company regardless of what CompanyId the request claims, so one company's Admin can
+        // never plant a user into another company's tenant.
+        private async Task<long?> ResolveAndAuthorizeCompanyAsync(List<Role> roles, long? requestedCompanyId)
+        {
+            if (roles.All(r => r.Name == nameof(UserRoleEnum.SuperAdmin)))
+                return null;
+
+            var caller = _httpContextAccessor.HttpContext?.User;
+            var callerIsSuperAdmin = caller?.IsInRole(nameof(UserRoleEnum.SuperAdmin)) ?? false;
+
+            long? companyId;
+            if (callerIsSuperAdmin)
+            {
+                if (!requestedCompanyId.HasValue)
+                    throw new ForbiddenException("A company must be selected for this user.");
+
+                companyId = requestedCompanyId.Value;
+            }
+            else
+            {
+                var callerKeycloakUserId = caller?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? caller?.FindFirst("sub")?.Value;
+                var callerAccount = !string.IsNullOrEmpty(callerKeycloakUserId)
+                    ? await _userAccountRepository.GetByKeycloakUserIdWithRolesAsync(callerKeycloakUserId)
+                    : null;
+
+                companyId = callerAccount?.CompanyId
+                    ?? throw new ForbiddenException("Your account is not associated with a company.");
+            }
+
+            var company = await _companyRepository.GetByIdAsync(companyId.Value)
+                ?? throw new NotFoundException("Company", companyId.Value);
+
+            if (company.Status != CompanyStatusEnum.Active)
+                throw new ForbiddenException("This company is deactivated and cannot receive new users.");
+
+            return companyId;
         }
 
         public async Task UpdateAsync(long userAccountId, UserAccountUpdateRequest request)

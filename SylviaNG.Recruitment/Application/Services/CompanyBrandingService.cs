@@ -41,11 +41,6 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             var (entity, isNew) = await GetOrCreateEntityAsync();
 
-            entity.CompanyName = request.CompanyName;
-            entity.AddressLine = request.AddressLine;
-            entity.Phone = request.Phone;
-            entity.Email = request.Email;
-            entity.Website = request.Website;
             entity.PrimaryColor = request.PrimaryColor;
             entity.SecondaryColor = request.SecondaryColor;
             entity.AccentColor = request.AccentColor;
@@ -96,12 +91,13 @@ namespace SylviaNG.Recruitment.Application.Services
             var draft = new Domain.Entities.CompanyBranding
             {
                 TenantId = current.TenantId,
+                CompanyId = current.CompanyId,
                 LogoFilePath = current.LogoFilePath,
-                CompanyName = request.CompanyName,
-                AddressLine = request.AddressLine,
-                Phone = request.Phone,
-                Email = request.Email,
-                Website = request.Website,
+                CompanyName = current.CompanyName,
+                AddressLine = current.AddressLine,
+                Phone = current.Phone,
+                Email = current.Email,
+                Website = current.Website,
                 PrimaryColor = request.PrimaryColor,
                 SecondaryColor = request.SecondaryColor,
                 AccentColor = request.AccentColor,
@@ -131,7 +127,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private async Task<(Domain.Entities.CompanyBranding Entity, bool IsNew)> GetOrCreateEntityAsync()
         {
             var current = await _brandingResolverService.GetActiveBrandingAsync();
-            var existing = await _companyBrandingRepository.GetByTenantIdAsync(current.TenantId);
+            var existing = await _companyBrandingRepository.GetByCompanyIdAsync(current.CompanyId);
             return existing != null ? (existing, false) : (current, true);
         }
 

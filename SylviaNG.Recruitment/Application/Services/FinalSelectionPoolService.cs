@@ -51,6 +51,7 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 OfferLetterId = offerLetter.OfferLetterId,
                 JobApplicationId = offerLetter.JobApplicationId,
+                CompanyId = offerLetter.JobApplication.CompanyId,
                 JoiningDate = offerLetter.JoiningDate,
                 HasJoined = false,
                 EnteredPoolAt = DateTime.UtcNow,
@@ -71,7 +72,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.PreBoardingRequested,
                 placeholders,
-                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId),
+                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
         }
 

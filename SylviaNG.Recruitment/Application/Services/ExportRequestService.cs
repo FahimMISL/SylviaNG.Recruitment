@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using System.Text.Json;
 using FluentValidation;
 using FluentValidation.Results;
+using Microsoft.AspNetCore.Http;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.ExportRequests.Models;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
@@ -22,22 +24,42 @@ namespace SylviaNG.Recruitment.Application.Services
 
         private readonly IExportRequestRepository _exportRequestRepository;
         private readonly IJobApplicationService _jobApplicationService;
+        private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IUserAccountRepository _userAccountRepository;
         private readonly IFileStorageService _fileStorageService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IHttpContextAccessor? _httpContextAccessor;
 
         public ExportRequestService(
             IExportRequestRepository exportRequestRepository,
             IJobApplicationService jobApplicationService,
+            IJobApplicationRepository jobApplicationRepository,
             ICurrentUserService currentUserService,
+            IUserAccountRepository userAccountRepository,
             IFileStorageService fileStorageService,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IHttpContextAccessor? httpContextAccessor = null)
         {
             _exportRequestRepository = exportRequestRepository;
             _jobApplicationService = jobApplicationService;
+            _jobApplicationRepository = jobApplicationRepository;
             _currentUserService = currentUserService;
+            _userAccountRepository = userAccountRepository;
             _fileStorageService = fileStorageService;
             _unitOfWork = unitOfWork;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        private async Task<long?> TryGetCurrentUserCompanyIdAsync()
+        {
+            var user = _httpContextAccessor?.HttpContext?.User;
+            var keycloakUserId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user?.FindFirst("sub")?.Value;
+            if (string.IsNullOrEmpty(keycloakUserId))
+                return null;
+
+            var account = await _userAccountRepository.GetByKeycloakUserIdWithRolesAsync(keycloakUserId);
+            return account?.CompanyId;
         }
 
         public async Task<long> RequestCandidateListExportAsync(JobApplicationAttributeFilterRequest filter, ExportFormatEnum format)
@@ -46,11 +68,14 @@ namespace SylviaNG.Recruitment.Application.Services
             // filters without JobPostingId) - same validation the ATS dashboard already runs.
             var matchedIds = await _jobApplicationService.GetDashboardMatchingIdsAsync(filter);
 
+            var companyId = await TryGetCurrentUserCompanyIdAsync();
+
             var now = DateTime.UtcNow;
             var entity = new ExportRequest
             {
                 ExportType = ExportTypeEnum.CandidateListExport,
                 Format = format,
+                CompanyId = companyId,
                 FilterJson = JsonSerializer.Serialize(filter),
                 JobApplicationIdsJson = JsonSerializer.Serialize(matchedIds),
                 Status = ExportRequestStatusEnum.Pending,
@@ -70,12 +95,14 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task<long> RequestJobApplicationTrackerExportAsync(JobApplicationAttributeFilterRequest filter, ExportFormatEnum format)
         {
             var matchedIds = await _jobApplicationService.GetDashboardMatchingIdsAsync(filter);
+            var companyId = await TryGetCurrentUserCompanyIdAsync();
 
             var now = DateTime.UtcNow;
             var entity = new ExportRequest
             {
                 ExportType = ExportTypeEnum.JobApplicationTrackerExport,
                 Format = format,
+                CompanyId = companyId,
                 FilterJson = JsonSerializer.Serialize(filter),
                 JobApplicationIdsJson = JsonSerializer.Serialize(matchedIds),
                 Status = ExportRequestStatusEnum.Pending,
@@ -103,11 +130,31 @@ namespace SylviaNG.Recruitment.Application.Services
                 });
             }
 
+            // Critical fix: jobApplicationIds is caller-supplied. JobApplication is
+            // ICompanyScoped, so GetByIdsAsync only ever returns rows the caller's own company
+            // can see - any id that doesn't resolve here belongs to another company (or doesn't
+            // exist) and must be rejected outright, not silently dropped, so a caller can't probe
+            // which ids belong to someone else by comparing request success/failure.
+            var ownedApplications = await _jobApplicationRepository.FindAsync(a => distinctIds.Contains(a.JobApplicationId));
+            var ownedIds = ownedApplications.Select(a => a.JobApplicationId).ToHashSet();
+            var foreignIds = distinctIds.Where(id => !ownedIds.Contains(id)).ToList();
+            if (foreignIds.Count > 0)
+            {
+                throw new ValidationException(new[]
+                {
+                    new ValidationFailure(nameof(jobApplicationIds),
+                        $"One or more selected applications do not belong to your company: {string.Join(", ", foreignIds)}.")
+                });
+            }
+
+            var companyId = await TryGetCurrentUserCompanyIdAsync();
+
             var now = DateTime.UtcNow;
             var entity = new ExportRequest
             {
                 ExportType = ExportTypeEnum.BulkCvZip,
                 Format = ExportFormatEnum.Zip,
+                CompanyId = companyId,
                 JobApplicationIdsJson = JsonSerializer.Serialize(distinctIds),
                 Status = ExportRequestStatusEnum.Pending,
                 RequestedByUserName = _currentUserService.GetCurrentUserName(),

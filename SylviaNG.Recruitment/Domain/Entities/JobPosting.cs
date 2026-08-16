@@ -6,9 +6,13 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// <summary>
 /// Represents a job posting/requisition in the recruitment system.
 /// </summary>
-public class JobPosting : Audit
+public class JobPosting : Audit, ICompanyScoped
 {
     public long JobPostingId { get; set; }
+
+    // Multi-tenant: the Company that owns this posting, stamped from the creating Admin/HR
+    // user's own company at creation time (see JobPostingService.CreateAsync).
+    public long? CompanyId { get; set; }
     public long? DepartmentId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }

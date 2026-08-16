@@ -35,13 +35,17 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<FitmentDataResponse> UpsertAsync(FitmentDataUpsertRequest request)
         {
-            _ = await _jobApplicationRepository.GetByIdAsync(request.JobApplicationId)
+            var jobApplication = await _jobApplicationRepository.GetByIdAsync(request.JobApplicationId)
                 ?? throw new NotFoundException("JobApplication", request.JobApplicationId);
 
             var entity = await _fitmentDataRepository.GetByJobApplicationIdAsync(request.JobApplicationId);
             if (entity == null)
             {
-                entity = new Domain.Entities.FitmentData { JobApplicationId = request.JobApplicationId };
+                entity = new Domain.Entities.FitmentData
+                {
+                    JobApplicationId = request.JobApplicationId,
+                    CompanyId = jobApplication.CompanyId,
+                };
                 await _fitmentDataRepository.AddAsync(entity);
             }
 

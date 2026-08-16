@@ -106,7 +106,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.PreBoardingSubmitted,
                 placeholders,
-                new NotificationDispatchTargets(null, hrEmail, pool.JobApplicationId),
+                new NotificationDispatchTargets(null, hrEmail, pool.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
 
             return submission.ToResponse();
@@ -141,7 +141,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.PreBoardingApproved,
                 placeholders,
-                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), submission.FinalSelectionPool.JobApplicationId),
+                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), submission.FinalSelectionPool.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
 
             return submission.ToResponse();
@@ -176,7 +176,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.PreBoardingCorrectionRequested,
                 placeholders,
-                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), submission.FinalSelectionPool.JobApplicationId),
+                new NotificationDispatchTargets(submission.FinalSelectionPool.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), submission.FinalSelectionPool.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
 
             return submission.ToResponse();

@@ -21,6 +21,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasMaxLength(50);
 
             builder.HasIndex(o => o.JobApplicationId);
+            builder.HasIndex(o => o.CompanyId);
 
             builder.HasOne(o => o.JobApplication)
                 .WithMany(j => j.OfferLetters)

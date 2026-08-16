@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.DocumentTracking.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
@@ -141,7 +142,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.OfferLetterAvailable,
                 placeholders,
-                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId),
+                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
         }
 
@@ -159,7 +160,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 OfferLetterStatusEnum.Declined => DocumentAcceptanceStatusEnum.Declined,
                 _ => DocumentAcceptanceStatusEnum.Pending,
             },
-            GeneratedPdfPath = entity.GeneratedPdfPath,
+            GeneratedPdfPath = FileUrlBuilder.BuildDownloadUrl(entity.GeneratedPdfPath) ?? string.Empty,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(AppointmentLetter entity) => new()
@@ -171,7 +172,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
-            GeneratedPdfPath = entity.GeneratedPdfPath,
+            GeneratedPdfPath = FileUrlBuilder.BuildDownloadUrl(entity.GeneratedPdfPath) ?? string.Empty,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(JoiningBooklet entity) => new()
@@ -183,7 +184,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
-            GeneratedPdfPath = entity.GeneratedPdfPath,
+            GeneratedPdfPath = FileUrlBuilder.BuildDownloadUrl(entity.GeneratedPdfPath) ?? string.Empty,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(MedicalLetter entity) => new()
@@ -195,7 +196,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
-            GeneratedPdfPath = entity.GeneratedPdfPath,
+            GeneratedPdfPath = FileUrlBuilder.BuildDownloadUrl(entity.GeneratedPdfPath) ?? string.Empty,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(TargetLetter entity) => new()
@@ -207,7 +208,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
-            GeneratedPdfPath = entity.GeneratedPdfPath,
+            GeneratedPdfPath = FileUrlBuilder.BuildDownloadUrl(entity.GeneratedPdfPath) ?? string.Empty,
         };
 
         private static DocumentTrackingItemResponse ToTrackingItem(OfficeNote entity) => new()
@@ -219,7 +220,7 @@ namespace SylviaNG.Recruitment.Application.Services
             RecipientEmail = entity.JobApplication?.CandidateEmail,
             GeneratedAt = entity.GeneratedAt,
             AcceptanceStatus = DocumentAcceptanceStatusEnum.NotApplicable,
-            GeneratedPdfPath = entity.GeneratedPdfPath,
+            GeneratedPdfPath = FileUrlBuilder.BuildDownloadUrl(entity.GeneratedPdfPath) ?? string.Empty,
         };
     }
 }

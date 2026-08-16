@@ -9,12 +9,15 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// HR on that panelist's behalf (no panelist login/identity-resolution mechanism exists in this
 /// codebase - see feature doc). One row per (InterviewId, EmployeeId) pair.
 /// </summary>
-public class InterviewEvaluation : Audit
+public class InterviewEvaluation : Audit, ICompanyScoped
 {
     public long InterviewEvaluationId { get; set; }
     public long InterviewId { get; set; }
     public long ScorecardId { get; set; }
     public long EmployeeId { get; set; }
+
+    // Multi-tenant: denormalized from Interview.CompanyId at submission time.
+    public long? CompanyId { get; set; }
     public string? OverallComments { get; set; }
     public EvaluationRecommendationEnum? Recommendation { get; set; }
     public DateTime SubmittedAt { get; set; }

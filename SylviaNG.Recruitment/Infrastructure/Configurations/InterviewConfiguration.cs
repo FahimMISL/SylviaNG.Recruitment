@@ -42,6 +42,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.HasIndex(i => i.JobApplicationId);
             builder.HasIndex(i => i.InterviewRoomId);
             builder.HasIndex(i => i.InterviewRoundConfigId);
+            builder.HasIndex(i => i.CompanyId);
         }
     }
 }

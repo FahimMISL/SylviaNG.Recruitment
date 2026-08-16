@@ -225,7 +225,7 @@ namespace SylviaNG.Recruitment.Application.Services
                         ["ToStatus"] = ApplicationStatusEnum.Applied.ToString()
                     };
                     var hrEmail = await _applicationSettingService.GetHrNotificationEmailAsync();
-                    var targets = new NotificationDispatchTargets(jobApplication.CandidateEmail, hrEmail, jobApplication.JobApplicationId);
+                    var targets = new NotificationDispatchTargets(jobApplication.CandidateEmail, hrEmail, jobApplication.JobApplicationId, NotifyActiveHrUsers: true);
 
                     await _notificationDispatchService.DispatchAsync(
                         RecruitmentEventEnum.ApplicationStatusChanged,

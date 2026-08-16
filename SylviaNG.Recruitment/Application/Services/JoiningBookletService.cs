@@ -206,6 +206,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = new JoiningBooklet
             {
                 JobApplicationId = offerLetter.JobApplicationId,
+                CompanyId = offerLetter.JobApplication.CompanyId,
                 OfferLetterId = offerLetter.OfferLetterId,
                 DocumentTemplateId = template.DocumentTemplateId,
                 BatchLabel = batchLabel,
@@ -226,7 +227,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.JoiningBookletAvailable,
                 placeholderValues,
-                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId),
+                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
 
             return entity;

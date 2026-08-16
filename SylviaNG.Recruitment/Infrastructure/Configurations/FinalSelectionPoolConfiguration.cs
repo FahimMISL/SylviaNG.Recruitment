@@ -15,6 +15,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.HasIndex(p => p.OfferLetterId).IsUnique();
             builder.HasIndex(p => p.JobApplicationId);
+            builder.HasIndex(p => p.CompanyId);
 
             builder.HasOne(p => p.OfferLetter)
                 .WithMany()

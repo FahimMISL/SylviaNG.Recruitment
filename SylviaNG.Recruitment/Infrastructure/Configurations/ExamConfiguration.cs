@@ -35,6 +35,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.HasIndex(e => e.JobPostingId);
             builder.HasIndex(e => e.ExamVenueId);
+            builder.HasIndex(e => e.CompanyId);
         }
     }
 }

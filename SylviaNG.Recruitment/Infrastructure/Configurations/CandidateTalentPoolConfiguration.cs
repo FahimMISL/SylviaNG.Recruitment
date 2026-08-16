@@ -11,7 +11,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.ToTable("CandidateTalentPools");
             builder.HasKey(t => t.CandidateTalentPoolId);
 
-            builder.HasIndex(t => t.CandidateProfileId).IsUnique();
+            // Multi-tenant: uniqueness is per-company, not global - two different companies can
+            // independently bucket the same candidate (they apply across companies), so a bare
+            // CandidateProfileId-only unique index would incorrectly block the second company.
+            builder.HasIndex(t => new { t.CompanyId, t.CandidateProfileId }).IsUnique();
 
             builder.HasOne(t => t.CandidateProfile)
                 .WithMany()

@@ -1,19 +1,22 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Audit;
 
 namespace SylviaNG.Recruitment.Domain.Entities;
 
 /// <summary>
-/// EP-18 F1: per-tenant corporate branding/theme applied to every generated document (admit
+/// EP-18 F1: per-company corporate branding/theme applied to every generated document (admit
 /// card, offer letter, certificates, etc) via the shared Infrastructure/Documents/Shared
-/// component layer. Single MISL row seeded for now (Audit.TenantId already scopes it per
-/// tenant for later SaaS use - no separate tenant column needed). Company identity/contact
-/// fields live here rather than a new Organization entity since none exists yet and one
-/// purely for contact fields would be unjustified scope for this feature.
+/// component layer. Company-scoped like the rest of the multi-tenancy model (see
+/// ICompanyScoped) - one row lazily created per Company on first save.
 /// </summary>
-public class CompanyBranding : Audit
+public class CompanyBranding : Audit, ICompanyScoped
 {
     public long CompanyBrandingId { get; set; }
+
+    // Multi-tenant: which Company this branding belongs to.
+    public long? CompanyId { get; set; }
+    public Company? Company { get; set; }
 
     // Logo - file-storage-backed via IFileStorageService, same shape as JobPostingAttachment;
     // never a DB blob.
@@ -22,11 +25,19 @@ public class CompanyBranding : Audit
     public string? LogoFilePath { get; set; }
     public string? LogoContentType { get; set; }
 
-    // Company identity/contact - rendered by DocumentFooterComponent.
+    // Company identity/contact - rendered by DocumentFooterComponent. Not a persisted column:
+    // BrandingResolverService populates these in-memory from the linked Company (single source
+    // of truth is Company.Name/Email/Phone/Address/Website, edited via Company Management) so
+    // every document generator keeps reading them off this entity unchanged.
+    [NotMapped]
     public string? CompanyName { get; set; }
+    [NotMapped]
     public string? AddressLine { get; set; }
+    [NotMapped]
     public string? Phone { get; set; }
+    [NotMapped]
     public string? Email { get; set; }
+    [NotMapped]
     public string? Website { get; set; }
 
     // Palette / typography

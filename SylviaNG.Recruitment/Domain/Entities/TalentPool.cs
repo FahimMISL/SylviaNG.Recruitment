@@ -7,9 +7,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// linked to the vacancy it was created for, so HR can tell at a glance which candidates are
 /// for which job vacancy - the link is nullable because pools are still valid without one.
 /// </summary>
-public class TalentPool : Audit
+public class TalentPool : Audit, ICompanyScoped
 {
     public long TalentPoolId { get; set; }
+
+    // Multi-tenant: stamped from the creating Admin/HR's own company at creation time.
+    public long? CompanyId { get; set; }
     public string Name { get; set; } = string.Empty;
 
     public long? JobPostingId { get; set; }

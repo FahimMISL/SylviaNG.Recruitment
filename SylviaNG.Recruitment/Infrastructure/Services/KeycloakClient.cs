@@ -413,6 +413,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             throw new KeycloakUnavailableException("Invitation email could not be sent. Configure the Keycloak realm SMTP settings and try again.");
         }
 
+        public async Task DeleteUserAsync(string keycloakUserId, string email)
+        {
+            var adminToken = await AdminTokenAsync();
+            await DeleteUserSafelyAsync(adminToken, keycloakUserId, email);
+        }
+
         private async Task DeleteUserSafelyAsync(string adminToken, string userId, string email)
         {
             try

@@ -93,6 +93,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 await _jobApplicationStageProgressService.EnsureStagePrerequisitesMetAsync(request.JobApplicationId, TechnicalInterviewStageType);
 
             var entity = request.ToEntity();
+            entity.CompanyId = jobApplication.CompanyId; // Multi-tenant: denormalized from the parent application.
             var panelistIds = request.PanelistEmployeeIds.Distinct().ToList();
 
             if (request.InterviewRoundConfigId.HasValue)
@@ -142,6 +143,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 var entity = new Interview
                 {
                     JobApplicationId = jobApplicationId,
+                    CompanyId = jobApplication.CompanyId, // Multi-tenant: denormalized from the parent application.
                     PipelineStageId = request.PipelineStageId,
                     InterviewType = request.InterviewType,
                     ScheduledStartAt = slotStart,

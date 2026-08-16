@@ -10,10 +10,13 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// table exists anywhere in this codebase. Salary is flat decimals (Basic/Allowances/Deductions), no
 /// itemized line-item child entities - no precedent for that shape exists here either.
 /// </summary>
-public class FitmentData : Audit
+public class FitmentData : Audit, ICompanyScoped
 {
     public long FitmentDataId { get; set; }
     public long JobApplicationId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId at creation time.
+    public long? CompanyId { get; set; }
 
     public string Designation { get; set; } = string.Empty;
     public string? Grade { get; set; }

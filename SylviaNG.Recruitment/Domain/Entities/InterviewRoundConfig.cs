@@ -1,3 +1,5 @@
+using SylviaNG.Recruitment.SharedKernel.Audit;
+
 namespace SylviaNG.Recruitment.Domain.Entities;
 
 /// <summary>
@@ -6,10 +8,13 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// schedule time via Interview.InterviewRoundConfigId (nullable - job postings with no
 /// configured rounds keep scheduling exactly as before, free-typed Round int only).
 /// </summary>
-public class InterviewRoundConfig
+public class InterviewRoundConfig : ICompanyScoped
 {
     public long InterviewRoundConfigId { get; set; }
     public long JobPostingId { get; set; }
+
+    // Multi-tenant: denormalized from JobPosting.CompanyId at creation time.
+    public long? CompanyId { get; set; }
     public string Name { get; set; } = string.Empty;
     public int Sequence { get; set; }
     public long? ScorecardId { get; set; }

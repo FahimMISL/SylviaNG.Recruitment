@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Features.TalentPools.Models;
@@ -7,6 +8,7 @@ using SylviaNG.Recruitment.Application.Mappings;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
+using System.Security.Claims;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -18,7 +20,9 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobPostingRepository _jobPostingRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IJobApplicationService _jobApplicationService;
+        private readonly IUserAccountRepository _userAccountRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IHttpContextAccessor? _httpContextAccessor;
 
         public TalentPoolService(
             ITalentPoolRepository talentPoolRepository,
@@ -27,7 +31,9 @@ namespace SylviaNG.Recruitment.Application.Services
             IJobPostingRepository jobPostingRepository,
             IJobApplicationRepository jobApplicationRepository,
             IJobApplicationService jobApplicationService,
-            IUnitOfWork unitOfWork)
+            IUserAccountRepository userAccountRepository,
+            IUnitOfWork unitOfWork,
+            IHttpContextAccessor? httpContextAccessor = null)
         {
             _talentPoolRepository = talentPoolRepository;
             _talentPoolCandidateRepository = talentPoolCandidateRepository;
@@ -35,7 +41,20 @@ namespace SylviaNG.Recruitment.Application.Services
             _jobPostingRepository = jobPostingRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _jobApplicationService = jobApplicationService;
+            _userAccountRepository = userAccountRepository;
             _unitOfWork = unitOfWork;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        private async Task<long?> TryGetCurrentUserCompanyIdAsync()
+        {
+            var user = _httpContextAccessor?.HttpContext?.User;
+            var keycloakUserId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user?.FindFirst("sub")?.Value;
+            if (string.IsNullOrEmpty(keycloakUserId))
+                return null;
+
+            var account = await _userAccountRepository.GetByKeycloakUserIdWithRolesAsync(keycloakUserId);
+            return account?.CompanyId;
         }
 
         public async Task<long> CreateAsync(TalentPoolCreateRequest request)
@@ -50,7 +69,12 @@ namespace SylviaNG.Recruitment.Application.Services
                 _ = await _jobPostingRepository.GetByIdAsync(request.JobPostingId.Value)
                     ?? throw new NotFoundException("JobPosting", request.JobPostingId.Value);
 
-            var entity = new TalentPool { Name = name, JobPostingId = request.JobPostingId };
+            var entity = new TalentPool
+            {
+                Name = name,
+                JobPostingId = request.JobPostingId,
+                CompanyId = await TryGetCurrentUserCompanyIdAsync(),
+            };
 
             await _talentPoolRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();

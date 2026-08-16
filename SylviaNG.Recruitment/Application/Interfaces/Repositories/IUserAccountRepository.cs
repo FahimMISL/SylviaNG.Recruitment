@@ -7,6 +7,7 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
     {
         Task<bool> ExistsByEmailAsync(string email, long? excludeId = null);
         Task<bool> ExistsAnyWithRoleAsync(string roleName);
+        Task<List<string>> GetActiveEmailsByRoleAsync(string roleName);
         Task<UserAccount?> GetByIdWithRolesAsync(long userAccountId);
         Task<List<UserAccount>> GetAllWithRolesAsync();
         Task<UserAccount?> GetByKeycloakUserIdWithRolesAsync(string keycloakUserId);

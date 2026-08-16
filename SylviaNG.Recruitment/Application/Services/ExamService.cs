@@ -59,6 +59,7 @@ namespace SylviaNG.Recruitment.Application.Services
             }
 
             var entity = request.ToEntity();
+            entity.CompanyId = jobPosting.CompanyId;
             foreach (var questionGroupId in questionGroupIds)
                 entity.QuestionGroupLinks.Add(new Domain.Entities.ExamQuestionGroup { QuestionGroupId = questionGroupId });
 

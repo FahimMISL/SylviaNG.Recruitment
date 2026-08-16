@@ -17,6 +17,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(o => o.GeneratedPdfPath).IsRequired().HasMaxLength(500);
 
             builder.HasIndex(o => o.JobApplicationId);
+            builder.HasIndex(o => o.CompanyId);
 
             builder.HasOne(o => o.JobApplication)
                 .WithMany(a => a.OfficeNotes)

@@ -48,6 +48,13 @@ namespace SylviaNG.Recruitment.Application.Services
 
             var entity = request.ToEntity();
             entity.CreatedBy = await TryGetCurrentUserAccountIdAsync();
+
+            // Multi-tenant: stamped from the creating Admin/HR's own company. A SuperAdmin
+            // (no CompanyId of their own) creating a posting directly - not the normal flow, but
+            // not blocked either - leaves this null, meaning only SuperAdmin can see/manage it
+            // until a company claims it; acceptable since job postings are ordinarily created by
+            // company-scoped Admin/HR users, never SuperAdmin.
+            entity.CompanyId = await TryGetCurrentUserCompanyIdAsync();
             await _jobPostingRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 
@@ -111,6 +118,21 @@ namespace SylviaNG.Recruitment.Application.Services
                 return null;
 
             return await _userAccountRepository.GetIdByKeycloakUserIdAsync(keycloakUserId);
+        }
+
+        // Multi-tenant: resolves the caller's own CompanyId to stamp onto a newly created
+        // JobPosting. Safe to read via the normal (filtered) repository lookup - by this point
+        // CompanyScopeMiddleware has already resolved CurrentCompanyId to the caller's own
+        // company, so their own UserAccount row is visible under the query filter.
+        private async Task<long?> TryGetCurrentUserCompanyIdAsync()
+        {
+            var user = _httpContextAccessor?.HttpContext?.User;
+            var keycloakUserId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user?.FindFirst("sub")?.Value;
+            if (string.IsNullOrEmpty(keycloakUserId))
+                return null;
+
+            var account = await _userAccountRepository.GetByKeycloakUserIdWithRolesAsync(keycloakUserId);
+            return account?.CompanyId;
         }
 
         public async Task DeleteAsync(long jobPostingId)

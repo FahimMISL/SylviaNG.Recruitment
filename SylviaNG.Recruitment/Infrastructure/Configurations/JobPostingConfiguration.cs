@@ -68,10 +68,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             // Indexes
             builder.HasIndex(j => j.Status);
-            builder.HasIndex(j => j.Title).IsUnique();
+            // Multi-tenant: title only needs to be unique within a company, not system-wide -
+            // two different companies can post the same job title. Replaces the old bare
+            // Title-unique index.
+            builder.HasIndex(j => new { j.CompanyId, j.Title }).IsUnique();
             builder.HasIndex(j => j.JobPostingCode).IsUnique();
             builder.HasIndex(j => j.HiringPipelineId);
             builder.HasIndex(j => j.DepartmentId);
+            builder.HasIndex(j => j.CompanyId);
 
             // Relationships
             builder.HasMany(j => j.Applications)

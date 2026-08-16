@@ -6,7 +6,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     /// <summary>Which concrete address each recipient type resolves to for one DispatchAsync call.
     /// A null address means that recipient type's leg is Skipped (no email on file / HR mailbox not
     /// configured), not an error.</summary>
-    public record NotificationDispatchTargets(string? CandidateEmail, string? AdminHrEmail, long? JobApplicationId = null);
+    public record NotificationDispatchTargets(
+        string? CandidateEmail,
+        string? AdminHrEmail,
+        long? JobApplicationId = null,
+        bool NotifyActiveHrUsers = false);
 
     /// <summary>Per-leg outcome, for callers (ExamNotificationService, InterviewNotificationService)
     /// that need to persist their own send-status fields onto an entity. Null means that leg wasn't

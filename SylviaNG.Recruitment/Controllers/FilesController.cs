@@ -26,13 +26,25 @@ namespace SylviaNG.Recruitment.Controllers
         private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
 
         // Keys containing this segment are private (candidate-uploaded documents, not public
-        // assets like logos/job-posting attachments/generated letters) - see
-        // CandidateDocumentService, which mints the token/expires pair on every authenticated
-        // "list my documents" call. Actual stored keys look like
-        // "uploads/job-postings/candidate-documents/{profileId}/{guid}.ext" (the configured
-        // FileStorage root prefixed onto the subFolder CandidateDocumentService.UploadAsync
-        // passes), so this must be a Contains check, not StartsWith.
+        // assets like logos/job-posting attachments) - see CandidateDocumentService, which mints
+        // the token/expires pair on every authenticated "list my documents" call. Actual stored
+        // keys look like "uploads/job-postings/candidate-documents/{profileId}/{guid}.ext" (the
+        // configured FileStorage root prefixed onto the subFolder CandidateDocumentService.
+        // UploadAsync passes), so this must be a Contains check, not StartsWith.
         private const string PrivateKeySegment = "/candidate-documents/";
+
+        // Security review 2026-08-16: OfferLetter/AppointmentLetter/MedicalLetter/TargetLetter/
+        // JoiningBooklet/OfficeNote all save under a "documents/..." subFolder (see each service's
+        // PdfStorageSubFolder constant) and, before this fix, were served through this endpoint
+        // exactly like a public job-posting attachment - fully unauthenticated. The stored key
+        // itself is an unguessable GUID (LocalFileStorageService.SaveAsync), and every API path
+        // that reveals one is now company-scoped (see the ICompanyScoped fixes on those entities
+        // the same day), so this is defense in depth rather than the only gate - but a leaked
+        // link (browser history, referrer, a shared screenshot) must not be enough on its own to
+        // read someone else's document. Authenticated (not anonymous) is the bar here, same as
+        // the candidate document/offer-letter portal pages that link to these already require a
+        // login to reach.
+        private const string DocumentsKeySegment = "documents/";
 
         private readonly IFileStorageService _fileStorageService;
         private readonly IApplicationCvStorageService _applicationCvStorageService;
@@ -76,6 +88,11 @@ namespace SylviaNG.Recruitment.Controllers
 
                 if (!_privateFileAccessTokenService.IsValid(key, token, expiresAt))
                     return StatusCode(StatusCodes.Status403Forbidden);
+            }
+            else if (key.Contains(DocumentsKeySegment, StringComparison.OrdinalIgnoreCase))
+            {
+                if (User.Identity?.IsAuthenticated != true)
+                    return Unauthorized();
             }
 
             Stream stream;

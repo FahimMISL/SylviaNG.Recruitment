@@ -10,9 +10,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
     {
         public CompanyBrandingRepository(ApplicationDBContext dbContext) : base(dbContext) { }
 
-        public async Task<CompanyBranding?> GetByTenantIdAsync(string tenantId)
+        public async Task<CompanyBranding?> GetByCompanyIdAsync(long? companyId)
         {
-            return await _dbSet.Where(b => b.TenantId == tenantId)
+            return await _dbSet.Where(b => b.CompanyId == companyId)
                 .OrderBy(b => b.CompanyBrandingId)
                 .FirstOrDefaultAsync();
         }

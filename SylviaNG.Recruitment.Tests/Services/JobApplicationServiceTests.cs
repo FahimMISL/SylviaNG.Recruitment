@@ -68,6 +68,13 @@ public class JobApplicationServiceTests
         _jobApplicationStageProgressRepositoryMock
             .Setup(r => r.GetCurrentByJobApplicationIdsAsync(It.IsAny<List<long>>()))
             .ReturnsAsync(new Dictionary<long, JobApplicationStageProgress>());
+
+        // GetMyApplicationsAsync's per-application stage-progress merge (US-040) - no in-flight
+        // rows by default, so existing tests that don't set up stage-progress fixtures see an
+        // empty tracker list instead of a null-source ArgumentNullException.
+        _jobApplicationStageProgressRepositoryMock
+            .Setup(r => r.GetByJobApplicationIdAsync(It.IsAny<long>()))
+            .ReturnsAsync(new List<JobApplicationStageProgress>());
         _applicationSettingServiceMock.Setup(s => s.GetDefaultStaleDaysThresholdAsync()).ReturnsAsync((int?)null);
 
         // No waiver rule matches by default, so existing SubmitAsync cases that never set up
@@ -1042,7 +1049,17 @@ public class JobApplicationServiceTests
 
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
+        // A matched rule only waives the fee when proof is attached (JobApplicationService.
+        // SubmitAsync nulls waiverRule back out otherwise) - without this the test's own claimed
+        // scenario (fee waived) can't actually happen, and requiresPayment falls through to the
+        // unmocked payment gateway call instead.
+        var waiverProof = CreateFormFile("waiver-proof.pdf");
+        _cvStorageServiceMock
+            .Setup(s => s.SaveAsync(It.IsAny<Stream>(), "waiver-proof.pdf", "1"))
+            .ReturnsAsync(("proof123.pdf", "uploads/applications/1/proof123.pdf"));
+
         var request = CreateRequest(resume: null);
+        request.WaiverProofDocument = waiverProof;
 
         // Act
         var result = await _service.SubmitAsync(request, ApplicationSourceEnum.External);

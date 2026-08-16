@@ -138,7 +138,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var dispatchResult = await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.AdmitCardIssued,
                 placeholders,
-                new NotificationDispatchTargets(jobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), jobApplication.JobApplicationId),
+                new NotificationDispatchTargets(jobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), jobApplication.JobApplicationId, NotifyActiveHrUsers: true),
                 attachments: attachments);
 
             if (dispatchResult.CandidateResult?.Success == true)

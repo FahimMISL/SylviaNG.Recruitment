@@ -11,14 +11,16 @@ namespace SylviaNG.Recruitment.Tests.Services;
 public class CvBankTalentPoolAddHandlerTests
 {
     private readonly Mock<ICandidateTalentPoolRepository> _repositoryMock;
+    private readonly Mock<IUserAccountRepository> _userAccountRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly CvBankTalentPoolAddHandler _handler;
 
     public CvBankTalentPoolAddHandlerTests()
     {
         _repositoryMock = new Mock<ICandidateTalentPoolRepository>();
+        _userAccountRepositoryMock = new Mock<IUserAccountRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _handler = new CvBankTalentPoolAddHandler(_repositoryMock.Object, _unitOfWorkMock.Object);
+        _handler = new CvBankTalentPoolAddHandler(_repositoryMock.Object, _userAccountRepositoryMock.Object, _unitOfWorkMock.Object);
     }
 
     [Fact]

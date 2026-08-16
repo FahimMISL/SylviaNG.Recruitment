@@ -12,10 +12,13 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// seat plan run" marker - seat assignments themselves live on ExamEnrollment, there is no
 /// separate SeatPlan entity (US-056).
 /// </summary>
-public class Exam : Audit
+public class Exam : Audit, ICompanyScoped
 {
     public long ExamId { get; set; }
     public long JobPostingId { get; set; }
+
+    // Multi-tenant: denormalized from JobPosting.CompanyId at creation time.
+    public long? CompanyId { get; set; }
     public string Title { get; set; } = string.Empty;
     public DateTime ScheduledStartAt { get; set; }
     public int DurationMinutes { get; set; }

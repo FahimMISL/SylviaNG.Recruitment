@@ -10,7 +10,9 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IApplicationSettingRepository _applicationSettingRepository;
         private readonly IUnitOfWork _unitOfWork;
 
-        public ApplicationSettingService(IApplicationSettingRepository applicationSettingRepository, IUnitOfWork unitOfWork)
+        public ApplicationSettingService(
+            IApplicationSettingRepository applicationSettingRepository,
+            IUnitOfWork unitOfWork)
         {
             _applicationSettingRepository = applicationSettingRepository;
             _unitOfWork = unitOfWork;
@@ -63,10 +65,11 @@ namespace SylviaNG.Recruitment.Application.Services
             return entity.MinimumProfileCompletenessPercentage;
         }
 
-        public async Task<string?> GetHrNotificationEmailAsync()
+        public Task<string?> GetHrNotificationEmailAsync()
         {
-            var entity = await _applicationSettingRepository.GetSingletonAsync();
-            return entity.HrNotificationEmail;
+            // HR recipients are now resolved dynamically from active HR user accounts. This
+            // member remains for backward-compatible callers while legacy stored values are ignored.
+            return Task.FromResult<string?>(null);
         }
 
         public async Task<int?> GetDefaultStaleDaysThresholdAsync()

@@ -63,7 +63,7 @@ public class ExamTakingServiceTests
             ExamType = examType,
             ScheduledStartAt = scheduledStartAt ?? DateTime.UtcNow.AddHours(-1),
             DurationMinutes = 60,
-            QuestionGroupId = 20,
+            QuestionGroupLinks = new List<ExamQuestionGroup> { new() { QuestionGroupId = 20 } },
             TotalMarks = 100,
             PassMarks = passMarks,
             ShowResultsToCandidate = showResultsToCandidate,
@@ -134,7 +134,7 @@ public class ExamTakingServiceTests
     {
         var enrollment = EnrollmentFor(candidateProfileId: 5);
         _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithExamAndQuestionsAsync(1)).ReturnsAsync(enrollment);
-        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdAsync(20))
+        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdsAsync(It.IsAny<IReadOnlyList<long>>()))
             .ReturnsAsync(new List<ExamQuestion> { McqSingleQuestion(100, 5, 200) });
 
         var paper = await _service.StartExamAsync(1);
@@ -153,7 +153,7 @@ public class ExamTakingServiceTests
         var originalStart = DateTime.UtcNow.AddMinutes(-10);
         var enrollment = EnrollmentFor(candidateProfileId: 5, startedAt: originalStart);
         _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithExamAndQuestionsAsync(1)).ReturnsAsync(enrollment);
-        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdAsync(20)).ReturnsAsync(new List<ExamQuestion>());
+        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdsAsync(It.IsAny<IReadOnlyList<long>>())).ReturnsAsync(new List<ExamQuestion>());
 
         await _service.StartExamAsync(1);
 
@@ -188,7 +188,7 @@ public class ExamTakingServiceTests
     {
         var enrollment = EnrollmentFor(candidateProfileId: 5, startedAt: DateTime.UtcNow.AddMinutes(-5), passMarks: 4);
         _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithExamAndQuestionsAsync(1)).ReturnsAsync(enrollment);
-        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdAsync(20))
+        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdsAsync(It.IsAny<IReadOnlyList<long>>()))
             .ReturnsAsync(new List<ExamQuestion> { McqSingleQuestion(100, 5, 200) });
 
         var request = new ExamSubmitRequest
@@ -201,11 +201,15 @@ public class ExamTakingServiceTests
 
         var result = await _service.SubmitExamAsync(1, request);
 
-        enrollment.Score.Should().Be(5);
+        // NormalizeQuestionMarks scales each question's raw bank Marks (5 here) proportionally
+        // onto the exam's configured TotalMarks (100) - the lone/last question absorbs whatever's
+        // left after rounding, so a fully-correct single-question paper scores the full 100, not
+        // its raw 5. See ExamTakingService.NormalizeQuestionMarks's own doc comment.
+        enrollment.Score.Should().Be(100);
         enrollment.IsPassed.Should().BeTrue();
         enrollment.ScoreSource.Should().Be(ScoreSourceEnum.AutoScored);
         result.ResultsVisible.Should().BeTrue();
-        result.Score.Should().Be(5);
+        result.Score.Should().Be(100);
         result.IsPassed.Should().BeTrue();
         _examAnswerRepositoryMock.Verify(r => r.AddRangeAsync(It.Is<IEnumerable<ExamAnswer>>(a => a.Count() == 1)), Times.Once);
     }
@@ -215,7 +219,7 @@ public class ExamTakingServiceTests
     {
         var enrollment = EnrollmentFor(candidateProfileId: 5, startedAt: DateTime.UtcNow.AddMinutes(-5));
         _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithExamAndQuestionsAsync(1)).ReturnsAsync(enrollment);
-        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdAsync(20))
+        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdsAsync(It.IsAny<IReadOnlyList<long>>()))
             .ReturnsAsync(new List<ExamQuestion> { McqSingleQuestion(100, 5, 200) });
 
         var request = new ExamSubmitRequest
@@ -237,7 +241,7 @@ public class ExamTakingServiceTests
     {
         var enrollment = EnrollmentFor(candidateProfileId: 5, startedAt: DateTime.UtcNow.AddMinutes(-5));
         _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithExamAndQuestionsAsync(1)).ReturnsAsync(enrollment);
-        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdAsync(20))
+        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdsAsync(It.IsAny<IReadOnlyList<long>>()))
             .ReturnsAsync(new List<ExamQuestion> { McqSingleQuestion(100, 5, 200) });
 
         var result = await _service.SubmitExamAsync(1, new ExamSubmitRequest());
@@ -264,7 +268,7 @@ public class ExamTakingServiceTests
             },
         };
         _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithExamAndQuestionsAsync(1)).ReturnsAsync(enrollment);
-        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdAsync(20)).ReturnsAsync(new List<ExamQuestion> { question });
+        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdsAsync(It.IsAny<IReadOnlyList<long>>())).ReturnsAsync(new List<ExamQuestion> { question });
 
         var request = new ExamSubmitRequest
         {
@@ -293,7 +297,7 @@ public class ExamTakingServiceTests
             Options = new List<ExamQuestionOption>(),
         };
         _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithExamAndQuestionsAsync(1)).ReturnsAsync(enrollment);
-        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdAsync(20)).ReturnsAsync(new List<ExamQuestion> { question });
+        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdsAsync(It.IsAny<IReadOnlyList<long>>())).ReturnsAsync(new List<ExamQuestion> { question });
 
         var request = new ExamSubmitRequest
         {
@@ -313,7 +317,7 @@ public class ExamTakingServiceTests
     {
         var enrollment = EnrollmentFor(candidateProfileId: 5, startedAt: DateTime.UtcNow.AddMinutes(-5), showResultsToCandidate: false);
         _examEnrollmentRepositoryMock.Setup(r => r.GetByIdWithExamAndQuestionsAsync(1)).ReturnsAsync(enrollment);
-        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdAsync(20)).ReturnsAsync(new List<ExamQuestion>());
+        _examQuestionRepositoryMock.Setup(r => r.GetActiveByQuestionGroupIdsAsync(It.IsAny<IReadOnlyList<long>>())).ReturnsAsync(new List<ExamQuestion>());
 
         var result = await _service.SubmitExamAsync(1, new ExamSubmitRequest());
 

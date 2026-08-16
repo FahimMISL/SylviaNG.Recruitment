@@ -18,7 +18,9 @@ public class ExportRequestServiceTests
 {
     private readonly Mock<IExportRequestRepository> _exportRequestRepositoryMock;
     private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
+    private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
+    private readonly Mock<IUserAccountRepository> _userAccountRepositoryMock;
     private readonly Mock<IFileStorageService> _fileStorageServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExportRequestService _service;
@@ -27,7 +29,9 @@ public class ExportRequestServiceTests
     {
         _exportRequestRepositoryMock = new Mock<IExportRequestRepository>();
         _jobApplicationServiceMock = new Mock<IJobApplicationService>();
+        _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
+        _userAccountRepositoryMock = new Mock<IUserAccountRepository>();
         _fileStorageServiceMock = new Mock<IFileStorageService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
@@ -35,7 +39,9 @@ public class ExportRequestServiceTests
         _service = new ExportRequestService(
             _exportRequestRepositoryMock.Object,
             _jobApplicationServiceMock.Object,
+            _jobApplicationRepositoryMock.Object,
             _currentUserServiceMock.Object,
+            _userAccountRepositoryMock.Object,
             _fileStorageServiceMock.Object,
             _unitOfWorkMock.Object);
     }
@@ -83,6 +89,12 @@ public class ExportRequestServiceTests
     {
         _currentUserServiceMock.Setup(s => s.GetCurrentUserName()).Returns("abir");
         _currentUserServiceMock.Setup(s => s.GetCurrentUserEmail()).Returns("abir@example.com");
+        _jobApplicationRepositoryMock.Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, bool>>>()))
+            .ReturnsAsync(new List<JobApplication>
+            {
+                new() { JobApplicationId = 5 },
+                new() { JobApplicationId = 6 },
+            });
 
         ExportRequest? captured = null;
         _exportRequestRepositoryMock.Setup(r => r.AddAsync(It.IsAny<ExportRequest>()))
@@ -98,6 +110,22 @@ public class ExportRequestServiceTests
         captured.JobApplicationIdsJson.Should().Be("[5,6]");
         captured.RowCount.Should().Be(2);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequestBulkCvZipExportAsync_IdOutsideCallerCompany_ShouldThrowValidationExceptionAndNotQueue()
+    {
+        // Security regression (2026-08-16): JobApplication is company-scoped, so FindAsync only
+        // ever returns the caller's own rows - id 6 here stands in for one belonging to another
+        // company (or not existing at all), which must be rejected outright rather than silently
+        // dropped from the export.
+        _jobApplicationRepositoryMock.Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<JobApplication, bool>>>()))
+            .ReturnsAsync(new List<JobApplication> { new() { JobApplicationId = 5 } });
+
+        var act = () => _service.RequestBulkCvZipExportAsync(new List<long> { 5, 6 });
+
+        await act.Should().ThrowAsync<ValidationException>();
+        _exportRequestRepositoryMock.Verify(r => r.AddAsync(It.IsAny<ExportRequest>()), Times.Never);
     }
 
     [Fact]

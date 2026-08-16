@@ -2,6 +2,8 @@ using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Events;
+using SylviaNG.Recruitment.SharedKernel.Audit;
+using System.Linq.Expressions;
 
 namespace SylviaNG.Recruitment.Infrastructure.Data
 {
@@ -51,6 +53,20 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
                 return string.Empty;
             }
         }
+
+        /// <summary>
+        /// Current request's Company scope for the ICompanyScoped global query filter below.
+        /// Resolved once per request by CompanyScopeMiddleware (a DB lookup by Keycloak sub -
+        /// not a JWT claim, unlike CurrentTenantId above, since no Keycloak realm attribute for
+        /// company exists) and cached on HttpContext.Items. Null means "unrestricted": either a
+        /// SuperAdmin (global across every company by design) or a non-HTTP/system context
+        /// (background workers, migrations) - same fail-open fallback convention CurrentTenantId
+        /// already uses in this class.
+        /// </summary>
+        public long? CurrentCompanyId
+            => _httpContextAccessor?.HttpContext?.Items[CompanyScopeItemKey] as long?;
+
+        public const string CompanyScopeItemKey = "CurrentCompanyId";
 
         #region Tables
 
@@ -145,6 +161,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<ImpersonationSession> ImpersonationSessions { get; set; }
         public DbSet<ImpersonationLog> ImpersonationLogs { get; set; }
         public DbSet<ProfileFieldConfig> ProfileFieldConfigs { get; set; }
+        public DbSet<Company> Companies { get; set; }
 
         #endregion
 
@@ -158,6 +175,39 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
 
             // Ignore DomainEvents collection (used for in-memory event handling, not database persistence)
             modelBuilder.Ignore<DomainEvent>();
+
+            ApplyCompanyScopeFilters(modelBuilder);
+        }
+
+        /// <summary>
+        /// Multi-tenant row isolation, applied once here rather than per-repository so no future
+        /// handler can forget it. Every ICompanyScoped entity (UserAccount, JobPosting,
+        /// JobApplication, Interview) gets a strict filter: visible only when its CompanyId
+        /// matches CurrentCompanyId, or unconditionally when CurrentCompanyId is null
+        /// (SuperAdmin/system context). Department is handled separately with a lenient filter
+        /// since it also has legitimate CompanyId == null "global lookup" rows that must stay
+        /// visible to every company - see Department.CompanyId's own remarks.
+        /// </summary>
+        private void ApplyCompanyScopeFilters(ModelBuilder modelBuilder)
+        {
+            var applyFilterMethod = typeof(ApplicationDBContext)
+                .GetMethod(nameof(ApplyStrictCompanyFilter), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                if (typeof(ICompanyScoped).IsAssignableFrom(entityType.ClrType))
+                {
+                    applyFilterMethod.MakeGenericMethod(entityType.ClrType).Invoke(this, new object[] { modelBuilder });
+                }
+            }
+
+            modelBuilder.Entity<Department>()
+                .HasQueryFilter(d => CurrentCompanyId == null || d.CompanyId == null || d.CompanyId == CurrentCompanyId);
+        }
+
+        private void ApplyStrictCompanyFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : class, ICompanyScoped
+        {
+            modelBuilder.Entity<TEntity>().HasQueryFilter(e => CurrentCompanyId == null || e.CompanyId == CurrentCompanyId);
         }
     }
 }

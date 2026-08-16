@@ -129,6 +129,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = new OfferLetter
             {
                 JobApplicationId = request.JobApplicationId,
+                CompanyId = jobApplication.CompanyId,
                 DocumentTemplateId = request.DocumentTemplateId,
                 Designation = request.Designation,
                 OfferedSalary = request.OfferedSalary,
@@ -159,7 +160,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.OfferLetterAvailable,
                 placeholderValues,
-                new NotificationDispatchTargets(jobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), jobApplication.JobApplicationId),
+                new NotificationDispatchTargets(jobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), jobApplication.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
 
             return entity.ToResponse();
@@ -322,7 +323,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 recruitmentEvent,
                 placeholders,
-                new NotificationDispatchTargets(null, hrEmail, entity.JobApplicationId),
+                new NotificationDispatchTargets(null, hrEmail, entity.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
         }
 

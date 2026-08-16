@@ -9,9 +9,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// inline in the DB - see ExportRequestWorker for the write path and ExportRequestService for
 /// the read/download path.
 /// </summary>
-public class ExportRequest : Audit
+public class ExportRequest : Audit, ICompanyScoped
 {
     public long ExportRequestId { get; set; }
+
+    // Multi-tenant: stamped from the requesting Admin/HR's own company at request time.
+    public long? CompanyId { get; set; }
     public ExportTypeEnum ExportType { get; set; }
     public ExportFormatEnum Format { get; set; }
 

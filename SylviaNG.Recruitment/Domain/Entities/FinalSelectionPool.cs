@@ -10,11 +10,14 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// is HR-editable afterward (batches get reassigned), which JoiningBooklet's ad-hoc BatchLabel stub
 /// cannot do.
 /// </summary>
-public class FinalSelectionPool : Audit
+public class FinalSelectionPool : Audit, ICompanyScoped
 {
     public long FinalSelectionPoolId { get; set; }
     public long OfferLetterId { get; set; }
     public long JobApplicationId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId at creation time.
+    public long? CompanyId { get; set; }
 
     public string? BatchLabel { get; set; }
     public DateTime JoiningDate { get; set; }

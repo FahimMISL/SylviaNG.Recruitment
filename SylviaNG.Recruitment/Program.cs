@@ -201,6 +201,12 @@ app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 app.UseAuthentication();
 app.UseMiddleware<ImpersonationMiddleware>();
+
+// Multi-tenant: resolves CurrentCompanyId for ApplicationDBContext's ICompanyScoped query
+// filter. After ImpersonationMiddleware (final resolved identity), before UseAuthorization/
+// MapControllers so it's always set before any handler touches the database.
+app.UseMiddleware<CompanyScopeMiddleware>();
+
 app.UseAuthorization();
 app.UseRateLimiter();
 

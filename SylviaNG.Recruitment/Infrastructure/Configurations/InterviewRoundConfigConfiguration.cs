@@ -16,6 +16,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasMaxLength(200);
 
             builder.HasIndex(r => new { r.JobPostingId, r.Sequence });
+            builder.HasIndex(r => r.CompanyId);
 
             builder.HasOne(r => r.JobPosting)
                 .WithMany()

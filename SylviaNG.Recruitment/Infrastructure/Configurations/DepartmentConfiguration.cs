@@ -16,12 +16,16 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.HasKey(d => d.DepartmentId);
 
             builder.Property(d => d.Name).IsRequired().HasMaxLength(100);
-            builder.HasIndex(d => d.Name).IsUnique();
+            // Multi-tenant: a company can add a custom department with the same name another
+            // company (or the global seed list) already uses - uniqueness only applies within
+            // the same CompanyId (including among the null/global rows).
+            builder.HasIndex(d => new { d.CompanyId, d.Name }).IsUnique();
 
             builder.HasData(Values.Select((name, index) => new
             {
                 DepartmentId = (long)(index + 1),
                 Name = name,
+                CompanyId = (long?)null,
                 TenantId = "default_tenant",
                 Remarks = (string?)null,
                 CreatedAt = SeedCreatedAt,

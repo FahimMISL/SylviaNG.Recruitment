@@ -5,7 +5,7 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 {
     public interface ICompanyBrandingRepository : IRepository<CompanyBranding>
     {
-        /// <summary>The active branding row for the given tenant, or null if none seeded yet.</summary>
-        Task<CompanyBranding?> GetByTenantIdAsync(string tenantId);
+        /// <summary>The active branding row for the given Company (null = unrestricted/system row), or null if none created yet.</summary>
+        Task<CompanyBranding?> GetByCompanyIdAsync(long? companyId);
     }
 }

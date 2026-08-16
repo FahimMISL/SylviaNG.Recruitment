@@ -67,11 +67,12 @@ namespace SylviaNG.Recruitment.Application.Mappings
         }
 
         /// <summary>Snapshots a pipeline's stage definition into a fresh Pending progress row (US-042).</summary>
-        public static JobApplicationStageProgress ToProgressEntity(this PipelineStage stage, long jobApplicationId)
+        public static JobApplicationStageProgress ToProgressEntity(this PipelineStage stage, long jobApplicationId, long? companyId = null)
         {
             return new JobApplicationStageProgress
             {
                 JobApplicationId = jobApplicationId,
+                CompanyId = companyId,
                 PipelineStageId = stage.PipelineStageId,
                 StageName = stage.Name,
                 StageType = stage.StageType,

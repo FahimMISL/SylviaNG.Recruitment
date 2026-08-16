@@ -6,10 +6,15 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// <summary>
 /// Represents a candidate's application to a job posting.
 /// </summary>
-public class JobApplication : Audit
+public class JobApplication : Audit, ICompanyScoped
 {
     public long JobApplicationId { get; set; }
     public long JobPostingId { get; set; }
+
+    // Multi-tenant: denormalized from JobPosting.CompanyId at submission time (see
+    // JobApplicationService.CreateAsync) so this table can be filtered/queried directly without
+    // always joining to JobPosting.
+    public long? CompanyId { get; set; }
 
     // Resolved at submission time when a matching CandidateProfile exists (authenticated
     // submitter, or an existing profile matching CandidateEmail); null for a guest applicant

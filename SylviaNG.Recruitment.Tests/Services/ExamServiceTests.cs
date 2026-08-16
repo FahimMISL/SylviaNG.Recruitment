@@ -15,6 +15,7 @@ public class ExamServiceTests
     private readonly Mock<IExamRepository> _examRepositoryMock;
     private readonly Mock<IJobPostingRepository> _jobPostingRepositoryMock;
     private readonly Mock<IExamVenueRepository> _examVenueRepositoryMock;
+    private readonly Mock<IQuestionGroupRepository> _questionGroupRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ExamService _service;
 
@@ -23,6 +24,7 @@ public class ExamServiceTests
         _examRepositoryMock = new Mock<IExamRepository>();
         _jobPostingRepositoryMock = new Mock<IJobPostingRepository>();
         _examVenueRepositoryMock = new Mock<IExamVenueRepository>();
+        _questionGroupRepositoryMock = new Mock<IQuestionGroupRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
@@ -30,6 +32,7 @@ public class ExamServiceTests
             _examRepositoryMock.Object,
             _jobPostingRepositoryMock.Object,
             _examVenueRepositoryMock.Object,
+            _questionGroupRepositoryMock.Object,
             _unitOfWorkMock.Object);
     }
 
@@ -37,7 +40,7 @@ public class ExamServiceTests
         long jobPostingId = 1,
         ExamTypeEnum examType = ExamTypeEnum.InPerson,
         long? examVenueId = 10,
-        long? questionGroupId = null) => new()
+        List<long>? questionGroupIds = null) => new()
     {
         JobPostingId = jobPostingId,
         Title = "Written Test",
@@ -47,7 +50,7 @@ public class ExamServiceTests
         PassMarks = 40,
         ExamType = examType,
         ExamVenueId = examVenueId,
-        QuestionGroupId = questionGroupId,
+        QuestionGroupIds = questionGroupIds,
     };
 
     private void SetupKnownJobPosting(long jobPostingId = 1)
@@ -71,7 +74,7 @@ public class ExamServiceTests
     public async Task CreateAsync_OnlineWithoutQuestionGroupId_ShouldThrowInvalidStatusTransitionException()
     {
         SetupKnownJobPosting();
-        var request = CreateRequest(examType: ExamTypeEnum.Online, examVenueId: null, questionGroupId: null);
+        var request = CreateRequest(examType: ExamTypeEnum.Online, examVenueId: null, questionGroupIds: null);
 
         var act = () => _service.CreateAsync(request);
 
@@ -130,19 +133,21 @@ public class ExamServiceTests
     public async Task CreateAsync_WithValidOnlineRequest_ShouldSaveAndReturnNewId()
     {
         SetupKnownJobPosting();
+        _questionGroupRepositoryMock.Setup(r => r.GetByIdsAsync(It.Is<IReadOnlyList<long>>(ids => ids.Contains(5))))
+            .ReturnsAsync(new List<QuestionGroup> { new() { QuestionGroupId = 5 } });
 
         Exam? saved = null;
         _examRepositoryMock.Setup(r => r.AddAsync(It.IsAny<Exam>()))
             .Callback<Exam>(exam => { exam.ExamId = 56; saved = exam; })
             .Returns(Task.CompletedTask);
 
-        var request = CreateRequest(examType: ExamTypeEnum.Online, examVenueId: null, questionGroupId: 5);
+        var request = CreateRequest(examType: ExamTypeEnum.Online, examVenueId: null, questionGroupIds: new List<long> { 5 });
 
         var id = await _service.CreateAsync(request);
 
         id.Should().Be(56);
         saved.Should().NotBeNull();
-        saved!.QuestionGroupId.Should().Be(5);
+        saved!.QuestionGroupLinks.Select(l => l.QuestionGroupId).Should().BeEquivalentTo(new[] { 5L });
         _examVenueRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<long>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(), Times.Once);
     }

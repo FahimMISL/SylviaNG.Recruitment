@@ -13,6 +13,7 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IEventTemplateMappingRepository _eventTemplateMappingRepository;
         private readonly INotificationLogRepository _notificationLogRepository;
+        private readonly IUserAccountRepository _userAccountRepository;
         private readonly IPlaceholderSubstitutionService _placeholderSubstitutionService;
         private readonly ISmtpEmailService _smtpEmailService;
         private readonly IUnitOfWork _unitOfWork;
@@ -21,6 +22,7 @@ namespace SylviaNG.Recruitment.Application.Services
         public NotificationDispatchService(
             IEventTemplateMappingRepository eventTemplateMappingRepository,
             INotificationLogRepository notificationLogRepository,
+            IUserAccountRepository userAccountRepository,
             IPlaceholderSubstitutionService placeholderSubstitutionService,
             ISmtpEmailService smtpEmailService,
             IUnitOfWork unitOfWork,
@@ -28,6 +30,7 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             _eventTemplateMappingRepository = eventTemplateMappingRepository;
             _notificationLogRepository = notificationLogRepository;
+            _userAccountRepository = userAccountRepository;
             _placeholderSubstitutionService = placeholderSubstitutionService;
             _smtpEmailService = smtpEmailService;
             _unitOfWork = unitOfWork;
@@ -48,8 +51,23 @@ namespace SylviaNG.Recruitment.Application.Services
             if (!string.IsNullOrWhiteSpace(targets.CandidateEmail))
                 candidateResult = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.Candidate, targets.CandidateEmail!, placeholderValues, targets.JobApplicationId, attachments, cancellationToken);
 
+            var adminHrRecipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (!string.IsNullOrWhiteSpace(targets.AdminHrEmail))
-                adminHrResult = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.AdminHr, targets.AdminHrEmail!, placeholderValues, targets.JobApplicationId, attachments, cancellationToken);
+                adminHrRecipients.Add(targets.AdminHrEmail);
+
+            if (targets.NotifyActiveHrUsers)
+            {
+                var activeHrEmails = await _userAccountRepository.GetActiveEmailsByRoleAsync("HR");
+                adminHrRecipients.UnionWith(activeHrEmails);
+            }
+
+            foreach (var recipient in adminHrRecipients)
+            {
+                var result = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.AdminHr, recipient, placeholderValues, targets.JobApplicationId, attachments, cancellationToken);
+                adminHrResult ??= result;
+                if (!result.Success)
+                    adminHrResult = result;
+            }
 
             if (persistImmediately)
             {

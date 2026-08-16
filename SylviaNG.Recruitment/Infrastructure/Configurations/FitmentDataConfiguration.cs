@@ -16,6 +16,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(f => f.Location).HasMaxLength(200);
 
             builder.HasIndex(f => f.JobApplicationId).IsUnique();
+            builder.HasIndex(f => f.CompanyId);
 
             builder.HasOne(f => f.JobApplication)
                 .WithOne(a => a.FitmentData)

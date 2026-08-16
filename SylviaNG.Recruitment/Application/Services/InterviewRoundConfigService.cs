@@ -38,7 +38,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task ReplaceForJobPostingAsync(long jobPostingId, InterviewRoundConfigReplaceRequest request)
         {
-            _ = await _jobPostingRepository.GetByIdAsync(jobPostingId)
+            var jobPosting = await _jobPostingRepository.GetByIdAsync(jobPostingId)
                 ?? throw new NotFoundException("JobPosting", jobPostingId);
 
             await ValidatePanelistsAsync(request.Rounds);
@@ -80,6 +80,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 {
                     var entity = roundRequest.ToEntity();
                     entity.JobPostingId = jobPostingId;
+                    entity.CompanyId = jobPosting.CompanyId;
                     await _interviewRoundConfigRepository.AddAsync(entity);
                 }
             }

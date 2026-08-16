@@ -158,6 +158,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<IRoleRepository, RoleRepository>();
             services.AddScoped<IImpersonationSessionRepository, ImpersonationSessionRepository>();
             services.AddScoped<IProfileFieldConfigRepository, ProfileFieldConfigRepository>();
+            services.AddScoped<ICompanyRepository, CompanyRepository>();
 
             // Register Unit of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -260,6 +261,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // EP-18 F1: resolves the active CompanyBranding for shared document components
             // (Infrastructure/Documents/Shared) - consumed by all 10 generators as of F2/F3.
             services.AddScoped<IBrandingResolverService, BrandingResolverService>();
+
+            // Multi-tenant: SuperAdmin-only CRUD over tenant Companies + logo upload.
+            services.AddScoped<ICompanyService, CompanyService>();
 
             // EP-18 F3: admin-facing branding settings CRUD + logo upload + sample-preview PDF.
             services.AddScoped<ICompanyBrandingService, CompanyBrandingService>();

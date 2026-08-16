@@ -13,7 +13,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.Property(t => t.Name).IsRequired().HasMaxLength(150);
 
-            builder.HasIndex(t => t.Name).IsUnique();
+            // Multi-tenant: uniqueness is per-company - two different companies can each name a
+            // pool "Q1 Shortlist" independently.
+            builder.HasIndex(t => new { t.CompanyId, t.Name }).IsUnique();
             builder.HasIndex(t => t.JobPostingId);
 
             // SetNull, not Restrict: Repository<T>.Delete is a hard delete, so a mandatory link

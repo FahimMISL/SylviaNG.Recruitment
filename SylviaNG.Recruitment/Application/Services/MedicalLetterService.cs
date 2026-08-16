@@ -89,6 +89,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = new MedicalLetter
             {
                 JobApplicationId = offerLetter.JobApplicationId,
+                CompanyId = offerLetter.JobApplication.CompanyId,
                 OfferLetterId = offerLetter.OfferLetterId,
                 DocumentTemplateId = request.DocumentTemplateId,
                 MedicalTestCenter = request.MedicalTestCenter,
@@ -119,7 +120,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationDispatchService.DispatchAsync(
                 RecruitmentEventEnum.MedicalLetterAvailable,
                 placeholders,
-                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId),
+                new NotificationDispatchTargets(offerLetter.JobApplication.CandidateEmail, await _applicationSettingService.GetHrNotificationEmailAsync(), offerLetter.JobApplicationId, NotifyActiveHrUsers: true),
                 persistImmediately: true);
 
             return entity.ToResponse();

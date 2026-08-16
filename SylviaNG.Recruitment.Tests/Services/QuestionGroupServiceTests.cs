@@ -12,16 +12,18 @@ namespace SylviaNG.Recruitment.Tests.Services;
 public class QuestionGroupServiceTests
 {
     private readonly Mock<IQuestionGroupRepository> _questionGroupRepositoryMock;
+    private readonly Mock<IExamQuestionRepository> _examQuestionRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly QuestionGroupService _service;
 
     public QuestionGroupServiceTests()
     {
         _questionGroupRepositoryMock = new Mock<IQuestionGroupRepository>();
+        _examQuestionRepositoryMock = new Mock<IExamQuestionRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _service = new QuestionGroupService(_questionGroupRepositoryMock.Object, _unitOfWorkMock.Object);
+        _service = new QuestionGroupService(_questionGroupRepositoryMock.Object, _examQuestionRepositoryMock.Object, _unitOfWorkMock.Object);
     }
 
     private static QuestionGroupCreateRequest CreateRequest(string name = "Aptitude") => new()

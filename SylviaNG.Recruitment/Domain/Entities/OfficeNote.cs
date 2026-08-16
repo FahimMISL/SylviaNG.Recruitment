@@ -12,11 +12,14 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// server-rendered/no-preview-edit shape as JoiningBooklet, since there's no per-candidate review UI
 /// need here either.
 /// </summary>
-public class OfficeNote : Audit
+public class OfficeNote : Audit, ICompanyScoped
 {
     public long OfficeNoteId { get; set; }
     public long JobApplicationId { get; set; }
     public long DocumentTemplateId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId at generation time.
+    public long? CompanyId { get; set; }
 
     public string EnclosuresSummary { get; set; } = string.Empty;
     public string RenderedBody { get; set; } = string.Empty;

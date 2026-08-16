@@ -9,12 +9,15 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// existing Preview endpoint) and submitted at generation time - persisting it is the AC5 document
 /// history record, no separate history entity needed.
 /// </summary>
-public class AppointmentLetter : Audit
+public class AppointmentLetter : Audit, ICompanyScoped
 {
     public long AppointmentLetterId { get; set; }
     public long JobApplicationId { get; set; }
     public long OfferLetterId { get; set; }
     public long DocumentTemplateId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId at generation time.
+    public long? CompanyId { get; set; }
 
     public string FinalBody { get; set; } = string.Empty;
     public string GeneratedPdfPath { get; set; } = string.Empty;

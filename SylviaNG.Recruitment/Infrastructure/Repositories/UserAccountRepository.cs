@@ -20,10 +20,19 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.AnyAsync(u => u.RoleAssignments.Any(a => a.Role.Name == roleName));
         }
 
+        public async Task<List<string>> GetActiveEmailsByRoleAsync(string roleName)
+        {
+            return await _dbSet
+                .Where(u => u.IsActive && u.RoleAssignments.Any(a => a.Role.Name == roleName) && !string.IsNullOrWhiteSpace(u.Email))
+                .Select(u => u.Email)
+                .ToListAsync();
+        }
+
         public async Task<UserAccount?> GetByIdWithRolesAsync(long userAccountId)
         {
             return await _dbSet
                 .Include(u => u.RoleAssignments).ThenInclude(a => a.Role).ThenInclude(r => r.Permissions)
+                .Include(u => u.Company)
                 .FirstOrDefaultAsync(u => u.UserAccountId == userAccountId);
         }
 
@@ -31,6 +40,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(u => u.RoleAssignments).ThenInclude(a => a.Role).ThenInclude(r => r.Permissions)
+                .Include(u => u.Company)
                 .OrderByDescending(u => u.CreatedAt)
                 .ThenByDescending(u => u.UserAccountId)
                 .ToListAsync();

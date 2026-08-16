@@ -20,6 +20,7 @@ public class TalentPoolServiceTests
     private readonly Mock<IJobPostingRepository> _jobPostingRepositoryMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
+    private readonly Mock<IUserAccountRepository> _userAccountRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly TalentPoolService _service;
 
@@ -31,6 +32,7 @@ public class TalentPoolServiceTests
         _jobPostingRepositoryMock = new Mock<IJobPostingRepository>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _jobApplicationServiceMock = new Mock<IJobApplicationService>();
+        _userAccountRepositoryMock = new Mock<IUserAccountRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
@@ -41,6 +43,7 @@ public class TalentPoolServiceTests
             _jobPostingRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object,
             _jobApplicationServiceMock.Object,
+            _userAccountRepositoryMock.Object,
             _unitOfWorkMock.Object);
     }
 

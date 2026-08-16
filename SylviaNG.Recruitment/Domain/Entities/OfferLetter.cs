@@ -10,11 +10,14 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// request payload is the fitment-data hook for now. ReportingManager is free text, not an
 /// Employee FK - no Employee-picker widget precedent exists (deferred in US-062).
 /// </summary>
-public class OfferLetter : Audit
+public class OfferLetter : Audit, ICompanyScoped
 {
     public long OfferLetterId { get; set; }
     public long JobApplicationId { get; set; }
     public long DocumentTemplateId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId at generation time.
+    public long? CompanyId { get; set; }
 
     public string Designation { get; set; } = string.Empty;
     public decimal OfferedSalary { get; set; }

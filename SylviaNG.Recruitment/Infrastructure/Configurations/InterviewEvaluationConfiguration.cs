@@ -28,6 +28,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasIndex(e => new { e.InterviewId, e.EmployeeId }).IsUnique();
+            builder.HasIndex(e => e.CompanyId);
 
             builder.HasMany(e => e.Scores)
                 .WithOne(s => s.InterviewEvaluation)

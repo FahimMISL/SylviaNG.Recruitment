@@ -30,6 +30,7 @@ public class UserAccountServiceTests
         _service = new UserAccountService(
             _userAccountRepositoryMock.Object,
             new Mock<IRoleRepository>().Object,
+            new Mock<ICompanyRepository>().Object,
             _unitOfWorkMock.Object,
             new Mock<IKeycloakClient>().Object,
             httpContextAccessor.Object);

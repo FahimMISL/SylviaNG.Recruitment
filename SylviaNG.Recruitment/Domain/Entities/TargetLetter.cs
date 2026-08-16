@@ -9,12 +9,15 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// placeholder-substituted text HR reviewed/adjusted via DocumentTemplateController's Preview
 /// endpoint and submitted at generation time - persisting it is the AC4 document history record.
 /// </summary>
-public class TargetLetter : Audit
+public class TargetLetter : Audit, ICompanyScoped
 {
     public long TargetLetterId { get; set; }
     public long JobApplicationId { get; set; }
     public long OfferLetterId { get; set; }
     public long DocumentTemplateId { get; set; }
+
+    // Multi-tenant: denormalized from JobApplication.CompanyId at generation time.
+    public long? CompanyId { get; set; }
 
     public string Kpis { get; set; } = string.Empty;
     public string Objectives { get; set; } = string.Empty;
