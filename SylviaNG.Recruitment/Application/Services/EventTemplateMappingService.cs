@@ -25,7 +25,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<long> CreateAsync(EventTemplateMappingCreateRequest request)
         {
-            await EnsureTemplateChannelMatchesAsync(request.NotificationTemplateId, request.Channel);
+            var template = await EnsureTemplateChannelMatchesAsync(request.NotificationTemplateId, request.Channel);
 
             var exists = await _eventTemplateMappingRepository.ExistsAsync(request.RecruitmentEvent, request.Channel, request.RecipientType);
             if (exists)
@@ -37,6 +37,7 @@ namespace SylviaNG.Recruitment.Application.Services
             }
 
             var entity = request.ToEntity();
+            entity.CompanyId = template.CompanyId;
             await _eventTemplateMappingRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 
@@ -71,7 +72,7 @@ namespace SylviaNG.Recruitment.Application.Services
             return entities.Select(e => e.ToResponse()).ToList();
         }
 
-        private async Task EnsureTemplateChannelMatchesAsync(long notificationTemplateId, Domain.Enums.NotificationChannelEnum channel)
+        private async Task<Domain.Entities.NotificationTemplate> EnsureTemplateChannelMatchesAsync(long notificationTemplateId, Domain.Enums.NotificationChannelEnum channel)
         {
             var template = await _notificationTemplateRepository.GetByIdAsync(notificationTemplateId)
                 ?? throw new NotFoundException("NotificationTemplate", notificationTemplateId);
@@ -85,6 +86,8 @@ namespace SylviaNG.Recruitment.Application.Services
                         $"Template \"{template.Name}\" is a {template.Channel} template and cannot be mapped to a {channel} event.")
                 });
             }
+
+            return template;
         }
     }
 }

@@ -16,6 +16,12 @@ namespace SylviaNG.Recruitment.Application.Features.Companies.Commands.CompanyCr
 
             RuleFor(x => x.Request.Website)
                 .MaximumLength(200).WithMessage("Website must not exceed 200 characters.");
+
+            RuleFor(x => x.Request.TradeLicenseNumber)
+                .MaximumLength(100).WithMessage("Trade license number must not exceed 100 characters.");
+
+            RuleFor(x => x.Request.BinNumber)
+                .MaximumLength(100).WithMessage("BIN must not exceed 100 characters.");
         }
     }
 }

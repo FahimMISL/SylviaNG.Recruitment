@@ -41,6 +41,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("SavedSearch", "Name", request.Name);
 
             var entity = request.ToEntity(ownerUserName);
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
 
             await _savedSearchRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();

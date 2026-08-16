@@ -52,6 +52,8 @@ namespace SylviaNG.Recruitment.Application.Services
             entity.Address = request.Address;
             entity.Website = request.Website;
             entity.Industry = request.Industry;
+            entity.TradeLicenseNumber = request.TradeLicenseNumber;
+            entity.BinNumber = request.BinNumber;
 
             _companyRepository.Update(entity);
             await _unitOfWork.SaveChangesAsync();

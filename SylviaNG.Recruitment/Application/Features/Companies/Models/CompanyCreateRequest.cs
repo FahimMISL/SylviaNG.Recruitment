@@ -8,5 +8,7 @@ namespace SylviaNG.Recruitment.Application.Features.Companies.Models
         public string? Address { get; set; }
         public string? Website { get; set; }
         public string? Industry { get; set; }
+        public string? TradeLicenseNumber { get; set; }
+        public string? BinNumber { get; set; }
     }
 }

@@ -11,12 +11,14 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IExamVenueRepository _examVenueRepository;
         private readonly IExamRoomRepository _examRoomRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public ExamVenueService(IExamVenueRepository examVenueRepository, IExamRoomRepository examRoomRepository, IUnitOfWork unitOfWork)
+        public ExamVenueService(IExamVenueRepository examVenueRepository, IExamRoomRepository examRoomRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _examVenueRepository = examVenueRepository;
             _examRoomRepository = examRoomRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -27,6 +29,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("ExamVenue", "VenueName", request.VenueName);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
 
             await _examVenueRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();

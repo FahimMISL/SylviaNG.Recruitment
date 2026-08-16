@@ -14,17 +14,20 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IWaiverRuleRepository _waiverRuleRepository;
         private readonly ISpecialCategoryRepository _specialCategoryRepository;
         private readonly IReferralSourceRepository _referralSourceRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
         public WaiverRuleService(
             IWaiverRuleRepository waiverRuleRepository,
             ISpecialCategoryRepository specialCategoryRepository,
             IReferralSourceRepository referralSourceRepository,
+            ICurrentUserService currentUserService,
             IUnitOfWork unitOfWork)
         {
             _waiverRuleRepository = waiverRuleRepository;
             _specialCategoryRepository = specialCategoryRepository;
             _referralSourceRepository = referralSourceRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -46,6 +49,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await ValidateCriteriaReferencesAsync(request.SpecialCategoryId, request.ReferralSourceId);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
             await _waiverRuleRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 

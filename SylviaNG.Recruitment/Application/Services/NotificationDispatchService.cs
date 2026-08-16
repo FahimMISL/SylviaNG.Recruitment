@@ -14,6 +14,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IEventTemplateMappingRepository _eventTemplateMappingRepository;
         private readonly INotificationLogRepository _notificationLogRepository;
         private readonly IUserAccountRepository _userAccountRepository;
+        private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly IPlaceholderSubstitutionService _placeholderSubstitutionService;
         private readonly ISmtpEmailService _smtpEmailService;
         private readonly IUnitOfWork _unitOfWork;
@@ -23,6 +24,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IEventTemplateMappingRepository eventTemplateMappingRepository,
             INotificationLogRepository notificationLogRepository,
             IUserAccountRepository userAccountRepository,
+            IJobApplicationRepository jobApplicationRepository,
             IPlaceholderSubstitutionService placeholderSubstitutionService,
             ISmtpEmailService smtpEmailService,
             IUnitOfWork unitOfWork,
@@ -31,6 +33,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _eventTemplateMappingRepository = eventTemplateMappingRepository;
             _notificationLogRepository = notificationLogRepository;
             _userAccountRepository = userAccountRepository;
+            _jobApplicationRepository = jobApplicationRepository;
             _placeholderSubstitutionService = placeholderSubstitutionService;
             _smtpEmailService = smtpEmailService;
             _unitOfWork = unitOfWork;
@@ -93,6 +96,17 @@ namespace SylviaNG.Recruitment.Application.Services
             IReadOnlyList<EmailAttachment>? attachments,
             CancellationToken cancellationToken)
         {
+            // Multi-tenant: mirrors the triggering JobApplication's CompanyId, so the bell/log
+            // feed stays scoped to one company (JobApplication is already ICompanyScoped).
+            // Events with no JobApplicationId (e.g. candidate account/OTP mail) leave this null -
+            // acceptable since those never surface in the HR bell to begin with.
+            long? companyId = null;
+            if (jobApplicationId.HasValue)
+            {
+                var jobApplication = await _jobApplicationRepository.GetByIdAsync(jobApplicationId.Value);
+                companyId = jobApplication?.CompanyId;
+            }
+
             var log = new NotificationLog
             {
                 RecruitmentEvent = recruitmentEvent,
@@ -100,6 +114,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 RecipientType = recipientType,
                 RecipientAddress = address,
                 JobApplicationId = jobApplicationId,
+                CompanyId = companyId,
                 // Audit.CreatedAt isn't auto-stamped anywhere (no SaveChanges interceptor for it,
                 // unlike UtcDateTimeInterceptor's UTC-normalization) - every repo query that orders
                 // the bell/log list by CreatedAt (NotificationLogRepository.GetUnreadFor*Async,

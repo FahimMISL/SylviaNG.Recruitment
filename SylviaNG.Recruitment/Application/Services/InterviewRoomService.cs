@@ -30,6 +30,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("InterviewRoom", "RoomName", request.RoomName);
 
             var entity = request.ToEntity(interviewVenueId);
+            entity.CompanyId = venue.CompanyId;
 
             await _interviewRoomRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();

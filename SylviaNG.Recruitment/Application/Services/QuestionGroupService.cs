@@ -11,15 +11,18 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IQuestionGroupRepository _questionGroupRepository;
         private readonly IExamQuestionRepository _examQuestionRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
         public QuestionGroupService(
             IQuestionGroupRepository questionGroupRepository,
             IExamQuestionRepository examQuestionRepository,
+            ICurrentUserService currentUserService,
             IUnitOfWork unitOfWork)
         {
             _questionGroupRepository = questionGroupRepository;
             _examQuestionRepository = examQuestionRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -30,6 +33,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("QuestionGroup", "Name", request.Name);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
 
             await _questionGroupRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();

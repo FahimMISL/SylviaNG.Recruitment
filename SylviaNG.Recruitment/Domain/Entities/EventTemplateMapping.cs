@@ -9,9 +9,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// + Email can have one active mapping for Candidate and a separate one for AdminHr at the same time.
 /// Feature 2 (dispatch) is the consumer of this table - nothing sends yet as of Feature 1.
 /// </summary>
-public class EventTemplateMapping : Audit
+public class EventTemplateMapping : Audit, ICompanyScoped
 {
     public long EventTemplateMappingId { get; set; }
+
+    // Multi-tenant: the Company that owns this mapping, stamped at creation.
+    public long? CompanyId { get; set; }
     public RecruitmentEventEnum RecruitmentEvent { get; set; }
     public NotificationChannelEnum Channel { get; set; }
     public NotificationRecipientTypeEnum RecipientType { get; set; }

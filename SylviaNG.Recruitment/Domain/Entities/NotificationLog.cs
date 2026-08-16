@@ -9,9 +9,13 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// deferred to Feature 3) so US-078/079's notification log + in-app bell has a table to query
 /// instead of retrofitting one.
 /// </summary>
-public class NotificationLog : Audit
+public class NotificationLog : Audit, ICompanyScoped
 {
     public long NotificationLogId { get; set; }
+
+    // Multi-tenant: the Company this dispatch belongs to, stamped by NotificationDispatchService
+    // from the triggering JobApplication/recipient's company. Drives the per-company bell feed.
+    public long? CompanyId { get; set; }
     public RecruitmentEventEnum RecruitmentEvent { get; set; }
     public NotificationChannelEnum Channel { get; set; }
     public NotificationRecipientTypeEnum RecipientType { get; set; }

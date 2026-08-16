@@ -9,9 +9,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// lost. Code is a stable machine key (e.g. "ADMIT_CARD_ISSUED_EMAIL") that EventTemplateMapping
 /// and (in Feature 2) dispatch code reference; Name is the admin-facing label.
 /// </summary>
-public class NotificationTemplate : Audit
+public class NotificationTemplate : Audit, ICompanyScoped
 {
     public long NotificationTemplateId { get; set; }
+
+    // Multi-tenant: the Company that owns this template, stamped at creation.
+    public long? CompanyId { get; set; }
     public NotificationChannelEnum Channel { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;

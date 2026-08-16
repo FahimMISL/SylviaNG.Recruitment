@@ -5,9 +5,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// <summary>EP-12 US-095: a beneficiary nominee on a PreBoardingSubmission. Saved as a full-replace
 /// (delete+reinsert) of the parent's Nominees collection on every SaveDraft/Submit, not individually
 /// CRUD'd - see PreBoardingService.SaveDraftAsync.</summary>
-public class PreBoardingNominee : Audit
+public class PreBoardingNominee : Audit, ICompanyScoped
 {
     public long PreBoardingNomineeId { get; set; }
+
+    // Multi-tenant: mirrors the parent PreBoardingSubmission's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long PreBoardingSubmissionId { get; set; }
 
     public string FullName { get; set; } = string.Empty;

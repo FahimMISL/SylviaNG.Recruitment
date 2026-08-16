@@ -160,6 +160,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 await _talentPoolCandidateRepository.AddAsync(new TalentPoolCandidate
                 {
                     TalentPoolId = talentPoolId,
+                    CompanyId = pool.CompanyId,
                     CandidateProfileId = candidateProfileId,
                     AddedDate = DateTime.UtcNow
                 });

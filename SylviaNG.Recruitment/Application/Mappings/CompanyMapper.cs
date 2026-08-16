@@ -16,6 +16,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Address = request.Address,
                 Website = request.Website,
                 Industry = request.Industry,
+                TradeLicenseNumber = request.TradeLicenseNumber,
+                BinNumber = request.BinNumber,
             };
         }
 
@@ -31,6 +33,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 Address = entity.Address,
                 Website = entity.Website,
                 Industry = entity.Industry,
+                TradeLicenseNumber = entity.TradeLicenseNumber,
+                BinNumber = entity.BinNumber,
                 Status = entity.Status,
                 CreatedAt = entity.CreatedAt,
                 JobPostingCount = jobPostingCount,

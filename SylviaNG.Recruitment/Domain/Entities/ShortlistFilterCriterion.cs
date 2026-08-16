@@ -8,9 +8,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// CriterionType are populated; the rest stay null. Typed nullable columns rather than a
 /// generic key/value shape, matching PipelineStage's precedent in this codebase.
 /// </summary>
-public class ShortlistFilterCriterion : Audit
+public class ShortlistFilterCriterion : Audit, ICompanyScoped
 {
     public long ShortlistFilterCriterionId { get; set; }
+
+    // Multi-tenant: mirrors the parent ShortlistFilter's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long ShortlistFilterId { get; set; }
     public CriterionTypeEnum CriterionType { get; set; }
     public int DisplayOrder { get; set; }

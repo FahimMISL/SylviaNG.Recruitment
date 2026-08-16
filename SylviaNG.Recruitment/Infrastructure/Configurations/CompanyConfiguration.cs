@@ -30,6 +30,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(c => c.Website).HasMaxLength(200);
             builder.Property(c => c.Industry).HasMaxLength(100);
 
+            builder.Property(c => c.TradeLicenseNumber).HasMaxLength(100);
+            builder.Property(c => c.BinNumber).HasMaxLength(100);
+
             builder.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
 
             builder.HasMany(c => c.UserAccounts)
@@ -55,6 +58,8 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 Address = (string?)null,
                 Website = (string?)null,
                 Industry = (string?)null,
+                TradeLicenseNumber = (string?)null,
+                BinNumber = (string?)null,
                 Status = Domain.Enums.CompanyStatusEnum.Active,
                 TenantId = "default_tenant",
                 Remarks = (string?)null,

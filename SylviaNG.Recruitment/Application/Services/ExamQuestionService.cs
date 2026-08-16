@@ -28,9 +28,12 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<long> CreateAsync(ExamQuestionCreateRequest request)
         {
-            await EnsureQuestionGroupExistsAsync(request.QuestionGroupId);
+            var group = await GetQuestionGroupOrThrowAsync(request.QuestionGroupId);
 
             var entity = request.ToEntity();
+            entity.CompanyId = group.CompanyId;
+            foreach (var option in entity.Options)
+                option.CompanyId = entity.CompanyId;
             NormalizeDisplayOrder(entity.Options);
 
             await _examQuestionRepository.AddAsync(entity);
@@ -44,7 +47,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = await _examQuestionRepository.GetByIdWithOptionsAsync(examQuestionId)
                 ?? throw new NotFoundException("ExamQuestion", examQuestionId);
 
-            await EnsureQuestionGroupExistsAsync(request.QuestionGroupId);
+            await GetQuestionGroupOrThrowAsync(request.QuestionGroupId);
 
             entity.QuestionGroupId = request.QuestionGroupId;
             entity.QuestionText = request.QuestionText;
@@ -61,6 +64,7 @@ namespace SylviaNG.Recruitment.Application.Services
             NormalizeDisplayOrder(newOptions);
             foreach (var option in newOptions)
             {
+                option.CompanyId = entity.CompanyId;
                 entity.Options.Add(option);
             }
 
@@ -107,11 +111,10 @@ namespace SylviaNG.Recruitment.Application.Services
             };
         }
 
-        private async Task EnsureQuestionGroupExistsAsync(long questionGroupId)
+        private async Task<QuestionGroup> GetQuestionGroupOrThrowAsync(long questionGroupId)
         {
-            var exists = await _questionGroupRepository.GetByIdAsync(questionGroupId) != null;
-            if (!exists)
-                throw new NotFoundException("QuestionGroup", questionGroupId);
+            return await _questionGroupRepository.GetByIdAsync(questionGroupId)
+                ?? throw new NotFoundException("QuestionGroup", questionGroupId);
         }
 
         private static void NormalizeDisplayOrder(IEnumerable<ExamQuestionOption> options)

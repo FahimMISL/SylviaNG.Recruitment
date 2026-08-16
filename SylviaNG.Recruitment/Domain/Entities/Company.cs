@@ -30,6 +30,13 @@ public class Company : Audit
     public string? Website { get; set; }
     public string? Industry { get; set; }
 
+    // Legitimacy proof, not a secret - routinely printed on invoices/letterheads and disclosed to
+    // any vendor/customer. SuperAdmin-only visibility (CompanyController) is already stricter than
+    // how companies normally share these themselves. Both optional: a sole proprietorship may only
+    // have a Trade License; BIN is the separate VAT/tax registration a company may not have yet.
+    public string? TradeLicenseNumber { get; set; }
+    public string? BinNumber { get; set; }
+
     // Shadows Audit.Status (int) with a typed enum - same convention as JobPosting.Status/Interview.Status.
     public new CompanyStatusEnum Status { get; set; } = CompanyStatusEnum.Active;
 

@@ -9,9 +9,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// every criterion null matches every candidate. Evaluated in JobApplicationService.SubmitAsync,
 /// ordered by Priority ascending (lower = evaluated first), first fully-matching active rule wins.
 /// </summary>
-public class WaiverRule : Audit
+public class WaiverRule : Audit, ICompanyScoped
 {
     public long WaiverRuleId { get; set; }
+
+    // Multi-tenant: the Company that owns this rule, stamped at creation.
+    public long? CompanyId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
 

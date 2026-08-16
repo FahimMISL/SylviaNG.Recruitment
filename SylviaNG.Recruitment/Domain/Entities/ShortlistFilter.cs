@@ -8,9 +8,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// job posting - a job posting is only ever a transient parameter when previewing/applying a
 /// filter, never a stored relationship, so the same filter can be reused across vacancies.
 /// </summary>
-public class ShortlistFilter : Audit
+public class ShortlistFilter : Audit, ICompanyScoped
 {
     public long ShortlistFilterId { get; set; }
+
+    // Multi-tenant: the Company that owns this filter, stamped at creation.
+    public long? CompanyId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;

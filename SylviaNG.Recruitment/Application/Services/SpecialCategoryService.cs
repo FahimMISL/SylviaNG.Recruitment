@@ -10,11 +10,13 @@ namespace SylviaNG.Recruitment.Application.Services
     public class SpecialCategoryService : ISpecialCategoryService
     {
         private readonly ISpecialCategoryRepository _specialCategoryRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public SpecialCategoryService(ISpecialCategoryRepository specialCategoryRepository, IUnitOfWork unitOfWork)
+        public SpecialCategoryService(ISpecialCategoryRepository specialCategoryRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _specialCategoryRepository = specialCategoryRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -25,6 +27,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("SpecialCategory", "Name", request.Name);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
             await _specialCategoryRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 

@@ -11,9 +11,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// NotificationTemplate because document generation (PDF, rich-text body) is a distinct concern
 /// from notification dispatch (Email/SMS/InApp/Push Channel).
 /// </summary>
-public class DocumentTemplate : Audit
+public class DocumentTemplate : Audit, ICompanyScoped
 {
     public long DocumentTemplateId { get; set; }
+
+    // Multi-tenant: the Company that owns this template, stamped at creation.
+    public long? CompanyId { get; set; }
     public DocumentTypeEnum DocumentType { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;

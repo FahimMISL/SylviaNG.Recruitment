@@ -8,9 +8,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// dashboard's existing GET query params on apply, so they are stored as an opaque JSON blob
 /// rather than relational criteria rows (unlike ShortlistFilter, which IS evaluated server-side).
 /// </summary>
-public class SavedSearch : Audit
+public class SavedSearch : Audit, ICompanyScoped
 {
     public long SavedSearchId { get; set; }
+
+    // Multi-tenant: the Company that owns this saved search, stamped at creation.
+    public long? CompanyId { get; set; }
     public string Name { get; set; } = string.Empty;
 
     /// <summary>Username of the HR user who created this saved search (see ICurrentUserService).</summary>

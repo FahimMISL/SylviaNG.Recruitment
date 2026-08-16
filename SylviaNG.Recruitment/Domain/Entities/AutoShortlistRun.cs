@@ -7,9 +7,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// the ranked list, adjust the cutoff, or override individual decisions without re-scoring -
 /// re-running always creates a fresh run rather than mutating an existing one.
 /// </summary>
-public class AutoShortlistRun : Audit
+public class AutoShortlistRun : Audit, ICompanyScoped
 {
     public long AutoShortlistRunId { get; set; }
+
+    // Multi-tenant: mirrors the parent JobPosting's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long JobPostingId { get; set; }
 
     /// <summary>Which IShortlistScoringService implementation actually ran ("Manual" or "Ai") - for HR transparency.</summary>

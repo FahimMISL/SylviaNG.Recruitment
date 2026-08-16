@@ -11,11 +11,13 @@ namespace SylviaNG.Recruitment.Application.Services
     public class NotificationTemplateService : INotificationTemplateService
     {
         private readonly INotificationTemplateRepository _notificationTemplateRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public NotificationTemplateService(INotificationTemplateRepository notificationTemplateRepository, IUnitOfWork unitOfWork)
+        public NotificationTemplateService(INotificationTemplateRepository notificationTemplateRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _notificationTemplateRepository = notificationTemplateRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -26,12 +28,14 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("NotificationTemplate", "Code", request.Code);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
             await _notificationTemplateRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 
             await _notificationTemplateRepository.AddVersionAsync(new NotificationTemplateVersion
             {
                 NotificationTemplateId = entity.NotificationTemplateId,
+                CompanyId = entity.CompanyId,
                 VersionNumber = 1,
                 Subject = entity.Subject,
                 Body = entity.Body,
@@ -56,6 +60,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _notificationTemplateRepository.AddVersionAsync(new NotificationTemplateVersion
             {
                 NotificationTemplateId = entity.NotificationTemplateId,
+                CompanyId = entity.CompanyId,
                 VersionNumber = entity.CurrentVersionNumber,
                 Subject = entity.Subject,
                 Body = entity.Body,

@@ -7,8 +7,11 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// candidate may optionally declare at application time (EP-17/US-127) - referenced by WaiverRule
 /// and captured on JobApplication.
 /// </summary>
-public class SpecialCategory : Audit
+public class SpecialCategory : Audit, ICompanyScoped
 {
     public long SpecialCategoryId { get; set; }
+
+    // Multi-tenant: the Company that owns this lookup entry, stamped at creation.
+    public long? CompanyId { get; set; }
     public string Name { get; set; } = string.Empty;
 }

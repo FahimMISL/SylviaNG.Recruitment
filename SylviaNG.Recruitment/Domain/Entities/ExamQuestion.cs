@@ -9,9 +9,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// one "at least one correct answer" code path for every non-Subjective type; Subjective
 /// questions carry an empty Options collection and rely on ModelAnswer instead.
 /// </summary>
-public class ExamQuestion : Audit
+public class ExamQuestion : Audit, ICompanyScoped
 {
     public long ExamQuestionId { get; set; }
+
+    // Multi-tenant: mirrors the parent QuestionGroup's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long QuestionGroupId { get; set; }
     public string QuestionText { get; set; } = string.Empty;
     public QuestionTypeEnum QuestionType { get; set; }

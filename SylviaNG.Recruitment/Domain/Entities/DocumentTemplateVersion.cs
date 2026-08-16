@@ -7,9 +7,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// Audit's CreatedAt/CreatedBy double as this snapshot's edited-at/edited-by, same convention as
 /// NotificationTemplateVersion.
 /// </summary>
-public class DocumentTemplateVersion : Audit
+public class DocumentTemplateVersion : Audit, ICompanyScoped
 {
     public long DocumentTemplateVersionId { get; set; }
+
+    // Multi-tenant: mirrors the parent DocumentTemplate's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long DocumentTemplateId { get; set; }
     public int VersionNumber { get; set; }
     public string Body { get; set; } = string.Empty;

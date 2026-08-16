@@ -8,9 +8,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// from Score vs. the parent run's CutoffScore, plus HrOverrideDecision when set - never stored,
 /// so adjusting the cutoff is a single-row update, not a rewrite of every result.
 /// </summary>
-public class AutoShortlistResult : Audit
+public class AutoShortlistResult : Audit, ICompanyScoped
 {
     public long AutoShortlistResultId { get; set; }
+
+    // Multi-tenant: mirrors the parent AutoShortlistRun's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long AutoShortlistRunId { get; set; }
     public long JobApplicationId { get; set; }
 

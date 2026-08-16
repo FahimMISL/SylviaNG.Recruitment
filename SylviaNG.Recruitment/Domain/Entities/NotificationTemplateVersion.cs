@@ -8,9 +8,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// "who edited" column. No pre-existing content-versioning pattern in the codebase to copy; this
 /// establishes it, borrowing ApplicationStatusHistory's FK+cascade shape structurally only.
 /// </summary>
-public class NotificationTemplateVersion : Audit
+public class NotificationTemplateVersion : Audit, ICompanyScoped
 {
     public long NotificationTemplateVersionId { get; set; }
+
+    // Multi-tenant: mirrors the parent NotificationTemplate's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long NotificationTemplateId { get; set; }
     public int VersionNumber { get; set; }
     public string? Subject { get; set; }

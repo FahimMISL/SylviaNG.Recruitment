@@ -10,11 +10,13 @@ namespace SylviaNG.Recruitment.Application.Services
     public class ScorecardService : IScorecardService
     {
         private readonly IScorecardRepository _scorecardRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public ScorecardService(IScorecardRepository scorecardRepository, IUnitOfWork unitOfWork)
+        public ScorecardService(IScorecardRepository scorecardRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _scorecardRepository = scorecardRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -25,6 +27,9 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("Scorecard", "Name", request.Name);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
+            foreach (var criterion in entity.Criteria)
+                criterion.CompanyId = entity.CompanyId;
             NormalizeDisplayOrder(entity.Criteria);
 
             await _scorecardRepository.AddAsync(entity);
@@ -54,6 +59,7 @@ namespace SylviaNG.Recruitment.Application.Services
             NormalizeDisplayOrder(newCriteria);
             foreach (var criterion in newCriteria)
             {
+                criterion.CompanyId = entity.CompanyId;
                 entity.Criteria.Add(criterion);
             }
 

@@ -10,11 +10,13 @@ namespace SylviaNG.Recruitment.Application.Services
     public class HiringPipelineService : IHiringPipelineService
     {
         private readonly IHiringPipelineRepository _hiringPipelineRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public HiringPipelineService(IHiringPipelineRepository hiringPipelineRepository, IUnitOfWork unitOfWork)
+        public HiringPipelineService(IHiringPipelineRepository hiringPipelineRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _hiringPipelineRepository = hiringPipelineRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -25,6 +27,9 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("HiringPipeline", "Name", request.Name);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
+            foreach (var stage in entity.Stages)
+                stage.CompanyId = entity.CompanyId;
             NormalizeDisplayOrder(entity.Stages);
 
             await _hiringPipelineRepository.AddAsync(entity);
@@ -53,6 +58,7 @@ namespace SylviaNG.Recruitment.Application.Services
             NormalizeDisplayOrder(newStages);
             foreach (var stage in newStages)
             {
+                stage.CompanyId = entity.CompanyId;
                 entity.Stages.Add(stage);
             }
 
@@ -84,8 +90,10 @@ namespace SylviaNG.Recruitment.Application.Services
                 Name = copyName,
                 Description = source.Description,
                 IsActive = false, // duplicates land inactive until reviewed/published by an admin
+                CompanyId = source.CompanyId,
                 Stages = source.Stages.Select(s => new Domain.Entities.PipelineStage
                 {
+                    CompanyId = source.CompanyId,
                     Name = s.Name,
                     StageType = s.StageType,
                     DisplayOrder = s.DisplayOrder,

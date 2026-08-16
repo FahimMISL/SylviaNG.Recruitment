@@ -8,9 +8,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// repository directly, the same loose-coupling precedent CandidateProfileService already
 /// uses for ApplicationHistory (IJobApplicationRepository.GetByCandidateEmailAsync).
 /// </summary>
-public class TalentPoolCandidate : Audit
+public class TalentPoolCandidate : Audit, ICompanyScoped
 {
     public long TalentPoolCandidateId { get; set; }
+
+    // Multi-tenant: mirrors the parent TalentPool's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long TalentPoolId { get; set; }
     public long CandidateProfileId { get; set; }
     public DateTime AddedDate { get; set; }

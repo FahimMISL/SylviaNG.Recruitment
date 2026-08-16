@@ -72,6 +72,7 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 submission.Nominees.Add(new PreBoardingNominee
                 {
+                    CompanyId = submission.CompanyId,
                     FullName = nominee.FullName,
                     Relationship = nominee.Relationship,
                     SharePercentage = nominee.SharePercentage,
@@ -203,6 +204,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var submission = new PreBoardingSubmission
             {
                 FinalSelectionPoolId = pool.FinalSelectionPoolId,
+                CompanyId = pool.CompanyId,
                 Status = PreBoardingSubmissionStatusEnum.Draft,
             };
 

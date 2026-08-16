@@ -10,11 +10,13 @@ namespace SylviaNG.Recruitment.Application.Services
     public class ReferralSourceService : IReferralSourceService
     {
         private readonly IReferralSourceRepository _referralSourceRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public ReferralSourceService(IReferralSourceRepository referralSourceRepository, IUnitOfWork unitOfWork)
+        public ReferralSourceService(IReferralSourceRepository referralSourceRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _referralSourceRepository = referralSourceRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -25,6 +27,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("ReferralSource", "Name", request.Name);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
             await _referralSourceRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 

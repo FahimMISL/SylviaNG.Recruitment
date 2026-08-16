@@ -10,9 +10,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// which re-opens the form for candidate edits same as Draft) via PreBoardingService. Uses `new`
 /// to shadow Audit.Status (int) the same way OfferLetter.Status does.
 /// </summary>
-public class PreBoardingSubmission : Audit
+public class PreBoardingSubmission : Audit, ICompanyScoped
 {
     public long PreBoardingSubmissionId { get; set; }
+
+    // Multi-tenant: mirrors the parent FinalSelectionPool's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long FinalSelectionPoolId { get; set; }
 
     public new PreBoardingSubmissionStatusEnum Status { get; set; } = PreBoardingSubmissionStatusEnum.Draft;

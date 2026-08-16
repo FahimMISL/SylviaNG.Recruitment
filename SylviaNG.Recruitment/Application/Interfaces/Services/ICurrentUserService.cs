@@ -24,5 +24,13 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// and AccountSettingsService. Used to address the requester on EP-13 export-ready notifications.
         /// Returns null outside an authenticated request.</summary>
         string? GetCurrentUserEmail();
+
+        /// <summary>
+        /// Multi-tenant: the current request's own CompanyId, for stamping onto every newly
+        /// created ICompanyScoped entity (same pattern JobPostingService.CreateAsync established).
+        /// Null for SuperAdmin or an unauthenticated/system context - same fail-open convention as
+        /// ApplicationDBContext.CurrentCompanyId, which this ultimately mirrors.
+        /// </summary>
+        Task<long?> GetCurrentUserCompanyIdAsync();
     }
 }

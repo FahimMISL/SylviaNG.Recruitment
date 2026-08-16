@@ -10,9 +10,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// AssessmentWorkflow/AssessmentStage feature, merged in here) just sets MaxMarks/PassMarks;
 /// every other stage leaves them null.
 /// </summary>
-public class PipelineStage : Audit
+public class PipelineStage : Audit, ICompanyScoped
 {
     public long PipelineStageId { get; set; }
+
+    // Multi-tenant: mirrors the parent HiringPipeline's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long HiringPipelineId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string StageType { get; set; } = string.Empty;

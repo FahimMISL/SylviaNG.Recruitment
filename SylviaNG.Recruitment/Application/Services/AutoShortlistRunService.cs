@@ -74,12 +74,14 @@ namespace SylviaNG.Recruitment.Application.Services
             var run = new AutoShortlistRun
             {
                 JobPostingId = request.JobPostingId,
+                CompanyId = jobPosting.CompanyId,
                 Provider = _scoringService.ProviderName,
                 CutoffScore = request.CutoffScore,
                 RunAt = DateTimeUtility.NowUtc(),
                 Results = scored.Select(s => new AutoShortlistResult
                 {
                     JobApplicationId = s.Application.JobApplicationId,
+                    CompanyId = jobPosting.CompanyId,
                     Score = s.Result.Score,
                     Explanation = s.Result.Explanation,
                     MatchedSkills = s.MatchedSkills.Count > 0 ? string.Join(", ", s.MatchedSkills) : null,

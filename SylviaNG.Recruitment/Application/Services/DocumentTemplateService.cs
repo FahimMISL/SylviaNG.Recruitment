@@ -11,11 +11,13 @@ namespace SylviaNG.Recruitment.Application.Services
     public class DocumentTemplateService : IDocumentTemplateService
     {
         private readonly IDocumentTemplateRepository _documentTemplateRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public DocumentTemplateService(IDocumentTemplateRepository documentTemplateRepository, IUnitOfWork unitOfWork)
+        public DocumentTemplateService(IDocumentTemplateRepository documentTemplateRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _documentTemplateRepository = documentTemplateRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -26,12 +28,14 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("DocumentTemplate", "Code", request.Code);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
             await _documentTemplateRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
 
             await _documentTemplateRepository.AddVersionAsync(new DocumentTemplateVersion
             {
                 DocumentTemplateId = entity.DocumentTemplateId,
+                CompanyId = entity.CompanyId,
                 VersionNumber = 1,
                 Body = entity.Body,
             });
@@ -54,6 +58,7 @@ namespace SylviaNG.Recruitment.Application.Services
             await _documentTemplateRepository.AddVersionAsync(new DocumentTemplateVersion
             {
                 DocumentTemplateId = entity.DocumentTemplateId,
+                CompanyId = entity.CompanyId,
                 VersionNumber = entity.CurrentVersionNumber,
                 Body = entity.Body,
             });
