@@ -16,6 +16,10 @@ namespace SylviaNG.Recruitment.Application.Common.Constants
             "OnlineTest",
             "CodingTest",
             "TechnicalAssessment",
+            "WrittenTest",
+            "AptitudeTest",
+            "PsychometricTest",
+            "PracticalAssessment",
             "Assignment",
             "PortfolioReview",
             "CaseStudy",
@@ -35,7 +39,16 @@ namespace SylviaNG.Recruitment.Application.Common.Constants
             "Offer",
             "Joining",
             "Onboarding",
-            "Rejected"
+            "Rejected",
+            "Custom / General"
         };
+
+        /// <summary>
+        /// Stage types that represent post-decision steps (offer/onboarding), not part of the
+        /// selection evaluation itself. Used to gate "Recommend for Final Selection" - every
+        /// OTHER mandatory stage must be Completed first, since the recommendation is the
+        /// decision that offer/onboarding are supposed to follow, not precede.
+        /// </summary>
+        public static readonly string[] PostDecision = { "Offer", "Joining", "Onboarding" };
     }
 }

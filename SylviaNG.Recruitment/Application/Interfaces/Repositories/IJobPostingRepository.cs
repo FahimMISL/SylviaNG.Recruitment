@@ -7,10 +7,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 {
     public interface IJobPostingRepository : IRepository<JobPosting>
     {
-        Task<JobPosting?> GetByTitleAndSiteIdAsync(string title, long siteId);
-        Task<bool> ExistsByTitleAndSiteIdAsync(string title, long siteId, long? excludeId = null);
+        Task<bool> ExistsByTitleAsync(string title, long? excludeId = null);
         Task<PagedResult<JobPosting>> GetPaginatedAsync(PagedRequest request);
-        Task<List<JobPosting>> GetActiveBySiteIdAsync(long siteId);
+
+        /// <summary>Full (non-paginated) list, newest-created first.</summary>
+        Task<List<JobPosting>> GetAllNewestFirstAsync();
 
         /// <summary>
         /// Paginated, audience-filtered browse used by the career portal (external/public) and
@@ -34,5 +35,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>Count of postings with the given status, for dashboard summary stats.</summary>
         Task<int> CountByStatusAsync(JobStatusEnum status);
+
+        /// <summary>EP-15/US-113: postings created by the given local UserAccountId, for the "My Postings" view.</summary>
+        Task<List<JobPosting>> GetByCreatedByAsync(long userAccountId);
     }
 }

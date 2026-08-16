@@ -27,14 +27,74 @@ public enum ApplicationStatusEnum
     Offered,
     Hired,
     Rejected,
-    Withdrawn
+    Withdrawn,
+
+    /// <summary>EP-17: application submitted to a fee-configured vacancy, waiting on SSLCommerz
+    /// payment confirmation before it becomes a real Applied record.</summary>
+    AwaitingPayment,
+
+    DuplicateDismissed
 }
 
 public enum UserRoleEnum
 {
     Admin,
     HR,
-    Candidate
+    Candidate,
+    SuperAdmin
+}
+
+/// <summary>Resource modules the access-control permission matrix (EP-15/US-112) grants against.
+/// No Requisitions module - this system doesn't have a separate requisition entity.</summary>
+public enum AccessControlModuleEnum
+{
+    JobPostings,
+    Applications,
+    Interviews,
+    Assessments,
+    Reports,
+    Admin
+}
+
+/// <summary>Actions the access-control permission matrix (EP-15/US-112) grants per module.</summary>
+public enum PermissionActionEnum
+{
+    View,
+    Create,
+    Edit,
+    Delete,
+    Approve
+}
+
+/// <summary>EP-15/US-116: configurable candidate profile fields. Name/Email/CV are the core set
+/// and are never members of this enum - they're always mandatory, enforced in
+/// ProfileFieldConfigService rather than by omission alone (defense in depth).</summary>
+public enum CandidateProfileFieldEnum
+{
+    PhoneNumber,
+    DateOfBirth,
+    Gender,
+    MaritalStatus,
+    Religion,
+    BloodGroup,
+    PresentAddress,
+    PermanentAddress,
+    Photo,
+    Signature,
+    NidNumber,
+    EducationDetails,
+    WorkExperience,
+    Skills,
+    Certifications
+}
+
+/// <summary>EP-15/US-116: how a ProfileFieldConfig-governed field is presented on the candidate
+/// profile/apply form.</summary>
+public enum ProfileFieldVisibilityEnum
+{
+    Mandatory,
+    Optional,
+    Hidden
 }
 
 public enum CircularTypeEnum
@@ -69,6 +129,7 @@ public enum CandidateDocumentTypeEnum
     NID,
     EducationCertificate,
     ExperienceLetter,
+    Resume,
     Other
 }
 
@@ -94,4 +155,327 @@ public enum FilterCombinatorEnum
 {
     And,
     Or
+}
+
+public enum HrOverrideDecisionEnum
+{
+    Approved,
+    Rejected
+}
+
+/// <summary>EP-17: lifecycle of a single SSLCommerz payment attempt against a JobApplication.</summary>
+public enum PaymentStatusEnum
+{
+    Pending,
+    Initiated,
+    Success,
+    Failed,
+    Cancelled
+}
+
+/// <summary>EP-17/US-127: candidate-type criterion on a WaiverRule. Not the same as
+/// ApplicationSourceEnum (application channel) - this keys off CandidateProfile.IsInternal.</summary>
+public enum WaiverCandidateTypeEnum
+{
+    Internal,
+    External
+}
+
+public enum QuestionTypeEnum
+{
+    McqSingle,
+    McqMultiple,
+    TrueFalse,
+    Subjective
+}
+
+public enum DifficultyLevelEnum
+{
+    Easy,
+    Medium,
+    Hard
+}
+
+public enum GradingSystemEnum
+{
+    GPA,
+    CGPA,
+    Division
+}
+
+public enum ExamTypeEnum
+{
+    InPerson,
+    Online
+}
+
+/// <summary>Delivery status for a single ExamEnrollment's email/SMS notification.
+/// Skipped = channel not configured (e.g. SMTP disabled) - a valid outcome, not a failure.</summary>
+public enum NotificationStatusEnum
+{
+    Pending,
+    Sent,
+    Failed,
+    Skipped
+}
+
+/// <summary>How an ExamEnrollment's Score/IsPassed was set (US-058/US-059).</summary>
+public enum ScoreSourceEnum
+{
+    AutoScored,
+    ManualUpload
+}
+
+/// <summary>EP-08: whether a scheduled Interview is in-person (InterviewVenueId/InterviewRoomId) or virtual (MeetingLink).</summary>
+public enum InterviewTypeEnum
+{
+    InPerson,
+    Virtual
+}
+
+/// <summary>Lifecycle of a single scheduled Interview (EP-08). Rescheduled/Cancelled/Completed/NoShow
+/// are terminal-ish states set explicitly by HR action - there is no automatic transition.</summary>
+public enum InterviewStatusEnum
+{
+    Scheduled,
+    Rescheduled,
+    Cancelled,
+    Completed,
+    NoShow
+}
+
+/// <summary>Outcome of a Completed Interview (EP-08 US-070). Set via HR's "Mark Result" action,
+/// which also transitions Status to Completed. Passed on the round with the highest Sequence for a
+/// job application gates whether the next InterviewRoundConfig can be scheduled.</summary>
+public enum InterviewResultEnum
+{
+    Pending,
+    Passed,
+    Failed
+}
+
+/// <summary>EP-14 US-110: a panelist's explicit hiring recommendation on their InterviewEvaluation,
+/// optionally declared alongside their scores/comments - not derived from WeightedScore.</summary>
+public enum EvaluationRecommendationEnum
+{
+    Recommended,
+    NotRecommended,
+    OnHold
+}
+
+/// <summary>EP-09: recruitment lifecycle event a NotificationTemplate can be mapped to via
+/// EventTemplateMapping. Extend this list as later EP-09 features need new trigger points.</summary>
+public enum RecruitmentEventEnum
+{
+    ApplicationSubmitted,
+    ApplicationWithdrawn,
+    ApplicationStatusChanged,
+    CandidateActionRequired,
+    InterviewScheduled,
+    InterviewRescheduled,
+    InterviewCancelled,
+    ExamEnrolled,
+    AdmitCardIssued,
+    ExamResultPublished,
+    AccountCreatedOtp,
+
+    /// <summary>Forgot-password OTP, sent to the requester's own email - closes the gap where
+    /// Account Settings' "change password" required an active session.</summary>
+    PasswordResetRequested,
+
+    OfferLetterAvailable,
+    OfferAccepted,
+    OfferDeclined,
+    AppointmentLetterGenerated,
+    JoiningBookletAvailable,
+    MedicalLetterAvailable,
+    TargetLetterAvailable,
+
+    /// <summary>EP-12 US-094: candidate notified to fill the pre-boarding form after entering the
+    /// Final Selection Pool.</summary>
+    PreBoardingRequested,
+
+    /// <summary>EP-12 US-095: HR notified of a candidate's final pre-boarding submission.</summary>
+    PreBoardingSubmitted,
+
+    /// <summary>EP-12 US-096: candidate notified that HR validated their pre-boarding submission.</summary>
+    PreBoardingApproved,
+
+    /// <summary>EP-12 US-096: candidate notified that HR requested corrections on their pre-boarding submission.</summary>
+    PreBoardingCorrectionRequested,
+
+    /// <summary>EP-13 US-104: HR/Admin notified their queued export finished generating.</summary>
+    ExportRequestReady,
+
+    /// <summary>EP-13 US-104: HR/Admin notified their queued export failed to generate.</summary>
+    ExportRequestFailed,
+
+    /// <summary>Account Settings email change (all 3 roles): OTP sent to the NEW address to prove
+    /// ownership before the Keycloak email actually switches.</summary>
+    EmailChangeRequested,
+
+    /// <summary>Candidate's application moved to Rejected. Fired instead of ApplicationStatusChanged
+    /// for that specific transition so a dedicated rejection template can be mapped separately from
+    /// the generic status-change copy. Appended (not inserted) to keep existing enum ordinals stable.</summary>
+    ApplicationRejected
+}
+
+/// <summary>EP-13 US-104: what kind of data an ExportRequest generates. Left as an enum since
+/// F2 of EP-13 adds more export types onto the same queue - BulkCvZip (US-101) is the first.</summary>
+public enum ExportTypeEnum
+{
+    CandidateListExport,
+    BulkCvZip,
+
+    /// <summary>EP-14 US-109 AC5.</summary>
+    JobApplicationTrackerExport
+}
+
+/// <summary>EP-13 US-100/104: output file format for an ExportRequest.</summary>
+public enum ExportFormatEnum
+{
+    Xlsx,
+    Csv,
+    Zip
+}
+
+/// <summary>EP-13 US-104: lifecycle of a queued ExportRequest, processed by ExportRequestWorker.</summary>
+public enum ExportRequestStatusEnum
+{
+    Pending,
+    Processing,
+    Completed,
+    Failed
+}
+
+/// <summary>EP-09: delivery channel a NotificationTemplate is written for. Only Email has a working
+/// transport wired up so far (US-073/074) - Sms/InApp/Push are modeled now so mappings/templates for
+/// them can be authored ahead of their own dispatch work landing.</summary>
+public enum NotificationChannelEnum
+{
+    Email,
+    Sms,
+    InApp,
+    Push
+}
+
+/// <summary>EP-09: which audience an EventTemplateMapping targets. The same RecruitmentEvent+Channel
+/// commonly needs two different templates - one candidate-facing, one for internal Admin/HR - so this
+/// is a mapping-key dimension, not a NotificationTemplate field.</summary>
+public enum NotificationRecipientTypeEnum
+{
+    Candidate,
+    AdminHr
+}
+
+/// <summary>EP-10: the kind of letter/document a DocumentTemplate is written for. Closed set -
+/// covers the full EP-10 scope (F1-F3): OfferLetter/AppointmentLetter (F1/F2), JoiningBooklet (F3
+/// bulk), MedicalReferral/TargetLetter (F3), plus RejectionLetter/ExperienceCertificate/
+/// RelievingLetter as the remaining common HR letter types admins can author ahead of any feature
+/// work wiring their generation. OfficeNote added for EP-12 US-129.</summary>
+public enum DocumentTypeEnum
+{
+    OfferLetter,
+    AppointmentLetter,
+    JoiningBooklet,
+    MedicalReferral,
+    TargetLetter,
+    RejectionLetter,
+    ExperienceCertificate,
+    RelievingLetter,
+    OfficeNote
+}
+
+/// <summary>EP-10 US-081: lifecycle of a single generated OfferLetter. Generated is the only status
+/// this feature (F1) ever sets - Sent/Accepted/Declined are wired to real transitions in F2
+/// (candidate accept/decline, US-082/083).</summary>
+public enum OfferLetterStatusEnum
+{
+    Generated,
+    Sent,
+    Accepted,
+    Declined
+}
+
+/// <summary>EP-10 US-085: unified acceptance status shown on the document-tracking dashboard,
+/// merging OfferLetter.Status (Generated/Sent -> Pending) with AppointmentLetter, which has no
+/// candidate-decision step of its own and always reports NotApplicable.</summary>
+public enum DocumentAcceptanceStatusEnum
+{
+    Pending,
+    Accepted,
+    Declined,
+    NotApplicable
+}
+
+/// <summary>EP-12 US-095/096: lifecycle of a candidate's PreBoardingSubmission. Draft/Submitted are
+/// candidate-editable (Submitted only via SubmitAsync); Approved/NeedsCorrection are HR-set
+/// (US-096) - NeedsCorrection re-opens the form for candidate edits the same as Draft.</summary>
+public enum PreBoardingSubmissionStatusEnum
+{
+    Draft,
+    Submitted,
+    Approved,
+    NeedsCorrection
+}
+
+/// <summary>EP-18 F1: where a QR code, signature block, or seal is placed on a generated
+/// document. Shared by CompanyBranding.QrCodePosition/SignaturePosition/SealPosition.</summary>
+public enum DocumentElementPositionEnum
+{
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+    Center,
+    None
+}
+
+/// <summary>EP-18 F1: CompanyBranding.HeaderLayout - arrangement of logo and text in a
+/// generated document's header, applied by DocumentHeaderComponent.</summary>
+public enum HeaderLayoutEnum
+{
+    LogoLeftTextRight,
+    LogoCenterStacked,
+    LogoRightTextLeft,
+    TextOnly
+}
+
+/// <summary>EP-18 F1: CompanyBranding.FooterLayout - arrangement of company contact info in a
+/// generated document's footer, applied by DocumentFooterComponent.</summary>
+public enum FooterLayoutEnum
+{
+    SingleLineCentered,
+    ThreeColumn,
+    AddressBlockLeft,
+    Minimal
+}
+
+/// <summary>EP-18 F1: CompanyBranding.BorderStyle - page/section border treatment applied
+/// across the shared document component layer.</summary>
+public enum DocumentBorderStyleEnum
+{
+    None,
+    Solid,
+    Double,
+    Rounded
+}
+
+/// <summary>EP-18 F1: CompanyBranding.HeaderDividerStyle/FooterDividerStyle - the rule line
+/// drawn under a document header or above its footer.</summary>
+public enum DocumentDividerStyleEnum
+{
+    None,
+    SolidLine,
+    DoubleLine,
+    Dotted,
+    Dashed
+}
+
+/// <summary>Lifecycle of a tenant Company. Deactivating locks out every Admin/HR user
+/// belonging to it (see CompanyScopeMiddleware) without deleting their accounts or data.</summary>
+public enum CompanyStatusEnum
+{
+    Active,
+    Inactive
 }
