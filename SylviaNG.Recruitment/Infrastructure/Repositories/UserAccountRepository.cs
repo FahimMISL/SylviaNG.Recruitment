@@ -20,10 +20,19 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.AnyAsync(u => u.RoleAssignments.Any(a => a.Role.Name == roleName));
         }
 
-        public async Task<List<string>> GetActiveEmailsByRoleAsync(string roleName)
+        /// <summary>
+        /// <paramref name="companyId"/> is applied explicitly rather than left to the ambient
+        /// ICompanyScoped filter, because that filter is a no-op whenever CurrentCompanyId is null -
+        /// which is exactly the case for the [AllowAnonymous] payment IPN/callback endpoints and the
+        /// NotificationDispatchWorker, neither of which goes through CompanyScopeMiddleware. Null
+        /// preserves the previous ambient-only behaviour.
+        /// </summary>
+        public async Task<List<string>> GetActiveEmailsByRoleAsync(string roleName, long? companyId = null)
         {
             return await _dbSet
+                .AsNoTracking()
                 .Where(u => u.IsActive && u.RoleAssignments.Any(a => a.Role.Name == roleName) && !string.IsNullOrWhiteSpace(u.Email))
+                .Where(u => !companyId.HasValue || u.CompanyId == companyId.Value)
                 .Select(u => u.Email)
                 .ToListAsync();
         }

@@ -30,7 +30,19 @@ namespace SylviaNG.Recruitment.Application.Extensions
             // Add recruitment-specific services here
 
             services.AddScoped<IJobPostingService, JobPostingService>();
-            services.AddScoped<IJobApplicationService, JobApplicationService>();
+
+            // JobApplicationService split into five focused services (Core/Submission/Dashboard/
+            // Status/SelfService/Duplicate) plus two small shared helpers - see the individual
+            // interfaces' doc comments for what each covers and why the split follows these
+            // particular seams rather than a 1:1 method-per-class breakdown.
+            services.AddScoped<ICandidateApplicationLinkResolver, CandidateApplicationLinkResolver>();
+            services.AddScoped<IJobApplicationDispatchTargetBuilder, JobApplicationDispatchTargetBuilder>();
+            services.AddScoped<IJobApplicationCoreService, JobApplicationCoreService>();
+            services.AddScoped<IJobApplicationSubmissionService, JobApplicationSubmissionService>();
+            services.AddScoped<IJobApplicationDashboardService, JobApplicationDashboardService>();
+            services.AddScoped<IJobApplicationStatusService, JobApplicationStatusService>();
+            services.AddScoped<IJobApplicationSelfService, JobApplicationSelfService>();
+            services.AddScoped<IJobApplicationDuplicateService, JobApplicationDuplicateService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IPrivateFileAccessTokenService, PrivateFileAccessTokenService>();
             services.AddScoped<IJobPostingAttachmentService, JobPostingAttachmentService>();

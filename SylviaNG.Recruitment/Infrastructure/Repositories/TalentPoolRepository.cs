@@ -39,7 +39,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         public async Task<TalentPool?> GetByIdWithCandidatesAsync(long talentPoolId)
         {
+            // AsSplitQuery: six sibling collections hang off Candidates.CandidateProfile in one
+            // query, which without it becomes a single-query cartesian join - a pool of 100
+            // candidates with a handful of rows in each of the six collections returns hundreds of
+            // thousands of duplicated rows to build 100 objects. Split into one query per
+            // collection instead; safe here since the whole graph is scoped to one TalentPoolId.
             return await _dbSet
+                .AsSplitQuery()
                 .Include(p => p.JobPosting)
                 .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.Educations)
                 .Include(p => p.Candidates).ThenInclude(c => c.CandidateProfile).ThenInclude(cp => cp.WorkExperiences)

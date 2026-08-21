@@ -3,6 +3,7 @@ using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.WaiverRules.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
@@ -31,6 +32,7 @@ public class WaiverRuleServiceTests
             _waiverRuleRepositoryMock.Object,
             _specialCategoryRepositoryMock.Object,
             _referralSourceRepositoryMock.Object,
+            Mock.Of<ICurrentUserService>(),
             _unitOfWorkMock.Object);
     }
 

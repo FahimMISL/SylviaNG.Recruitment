@@ -7,7 +7,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
     {
         Task<bool> ExistsByEmailAsync(string email, long? excludeId = null);
         Task<bool> ExistsAnyWithRoleAsync(string roleName);
-        Task<List<string>> GetActiveEmailsByRoleAsync(string roleName);
+        /// <summary>Active users holding <paramref name="roleName"/>. Pass <paramref name="companyId"/>
+        /// whenever the caller knows the tenant - the ambient ICompanyScoped filter matches every
+        /// company when no scope is set (anonymous endpoints, background workers).</summary>
+        Task<List<string>> GetActiveEmailsByRoleAsync(string roleName, long? companyId = null);
         Task<UserAccount?> GetByIdWithRolesAsync(long userAccountId);
         Task<List<UserAccount>> GetAllWithRolesAsync();
         Task<UserAccount?> GetByKeycloakUserIdWithRolesAsync(string keycloakUserId);

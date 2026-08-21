@@ -22,7 +22,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IShortlistScoringService _scoringService;
-        private readonly IJobApplicationService _jobApplicationService;
+        private readonly IJobApplicationStatusService _jobApplicationStatusService;
         private readonly GroqSettings _groqSettings;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -32,7 +32,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IJobApplicationRepository jobApplicationRepository,
             ICandidateProfileRepository candidateProfileRepository,
             IShortlistScoringService scoringService,
-            IJobApplicationService jobApplicationService,
+            IJobApplicationStatusService jobApplicationStatusService,
             IOptions<GroqSettings> groqSettings,
             IUnitOfWork unitOfWork)
         {
@@ -41,7 +41,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _jobApplicationRepository = jobApplicationRepository;
             _candidateProfileRepository = candidateProfileRepository;
             _scoringService = scoringService;
-            _jobApplicationService = jobApplicationService;
+            _jobApplicationStatusService = jobApplicationStatusService;
             _groqSettings = groqSettings.Value;
             _unitOfWork = unitOfWork;
         }
@@ -148,7 +148,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 .Select(r => r.JobApplicationId)
                 .ToList();
 
-            var bulkResult = await _jobApplicationService.BulkUpdateStatusAsync(new JobApplicationBulkStatusUpdateRequest
+            var bulkResult = await _jobApplicationStatusService.BulkUpdateStatusAsync(new JobApplicationBulkStatusUpdateRequest
             {
                 JobApplicationIds = includedIds,
                 ToStatus = ApplicationStatusEnum.Shortlisted

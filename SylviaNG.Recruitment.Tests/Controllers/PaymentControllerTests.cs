@@ -89,7 +89,7 @@ public class PaymentControllerTests
     public async Task CallbackSuccess_WithKnownTransaction_ShouldRedirectToFrontendResultPageWithJobApplicationId()
     {
         var form = CreateForm(new Dictionary<string, string> { ["tran_id"] = "TRAN123" });
-        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
+        _paymentServiceMock.Setup(s => s.HandleIpnAsync("TRAN123", It.IsAny<string?>(), It.IsAny<string>())).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
 
         var result = await _controller.CallbackSuccess(form);
 
@@ -105,7 +105,7 @@ public class PaymentControllerTests
         // not just redirect based on the request's own "status" field. This is what lets a
         // candidate see a confirmed result even if the async IPN never arrives.
         var form = CreateForm(new Dictionary<string, string> { ["tran_id"] = "TRAN123", ["val_id"] = "VAL123", ["status"] = "VALID" });
-        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
+        _paymentServiceMock.Setup(s => s.HandleIpnAsync("TRAN123", It.IsAny<string?>(), It.IsAny<string>())).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
 
         await _controller.CallbackSuccess(form);
 
@@ -116,7 +116,7 @@ public class PaymentControllerTests
     public async Task CallbackFail_WithUnknownTransaction_ShouldRedirectWithoutJobApplicationId()
     {
         var form = CreateForm(new Dictionary<string, string> { ["tran_id"] = "UNKNOWN" });
-        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("UNKNOWN")).ReturnsAsync(((long, string?)?)null);
+        _paymentServiceMock.Setup(s => s.HandleIpnAsync("UNKNOWN", It.IsAny<string?>(), It.IsAny<string>())).ReturnsAsync(((long, string?)?)null);
 
         var result = await _controller.CallbackFail(form);
 
@@ -128,7 +128,7 @@ public class PaymentControllerTests
     public async Task CallbackCancel_ShouldRedirectWithCancelStatus()
     {
         var form = CreateForm(new Dictionary<string, string> { ["tran_id"] = "TRAN123" });
-        _paymentServiceMock.Setup(s => s.GetJobApplicationIdByTransactionIdAsync("TRAN123")).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
+        _paymentServiceMock.Setup(s => s.HandleIpnAsync("TRAN123", It.IsAny<string?>(), It.IsAny<string>())).ReturnsAsync(((long, string?)?)(42L, "candidate@example.com"));
 
         var result = await _controller.CallbackCancel(form);
 

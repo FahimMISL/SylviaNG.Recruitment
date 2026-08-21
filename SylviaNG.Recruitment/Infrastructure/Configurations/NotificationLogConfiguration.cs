@@ -32,6 +32,17 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             builder.HasIndex(l => new { l.RecruitmentEvent, l.RecipientType, l.CreatedAt });
             builder.HasIndex(l => l.JobApplicationId);
+
+            // The HR/candidate notification bell (GetUnreadForAdminHrAsync/GetUnreadCountForAdminHrAsync/
+            // GetUnreadForCandidateAsync/GetUnreadCountForCandidateAsync) filters on
+            // (RecipientType, IsRead) and sorts by CreatedAt - the index above can't serve that
+            // predicate because RecruitmentEvent, its leading column, isn't part of it, so every
+            // bell poll (continuous, per logged-in user) seq-scans the whole log table. Partial on
+            // IsRead = false so the index only ever holds unread rows and stays small as the log
+            // (which never prunes) grows without bound.
+            builder.HasIndex(l => new { l.RecipientType, l.CreatedAt })
+                .HasFilter("\"IsRead\" = false")
+                .HasDatabaseName("IX_NotificationLogs_RecipientType_CreatedAt_Unread");
         }
     }
 }

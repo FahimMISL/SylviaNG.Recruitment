@@ -388,12 +388,14 @@ namespace SylviaNG.Recruitment.Application.Services
                 .Select(e => new { Evaluation = e, WeightedScore = ComputeWeightedScore(e) })
                 .ToList();
 
+            // One batched lookup instead of one query per distinct panelist - this report can
+            // easily cover dozens of interviewers across a date range.
             var employeeIds = scored.Select(s => s.Evaluation.EmployeeId).Distinct().ToList();
-            var employeeNames = new Dictionary<long, string>();
+            var employees = await _employeeRepository.FindAsync(e => employeeIds.Contains(e.EmployeeId));
+            var employeeNames = employees.ToDictionary(e => e.EmployeeId, e => e.EmployeeName ?? $"Employee {e.EmployeeId}");
             foreach (var employeeId in employeeIds)
             {
-                var employee = await _employeeRepository.GetByIdAsync(employeeId);
-                employeeNames[employeeId] = employee?.EmployeeName ?? $"Employee {employeeId}";
+                employeeNames.TryAdd(employeeId, $"Employee {employeeId}");
             }
 
             var panelists = scored

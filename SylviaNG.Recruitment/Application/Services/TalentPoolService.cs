@@ -19,7 +19,8 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly ICandidateProfileRepository _candidateProfileRepository;
         private readonly IJobPostingRepository _jobPostingRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
-        private readonly IJobApplicationService _jobApplicationService;
+        private readonly IJobApplicationCoreService _jobApplicationCoreService;
+        private readonly IJobApplicationStatusService _jobApplicationStatusService;
         private readonly IUserAccountRepository _userAccountRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IHttpContextAccessor? _httpContextAccessor;
@@ -30,7 +31,8 @@ namespace SylviaNG.Recruitment.Application.Services
             ICandidateProfileRepository candidateProfileRepository,
             IJobPostingRepository jobPostingRepository,
             IJobApplicationRepository jobApplicationRepository,
-            IJobApplicationService jobApplicationService,
+            IJobApplicationCoreService jobApplicationCoreService,
+            IJobApplicationStatusService jobApplicationStatusService,
             IUserAccountRepository userAccountRepository,
             IUnitOfWork unitOfWork,
             IHttpContextAccessor? httpContextAccessor = null)
@@ -40,7 +42,8 @@ namespace SylviaNG.Recruitment.Application.Services
             _candidateProfileRepository = candidateProfileRepository;
             _jobPostingRepository = jobPostingRepository;
             _jobApplicationRepository = jobApplicationRepository;
-            _jobApplicationService = jobApplicationService;
+            _jobApplicationCoreService = jobApplicationCoreService;
+            _jobApplicationStatusService = jobApplicationStatusService;
             _userAccountRepository = userAccountRepository;
             _unitOfWork = unitOfWork;
             _httpContextAccessor = httpContextAccessor;
@@ -218,7 +221,7 @@ namespace SylviaNG.Recruitment.Application.Services
                     continue;
                 }
 
-                var jobApplicationId = await _jobApplicationService.CreateAsync(new JobApplicationCreateRequest
+                var jobApplicationId = await _jobApplicationCoreService.CreateAsync(new JobApplicationCreateRequest
                 {
                     JobPostingId = request.JobPostingId,
                     CandidateName = candidate.FullName,
@@ -228,7 +231,7 @@ namespace SylviaNG.Recruitment.Application.Services
                     Source = ApplicationSourceEnum.Admin
                 }, candidateProfileId);
 
-                await _jobApplicationService.UpdateStatusAsync(jobApplicationId, new JobApplicationStatusUpdateRequest
+                await _jobApplicationStatusService.UpdateStatusAsync(jobApplicationId, new JobApplicationStatusUpdateRequest
                 {
                     ToStatus = ApplicationStatusEnum.Shortlisted
                 });

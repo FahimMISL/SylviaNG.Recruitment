@@ -3,6 +3,7 @@ using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.HiringPipelines.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.SharedKernel.Generic;
@@ -19,7 +20,7 @@ public class HiringPipelineServiceTests
     {
         _repositoryMock = new Mock<IHiringPipelineRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _service = new HiringPipelineService(_repositoryMock.Object, _unitOfWorkMock.Object);
+        _service = new HiringPipelineService(_repositoryMock.Object, Mock.Of<ICurrentUserService>(), _unitOfWorkMock.Object);
     }
 
     private static HiringPipelineCreateRequest ValidCreateRequest() => new()

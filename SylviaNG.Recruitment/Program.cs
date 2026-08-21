@@ -188,9 +188,24 @@ app.Use(async (context, next) =>
 
 app.UseCors("AllowAll");
 
-// Serve uploaded job posting attachments directly (binary content must bypass
-// ResponseWrappingMiddleware, which buffers and JSON-re-wraps every response body).
-app.UseStaticFiles();
+// NO app.UseStaticFiles() here, deliberately.
+//
+// wwwroot's only contents are the local-provider upload roots (FileStorage:RootPath =
+// "wwwroot/uploads/job-postings", ApplicationCvStorage:RootPath = "wwwroot/uploads/applications"),
+// which hold candidate CVs, ID scans, certificates, profile photos and every generated offer/
+// appointment/medical/target letter. Serving that tree statically published all of it at
+// GET /uploads/... with no authentication, no access token and no company scoping - completely
+// bypassing FilesController, which is the actual gate: it requires a signed access token for
+// "/candidate-documents/" keys and an authenticated user for "documents/" keys.
+//
+// FilesController already replaced this middleware for every consumer (see its remarks): every
+// response DTO hands back a recruitment/files/download URL built by FileUrlBuilder, and nothing
+// in either repo references a raw /uploads path. Binary responses bypass
+// ResponseWrappingMiddleware on their own via the Content-Disposition check, so the original
+// reason for this line no longer applies either.
+//
+// If a genuinely public asset ever needs static serving, scope it to its own FileProvider rooted
+// at that folder - never at wwwroot.
 
 app.UseMiddleware<ResponseWrappingMiddleware>();
 

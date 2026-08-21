@@ -49,7 +49,13 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 }
                 mimeMessage.Body = bodyBuilder.ToMessageBody();
 
-                using var client = new SmtpClient();
+                using var client = new SmtpClient
+                {
+                    // MailKit defaults to 120 s per operation. Left unset, an unreachable or
+                    // throttled SMTP host hung Connect/Send for two full minutes - and every caller
+                    // wraps this in EmailRetrySender's 3 attempts, per recipient.
+                    Timeout = Math.Max(1, _settings.TimeoutSeconds) * 1000
+                };
                 var secureSocketOptions = _settings.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
                 await client.ConnectAsync(_settings.Host, _settings.Port, secureSocketOptions, cancellationToken);
 

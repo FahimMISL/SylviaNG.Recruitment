@@ -15,7 +15,7 @@ public class ShortlistFilterEvaluationServiceTests
     private readonly Mock<IShortlistFilterRepository> _shortlistFilterRepositoryMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
-    private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
+    private readonly Mock<IJobApplicationStatusService> _jobApplicationServiceMock;
     private readonly Mock<IAutoShortlistRunRepository> _autoShortlistRunRepositoryMock;
     private readonly ShortlistFilterEvaluationService _service;
 
@@ -24,7 +24,7 @@ public class ShortlistFilterEvaluationServiceTests
         _shortlistFilterRepositoryMock = new Mock<IShortlistFilterRepository>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
-        _jobApplicationServiceMock = new Mock<IJobApplicationService>();
+        _jobApplicationServiceMock = new Mock<IJobApplicationStatusService>();
         _autoShortlistRunRepositoryMock = new Mock<IAutoShortlistRunRepository>();
         _autoShortlistRunRepositoryMock
             .Setup(r => r.GetLatestScoresByJobPostingIdAsync(It.IsAny<long>()))

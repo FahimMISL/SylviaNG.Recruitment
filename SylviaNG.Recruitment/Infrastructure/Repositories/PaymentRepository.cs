@@ -59,7 +59,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             // PaymentId (identity, monotonic per insert), not CreatedAt - the audit-stamping
             // interceptor isn't wired up yet so CreatedAt is null on every row app-wide, and
             // ORDER BY a null column is non-deterministic in Postgres.
+            // AsNoTracking: the only caller is PaymentService.GetStatusAsync, which backs the
+            // status endpoint the payment-result page polls every few seconds while waiting on the
+            // gateway. Nothing writes this row back.
             return await _dbSet
+                .AsNoTracking()
                 .Where(p => p.JobApplicationId == jobApplicationId)
                 .OrderByDescending(p => p.PaymentId)
                 .FirstOrDefaultAsync();

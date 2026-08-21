@@ -14,12 +14,26 @@ namespace SylviaNG.Recruitment.Controllers
     [Route("recruitment/job-application")]
     public class JobApplicationController : ControllerBase
     {
-        private readonly IJobApplicationService _jobApplicationService;
+        private readonly IJobApplicationCoreService _coreService;
+        private readonly IJobApplicationDashboardService _dashboardService;
+        private readonly IJobApplicationStatusService _statusService;
+        private readonly IJobApplicationSelfService _selfService;
+        private readonly IJobApplicationDuplicateService _duplicateService;
         private readonly IMediator _mediator;
 
-        public JobApplicationController(IJobApplicationService jobApplicationService, IMediator mediator)
+        public JobApplicationController(
+            IJobApplicationCoreService coreService,
+            IJobApplicationDashboardService dashboardService,
+            IJobApplicationStatusService statusService,
+            IJobApplicationSelfService selfService,
+            IJobApplicationDuplicateService duplicateService,
+            IMediator mediator)
         {
-            _jobApplicationService = jobApplicationService;
+            _coreService = coreService;
+            _dashboardService = dashboardService;
+            _statusService = statusService;
+            _selfService = selfService;
+            _duplicateService = duplicateService;
             _mediator = mediator;
         }
 
@@ -32,7 +46,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<JobApplicationResponse>> GetById(long jobApplicationId)
         {
-            var result = await _jobApplicationService.GetByIdAsync(jobApplicationId);
+            var result = await _coreService.GetByIdAsync(jobApplicationId);
             return Ok(result);
         }
 
@@ -43,7 +57,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<PagedResult<JobApplicationResponse>>> GetPagedByJobPosting(long jobPostingId, [FromQuery] PagedRequest request)
         {
-            var result = await _jobApplicationService.GetPaginatedByJobPostingAsync(jobPostingId, request);
+            var result = await _coreService.GetPaginatedByJobPostingAsync(jobPostingId, request);
             return Ok(result);
         }
 
@@ -57,7 +71,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Create)]
         public async Task<ActionResult<long>> Create([FromBody] JobApplicationCreateRequest request)
         {
-            var id = await _jobApplicationService.CreateAsync(request);
+            var id = await _coreService.CreateAsync(request);
             return Ok(id);
         }
 
@@ -69,7 +83,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
         public async Task<ActionResult> Update(long jobApplicationId, [FromBody] JobApplicationUpdateRequest request)
         {
-            await _jobApplicationService.UpdateAsync(jobApplicationId, request);
+            await _coreService.UpdateAsync(jobApplicationId, request);
             return Ok();
         }
 
@@ -81,7 +95,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Delete)]
         public async Task<ActionResult> Delete(long jobApplicationId)
         {
-            await _jobApplicationService.DeleteAsync(jobApplicationId);
+            await _coreService.DeleteAsync(jobApplicationId);
             return Ok();
         }
 
@@ -96,7 +110,7 @@ namespace SylviaNG.Recruitment.Controllers
             [FromQuery] PagedRequest request,
             [FromQuery] JobApplicationAttributeFilterRequest filter)
         {
-            var result = await _jobApplicationService.GetDashboardPagedAsync(request, filter);
+            var result = await _dashboardService.GetDashboardPagedAsync(request, filter);
             return Ok(result);
         }
 
@@ -107,7 +121,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<JobApplicationDetailResponse>> GetDetail(long jobApplicationId)
         {
-            var result = await _jobApplicationService.GetDetailAsync(jobApplicationId);
+            var result = await _dashboardService.GetDetailAsync(jobApplicationId);
             return Ok(result);
         }
 
@@ -119,7 +133,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<List<long>>> GetDashboardMatchingIds([FromQuery] JobApplicationAttributeFilterRequest filter)
         {
-            var result = await _jobApplicationService.GetDashboardMatchingIdsAsync(filter);
+            var result = await _dashboardService.GetDashboardMatchingIdsAsync(filter);
             return Ok(result);
         }
 
@@ -130,7 +144,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<List<ApplicationStatusReasonResponse>>> GetStatusReasons([FromQuery] ApplicationStatusEnum status)
         {
-            var result = await _jobApplicationService.GetStatusReasonsAsync(status);
+            var result = await _statusService.GetStatusReasonsAsync(status);
             return Ok(result);
         }
 
@@ -141,7 +155,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
         public async Task<ActionResult> UpdateStatus(long jobApplicationId, [FromBody] JobApplicationStatusUpdateRequest request)
         {
-            await _jobApplicationService.UpdateStatusAsync(jobApplicationId, request);
+            await _statusService.UpdateStatusAsync(jobApplicationId, request);
             return Ok();
         }
 
@@ -152,7 +166,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
         public async Task<ActionResult<JobApplicationBulkStatusUpdateResponse>> BulkUpdateStatus([FromBody] JobApplicationBulkStatusUpdateRequest request)
         {
-            var result = await _jobApplicationService.BulkUpdateStatusAsync(request);
+            var result = await _statusService.BulkUpdateStatusAsync(request);
             return Ok(result);
         }
 
@@ -164,7 +178,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
         public async Task<ActionResult<JobApplicationBulkNotifyResponse>> BulkNotify([FromBody] JobApplicationBulkNotifyRequest request)
         {
-            var result = await _jobApplicationService.BulkNotifyAsync(request);
+            var result = await _statusService.BulkNotifyAsync(request);
             return Ok(result);
         }
 
@@ -177,7 +191,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<IActionResult> BulkDownloadCvs([FromBody] JobApplicationCvBulkDownloadRequest request)
         {
-            var file = await _jobApplicationService.BulkDownloadCvsAsync(request);
+            var file = await _statusService.BulkDownloadCvsAsync(request);
             return File(file.Content, file.ContentType, file.FileName);
         }
 
@@ -201,7 +215,7 @@ namespace SylviaNG.Recruitment.Controllers
         [Authorize(Roles = "Candidate")]
         public async Task<ActionResult<List<MyApplicationResponse>>> GetMyApplications()
         {
-            var result = await _jobApplicationService.GetMyApplicationsAsync();
+            var result = await _selfService.GetMyApplicationsAsync();
             return Ok(result);
         }
 
@@ -213,7 +227,7 @@ namespace SylviaNG.Recruitment.Controllers
         [Authorize(Roles = "Candidate")]
         public async Task<ActionResult> WithdrawMyApplication(long jobApplicationId)
         {
-            await _jobApplicationService.WithdrawMyApplicationAsync(jobApplicationId);
+            await _selfService.WithdrawMyApplicationAsync(jobApplicationId);
             return Ok();
         }
 
@@ -225,7 +239,7 @@ namespace SylviaNG.Recruitment.Controllers
         [Authorize(Roles = "Candidate")]
         public async Task<ActionResult<JobEligibilityResponse>> CheckEligibility(long jobPostingId)
         {
-            var result = await _jobApplicationService.CheckEligibilityAsync(jobPostingId);
+            var result = await _selfService.CheckEligibilityAsync(jobPostingId);
             return Ok(result);
         }
 
@@ -237,7 +251,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<List<JobApplicationDuplicateGroupResponse>>> GetDuplicates(long jobPostingId)
         {
-            var result = await _jobApplicationService.GetDuplicatesAsync(jobPostingId);
+            var result = await _duplicateService.GetDuplicatesAsync(jobPostingId);
             return Ok(result);
         }
 
@@ -249,7 +263,7 @@ namespace SylviaNG.Recruitment.Controllers
         [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
         public async Task<ActionResult> ResolveDuplicates([FromBody] JobApplicationDuplicateResolveRequest request)
         {
-            await _jobApplicationService.ResolveDuplicatesAsync(request);
+            await _duplicateService.ResolveDuplicatesAsync(request);
             return Ok();
         }
     }

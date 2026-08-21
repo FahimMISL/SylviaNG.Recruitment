@@ -6,16 +6,16 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobAppl
 {
     public class JobApplicationSubmitHandler : IRequestHandler<JobApplicationSubmitCommand, JobApplicationResponse>
     {
-        private readonly IJobApplicationService _jobApplicationService;
+        private readonly IJobApplicationSubmissionService _submissionService;
 
-        public JobApplicationSubmitHandler(IJobApplicationService jobApplicationService)
+        public JobApplicationSubmitHandler(IJobApplicationSubmissionService submissionService)
         {
-            _jobApplicationService = jobApplicationService;
+            _submissionService = submissionService;
         }
 
         public async Task<JobApplicationResponse> Handle(JobApplicationSubmitCommand command, CancellationToken cancellationToken)
         {
-            return await _jobApplicationService.SubmitAsync(command.Request, command.Source);
+            return await _submissionService.SubmitAsync(command.Request, command.Source);
         }
     }
 }

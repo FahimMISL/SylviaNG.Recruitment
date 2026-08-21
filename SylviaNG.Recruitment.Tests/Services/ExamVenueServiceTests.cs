@@ -3,6 +3,7 @@ using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.ExamVenues.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.SharedKernel.Generic;
@@ -23,7 +24,7 @@ public class ExamVenueServiceTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _service = new ExamVenueService(_examVenueRepositoryMock.Object, _examRoomRepositoryMock.Object, _unitOfWorkMock.Object);
+        _service = new ExamVenueService(_examVenueRepositoryMock.Object, _examRoomRepositoryMock.Object, Mock.Of<ICurrentUserService>(), _unitOfWorkMock.Object);
     }
 
     private static ExamVenueCreateRequest CreateRequest(string name = "Main Campus") => new()

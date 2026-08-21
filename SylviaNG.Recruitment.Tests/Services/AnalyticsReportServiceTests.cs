@@ -426,11 +426,12 @@ public class AnalyticsReportServiceTests
             .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
             .ReturnsAsync(evaluations);
         _employeeRepositoryMock
-            .Setup(r => r.GetByIdAsync(10))
-            .ReturnsAsync(new Employee { EmployeeId = 10, EmployeeName = "Alice" });
-        _employeeRepositoryMock
-            .Setup(r => r.GetByIdAsync(20))
-            .ReturnsAsync(new Employee { EmployeeId = 20, EmployeeName = "Bob" });
+            .Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Employee, bool>>>()))
+            .ReturnsAsync(new List<Employee>
+            {
+                new() { EmployeeId = 10, EmployeeName = "Alice" },
+                new() { EmployeeId = 20, EmployeeName = "Bob" },
+            });
 
         var result = await _service.GetInterviewAnalyticsAsync(new InterviewAnalyticsRequest());
 
@@ -456,8 +457,8 @@ public class AnalyticsReportServiceTests
             .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
             .ReturnsAsync(evaluations);
         _employeeRepositoryMock
-            .Setup(r => r.GetByIdAsync(99))
-            .ReturnsAsync((Employee?)null);
+            .Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Employee, bool>>>()))
+            .ReturnsAsync(new List<Employee>());
 
         var result = await _service.GetInterviewAnalyticsAsync(new InterviewAnalyticsRequest());
 
@@ -478,8 +479,8 @@ public class AnalyticsReportServiceTests
             .Setup(r => r.GetForAnalyticsScopeAsync(null, null, null, null))
             .ReturnsAsync(evaluations);
         _employeeRepositoryMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<long>()))
-            .ReturnsAsync(new Employee { EmployeeId = 1, EmployeeName = "Alice" });
+            .Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Employee, bool>>>()))
+            .ReturnsAsync(new List<Employee> { new() { EmployeeId = 1, EmployeeName = "Alice" } });
 
         var result = await _service.GetInterviewAnalyticsAsync(new InterviewAnalyticsRequest());
 

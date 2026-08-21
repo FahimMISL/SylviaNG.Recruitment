@@ -6,11 +6,19 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
     /// <summary>Which concrete address each recipient type resolves to for one DispatchAsync call.
     /// A null address means that recipient type's leg is Skipped (no email on file / HR mailbox not
     /// configured), not an error.</summary>
+    /// <param name="CompanyId">Which company's active HR users <paramref name="NotifyActiveHrUsers"/>
+    /// fans out to. Must be supplied explicitly: the ambient ICompanyScoped query filter resolves to
+    /// "no company set = match everything", and the payment IPN/callback endpoints plus the
+    /// background dispatch worker both run with no company scope at all - relying on the filter there
+    /// mailed every HR user of every tenant (and leaked one tenant's applications into another's
+    /// inbox). Null keeps the old ambient behaviour for callers that genuinely have no application
+    /// context.</param>
     public record NotificationDispatchTargets(
         string? CandidateEmail,
         string? AdminHrEmail,
         long? JobApplicationId = null,
-        bool NotifyActiveHrUsers = false);
+        bool NotifyActiveHrUsers = false,
+        long? CompanyId = null);
 
     /// <summary>Per-leg outcome, for callers (ExamNotificationService, InterviewNotificationService)
     /// that need to persist their own send-status fields onto an entity. Null means that leg wasn't

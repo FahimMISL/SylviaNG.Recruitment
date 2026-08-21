@@ -360,6 +360,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // EP-13 US-104: polls for queued export requests and renders them off the HTTP request thread
             services.AddHostedService<ExportRequestWorker>();
 
+            // Takes SMTP off the request thread - see INotificationDispatchQueue's remarks. Singleton
+            // because the channel has to outlive the request that writes to it.
+            services.AddSingleton<INotificationDispatchQueue, NotificationDispatchQueue>();
+            services.AddHostedService<NotificationDispatchWorker>();
+
             return services;
         }
 

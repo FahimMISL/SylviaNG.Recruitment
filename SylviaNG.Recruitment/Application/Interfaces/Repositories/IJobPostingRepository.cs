@@ -38,5 +38,10 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
 
         /// <summary>EP-15/US-113: postings created by the given local UserAccountId, for the "My Postings" view.</summary>
         Task<List<JobPosting>> GetByCreatedByAsync(long userAccountId);
+
+        /// <summary>Application count per posting, for the given ids only - one grouped query
+        /// instead of loading every JobApplication row via .Include(j => j.Applications) just to
+        /// read Count. A posting with zero applications has no key in the result.</summary>
+        Task<Dictionary<long, int>> GetApplicationCountsByJobPostingIdsAsync(IReadOnlyCollection<long> jobPostingIds);
     }
 }

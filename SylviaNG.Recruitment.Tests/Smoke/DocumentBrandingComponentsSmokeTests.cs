@@ -86,10 +86,10 @@ public class DocumentBrandingComponentsSmokeTests
     {
         var repositoryMock = new Mock<ICompanyBrandingRepository>();
         repositoryMock
-            .Setup(r => r.GetByTenantIdAsync(It.IsAny<string>()))
+            .Setup(r => r.GetByCompanyIdAsync(It.IsAny<long?>()))
             .ReturnsAsync((CompanyBranding?)null);
 
-        var resolver = new BrandingResolverService(repositoryMock.Object);
+        var resolver = new BrandingResolverService(repositoryMock.Object, Mock.Of<ICompanyRepository>());
 
         var branding = await resolver.GetActiveBrandingAsync();
 

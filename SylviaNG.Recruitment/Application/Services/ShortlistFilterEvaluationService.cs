@@ -14,20 +14,20 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IShortlistFilterRepository _shortlistFilterRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICandidateProfileRepository _candidateProfileRepository;
-        private readonly IJobApplicationService _jobApplicationService;
+        private readonly IJobApplicationStatusService _jobApplicationStatusService;
         private readonly IAutoShortlistRunRepository _autoShortlistRunRepository;
 
         public ShortlistFilterEvaluationService(
             IShortlistFilterRepository shortlistFilterRepository,
             IJobApplicationRepository jobApplicationRepository,
             ICandidateProfileRepository candidateProfileRepository,
-            IJobApplicationService jobApplicationService,
+            IJobApplicationStatusService jobApplicationStatusService,
             IAutoShortlistRunRepository autoShortlistRunRepository)
         {
             _shortlistFilterRepository = shortlistFilterRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _candidateProfileRepository = candidateProfileRepository;
-            _jobApplicationService = jobApplicationService;
+            _jobApplicationStatusService = jobApplicationStatusService;
             _autoShortlistRunRepository = autoShortlistRunRepository;
         }
 
@@ -52,7 +52,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var criteria = filter.Criteria.Select(c => c.ToCriterionRequest()).ToList();
             var (applications, passingIds) = await EvaluateApplicationsAsync(request.JobPostingId, filter.CombineWith, criteria);
 
-            var bulkResult = await _jobApplicationService.BulkUpdateStatusAsync(new JobApplicationBulkStatusUpdateRequest
+            var bulkResult = await _jobApplicationStatusService.BulkUpdateStatusAsync(new JobApplicationBulkStatusUpdateRequest
             {
                 JobApplicationIds = passingIds,
                 ToStatus = ApplicationStatusEnum.Shortlisted

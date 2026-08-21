@@ -70,7 +70,12 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             // shortlist/CV-Bank matching) reads Certifications and Documents too - without these
             // Includes those two sections always read as empty here, undercounting completeness
             // and silently diverging from GetMyProfileAsync's full Include list (US-007 AC4 gap).
+            // AsSplitQuery: five sibling collections (Educations/WorkExperiences/Skills/
+            // Certifications/Documents/Tags) in one query is a cartesian join - split avoids
+            // multiplying row counts across every caller of this method (apply-gate, shortlist
+            // matching, CV Bank).
             return await _dbSet
+                .AsSplitQuery()
                 .Include(c => c.Educations)
                 .Include(c => c.WorkExperiences)
                 .Include(c => c.Skills)
@@ -86,6 +91,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         public async Task<List<CandidateProfile>> GetAllActiveWithDetailsAsync()
         {
             return await _dbSet
+                .AsSplitQuery()
                 .Include(c => c.Educations).ThenInclude(e => e.Degree)
                 .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
                 .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)
@@ -105,6 +111,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             var idSet = candidateProfileIds.ToList();
             return await _dbSet
+                .AsSplitQuery()
                 .Include(c => c.Educations).ThenInclude(e => e.Degree)
                 .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectSscHsc)
                 .Include(c => c.Educations).ThenInclude(e => e.MajorSubjectUniversity)

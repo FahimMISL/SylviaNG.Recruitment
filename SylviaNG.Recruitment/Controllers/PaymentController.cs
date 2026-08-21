@@ -102,11 +102,13 @@ namespace SylviaNG.Recruitment.Controllers
         {
             var (tranId, valId, rawPayload) = ExtractIpnFields(form);
 
+            // HandleIpnAsync already loads both the Payment and its JobApplication, so it hands the
+            // redirect target back directly - this used to re-read both rows through
+            // GetJobApplicationIdByTransactionIdAsync while the applicant's browser sat waiting.
             (long JobApplicationId, string? CandidateEmail)? application = null;
             if (!string.IsNullOrWhiteSpace(tranId))
             {
-                await _paymentService.HandleIpnAsync(tranId, valId, rawPayload);
-                application = await _paymentService.GetJobApplicationIdByTransactionIdAsync(tranId);
+                application = await _paymentService.HandleIpnAsync(tranId, valId, rawPayload);
             }
 
             var frontendBase = _settings.FrontendReturnBaseUrl.TrimEnd('/');

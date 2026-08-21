@@ -51,8 +51,22 @@ namespace SylviaNG.Recruitment.Application.Services
             EmailSendResult? candidateResult = null;
             EmailSendResult? adminHrResult = null;
 
+            // Resolved once per dispatch instead of once per recipient. Both of these used to sit
+            // inside DispatchToRecipientAsync, so an HR fan-out of N mailboxes issued N identical
+            // CompanyId lookups and N identical template-mapping queries (the mapping one Includes
+            // NotificationTemplate, so it is a real round-trip every time).
+            long? companyId = targets.CompanyId;
+            if (!companyId.HasValue && targets.JobApplicationId.HasValue)
+            {
+                var jobApplication = await _jobApplicationRepository.GetByIdAsync(targets.JobApplicationId.Value);
+                companyId = jobApplication?.CompanyId;
+            }
+
             if (!string.IsNullOrWhiteSpace(targets.CandidateEmail))
-                candidateResult = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.Candidate, targets.CandidateEmail!, placeholderValues, targets.JobApplicationId, attachments, cancellationToken);
+            {
+                var candidateMapping = await _eventTemplateMappingRepository.GetActiveMappingAsync(recruitmentEvent, NotificationChannelEnum.Email, NotificationRecipientTypeEnum.Candidate);
+                candidateResult = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.Candidate, targets.CandidateEmail!, placeholderValues, targets.JobApplicationId, companyId, candidateMapping, attachments, cancellationToken);
+            }
 
             var adminHrRecipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (!string.IsNullOrWhiteSpace(targets.AdminHrEmail))
@@ -60,16 +74,21 @@ namespace SylviaNG.Recruitment.Application.Services
 
             if (targets.NotifyActiveHrUsers)
             {
-                var activeHrEmails = await _userAccountRepository.GetActiveEmailsByRoleAsync("HR");
+                var activeHrEmails = await _userAccountRepository.GetActiveEmailsByRoleAsync("HR", companyId);
                 adminHrRecipients.UnionWith(activeHrEmails);
             }
 
-            foreach (var recipient in adminHrRecipients)
+            if (adminHrRecipients.Count > 0)
             {
-                var result = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.AdminHr, recipient, placeholderValues, targets.JobApplicationId, attachments, cancellationToken);
-                adminHrResult ??= result;
-                if (!result.Success)
-                    adminHrResult = result;
+                var adminHrMapping = await _eventTemplateMappingRepository.GetActiveMappingAsync(recruitmentEvent, NotificationChannelEnum.Email, NotificationRecipientTypeEnum.AdminHr);
+
+                foreach (var recipient in adminHrRecipients)
+                {
+                    var result = await DispatchToRecipientAsync(recruitmentEvent, NotificationRecipientTypeEnum.AdminHr, recipient, placeholderValues, targets.JobApplicationId, companyId, adminHrMapping, attachments, cancellationToken);
+                    adminHrResult ??= result;
+                    if (!result.Success)
+                        adminHrResult = result;
+                }
             }
 
             if (persistImmediately)
@@ -93,20 +112,16 @@ namespace SylviaNG.Recruitment.Application.Services
             string address,
             IDictionary<string, string> placeholderValues,
             long? jobApplicationId,
-            IReadOnlyList<EmailAttachment>? attachments,
-            CancellationToken cancellationToken)
-        {
             // Multi-tenant: mirrors the triggering JobApplication's CompanyId, so the bell/log
             // feed stays scoped to one company (JobApplication is already ICompanyScoped).
             // Events with no JobApplicationId (e.g. candidate account/OTP mail) leave this null -
-            // acceptable since those never surface in the HR bell to begin with.
-            long? companyId = null;
-            if (jobApplicationId.HasValue)
-            {
-                var jobApplication = await _jobApplicationRepository.GetByIdAsync(jobApplicationId.Value);
-                companyId = jobApplication?.CompanyId;
-            }
-
+            // acceptable since those never surface in the HR bell to begin with. Resolved once by
+            // the caller rather than per recipient.
+            long? companyId,
+            EventTemplateMapping? mapping,
+            IReadOnlyList<EmailAttachment>? attachments,
+            CancellationToken cancellationToken)
+        {
             var log = new NotificationLog
             {
                 RecruitmentEvent = recruitmentEvent,
@@ -127,7 +142,6 @@ namespace SylviaNG.Recruitment.Application.Services
 
             try
             {
-                var mapping = await _eventTemplateMappingRepository.GetActiveMappingAsync(recruitmentEvent, NotificationChannelEnum.Email, recipientType);
                 if (mapping == null)
                 {
                     log.DeliveryStatus = NotificationStatusEnum.Skipped;

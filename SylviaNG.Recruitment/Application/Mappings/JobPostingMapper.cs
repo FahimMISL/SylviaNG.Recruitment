@@ -71,7 +71,12 @@ namespace SylviaNG.Recruitment.Application.Mappings
             if (request.HiringPipelineId.HasValue) entity.HiringPipelineId = request.HiringPipelineId;
         }
 
-        public static JobPostingResponse ToResponse(this JobPosting entity)
+        // totalApplicationsOverride lets list-query callers supply a count fetched via a single
+        // grouped query instead of an .Include(j => j.Applications) that would pull every
+        // JobApplication row (and every column, including ResumeExtractedText) for every posting
+        // on the page just to read Count. Detail-view callers that already load the full
+        // Applications collection for other reasons can omit it and keep the entity's own count.
+        public static JobPostingResponse ToResponse(this JobPosting entity, int? totalApplicationsOverride = null)
         {
             return new JobPostingResponse
             {
@@ -91,7 +96,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 PostingDate = entity.PostingDate,
                 ClosingDate = entity.ClosingDate,
                 IsActive = entity.IsActive,
-                TotalApplications = entity.Applications?.Count ?? 0,
+                TotalApplications = totalApplicationsOverride ?? entity.Applications?.Count ?? 0,
                 Location = entity.Location,
                 CircularType = entity.CircularType,
                 MinAge = entity.MinAge,

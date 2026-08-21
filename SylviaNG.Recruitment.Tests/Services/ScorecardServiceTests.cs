@@ -3,6 +3,7 @@ using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.Scorecards.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.SharedKernel.Generic;
@@ -21,7 +22,7 @@ public class ScorecardServiceTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _service = new ScorecardService(_scorecardRepositoryMock.Object, _unitOfWorkMock.Object);
+        _service = new ScorecardService(_scorecardRepositoryMock.Object, Mock.Of<ICurrentUserService>(), _unitOfWorkMock.Object);
     }
 
     private static ScorecardCreateRequest CreateRequest(string name = "Technical Panel Scorecard") => new()

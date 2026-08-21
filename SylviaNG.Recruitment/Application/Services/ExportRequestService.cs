@@ -23,7 +23,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private const int RetentionDays = 7;
 
         private readonly IExportRequestRepository _exportRequestRepository;
-        private readonly IJobApplicationService _jobApplicationService;
+        private readonly IJobApplicationDashboardService _jobApplicationDashboardService;
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly IUserAccountRepository _userAccountRepository;
@@ -33,7 +33,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public ExportRequestService(
             IExportRequestRepository exportRequestRepository,
-            IJobApplicationService jobApplicationService,
+            IJobApplicationDashboardService jobApplicationDashboardService,
             IJobApplicationRepository jobApplicationRepository,
             ICurrentUserService currentUserService,
             IUserAccountRepository userAccountRepository,
@@ -42,7 +42,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IHttpContextAccessor? httpContextAccessor = null)
         {
             _exportRequestRepository = exportRequestRepository;
-            _jobApplicationService = jobApplicationService;
+            _jobApplicationDashboardService = jobApplicationDashboardService;
             _jobApplicationRepository = jobApplicationRepository;
             _currentUserService = currentUserService;
             _userAccountRepository = userAccountRepository;
@@ -66,7 +66,7 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             // Throws FluentValidation.ValidationException on a bad filter (e.g. candidate-attribute
             // filters without JobPostingId) - same validation the ATS dashboard already runs.
-            var matchedIds = await _jobApplicationService.GetDashboardMatchingIdsAsync(filter);
+            var matchedIds = await _jobApplicationDashboardService.GetDashboardMatchingIdsAsync(filter);
 
             var companyId = await TryGetCurrentUserCompanyIdAsync();
 
@@ -94,7 +94,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<long> RequestJobApplicationTrackerExportAsync(JobApplicationAttributeFilterRequest filter, ExportFormatEnum format)
         {
-            var matchedIds = await _jobApplicationService.GetDashboardMatchingIdsAsync(filter);
+            var matchedIds = await _jobApplicationDashboardService.GetDashboardMatchingIdsAsync(filter);
             var companyId = await TryGetCurrentUserCompanyIdAsync();
 
             var now = DateTime.UtcNow;

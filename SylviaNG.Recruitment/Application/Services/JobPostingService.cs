@@ -92,7 +92,9 @@ namespace SylviaNG.Recruitment.Application.Services
                 return new List<JobPostingResponse>();
 
             var entities = await _jobPostingRepository.GetByCreatedByAsync(userAccountId.Value);
-            return entities.Select(e => e.ToResponse()).ToList();
+            var counts = await _jobPostingRepository.GetApplicationCountsByJobPostingIdsAsync(
+                entities.Select(e => e.JobPostingId).ToList());
+            return entities.Select(e => e.ToResponse(counts.GetValueOrDefault(e.JobPostingId))).ToList();
         }
 
         private static void EnsureLegalStatusTransition(JobStatusEnum currentStatus, JobStatusEnum requestedStatus)
@@ -157,7 +159,9 @@ namespace SylviaNG.Recruitment.Application.Services
         public async Task<List<JobPostingResponse>> GetAllAsync()
         {
             var entities = await _jobPostingRepository.GetAllNewestFirstAsync();
-            return entities.Select(e => e.ToResponse()).ToList();
+            var counts = await _jobPostingRepository.GetApplicationCountsByJobPostingIdsAsync(
+                entities.Select(e => e.JobPostingId).ToList());
+            return entities.Select(e => e.ToResponse(counts.GetValueOrDefault(e.JobPostingId))).ToList();
         }
 
         public async Task<PagedResult<JobPostingResponse>> GetPaginatedAsync(PagedRequest request)
@@ -166,10 +170,12 @@ namespace SylviaNG.Recruitment.Application.Services
             // repository applies the complete title/code/location/enum search expression.
             request.SearchProperties = null;
             var pagedResult = await _jobPostingRepository.GetPaginatedAsync(request);
+            var counts = await _jobPostingRepository.GetApplicationCountsByJobPostingIdsAsync(
+                pagedResult.Data.Select(e => e.JobPostingId).ToList());
 
             return new PagedResult<JobPostingResponse>
             {
-                Data = pagedResult.Data.Select(e => e.ToResponse()).ToList(),
+                Data = pagedResult.Data.Select(e => e.ToResponse(counts.GetValueOrDefault(e.JobPostingId))).ToList(),
                 TotalCount = pagedResult.TotalCount,
                 PageNumber = pagedResult.PageNumber,
                 PageSize = pagedResult.PageSize

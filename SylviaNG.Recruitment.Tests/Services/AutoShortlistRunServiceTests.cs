@@ -21,7 +21,7 @@ public class AutoShortlistRunServiceTests
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly Mock<IShortlistScoringService> _scoringServiceMock;
-    private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
+    private readonly Mock<IJobApplicationStatusService> _jobApplicationServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private AutoShortlistRunService _service;
 
@@ -33,7 +33,7 @@ public class AutoShortlistRunServiceTests
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
         _scoringServiceMock = new Mock<IShortlistScoringService>();
         _scoringServiceMock.Setup(s => s.ProviderName).Returns("Manual");
-        _jobApplicationServiceMock = new Mock<IJobApplicationService>();
+        _jobApplicationServiceMock = new Mock<IJobApplicationStatusService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 

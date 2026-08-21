@@ -18,7 +18,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IPaymentRepository _paymentRepository;
         private readonly IJobApplicationRepository _jobApplicationRepository;
         private readonly ISslCommerzPaymentGateway _gateway;
-        private readonly INotificationDispatchService _notificationDispatchService;
+        private readonly INotificationDispatchQueue _notificationDispatchQueue;
         private readonly IApplicationSettingService _applicationSettingService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<PaymentService> _logger;
@@ -27,7 +27,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IPaymentRepository paymentRepository,
             IJobApplicationRepository jobApplicationRepository,
             ISslCommerzPaymentGateway gateway,
-            INotificationDispatchService notificationDispatchService,
+            INotificationDispatchQueue notificationDispatchQueue,
             IApplicationSettingService applicationSettingService,
             IUnitOfWork unitOfWork,
             ILogger<PaymentService> logger)
@@ -35,7 +35,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _paymentRepository = paymentRepository;
             _jobApplicationRepository = jobApplicationRepository;
             _gateway = gateway;
-            _notificationDispatchService = notificationDispatchService;
+            _notificationDispatchQueue = notificationDispatchQueue;
             _applicationSettingService = applicationSettingService;
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -104,14 +104,23 @@ namespace SylviaNG.Recruitment.Application.Services
             return new PaymentInitiateResponse { Success = true, GatewayRedirectUrl = sessionResult.GatewayPageUrl };
         }
 
-        public async Task HandleIpnAsync(string transactionId, string? validationId, string rawPayload)
+        public async Task<(long JobApplicationId, string? CandidateEmail)?> HandleIpnAsync(string transactionId, string? validationId, string rawPayload)
         {
             var payment = await _paymentRepository.GetByTransactionIdAsync(transactionId);
             if (payment == null)
             {
                 _logger.LogWarning("SSLCommerz IPN received for unknown tran_id {TransactionId}.", transactionId);
-                return;
+                return null;
             }
+
+            // Already settled. Both the browser-return callback and SSLCommerz's own async IPN
+            // drive this method for the same tran_id (see PaymentController's callback remarks), so
+            // without this guard the second one re-ran the whole path: another Validation API call
+            // (up to the 10 s HttpClient timeout), another Serializable transaction, and another
+            // round of confirmation emails. The transition itself was already idempotent - this
+            // makes the *cost* idempotent too.
+            if (payment.PaymentStatus == PaymentStatusEnum.Success)
+                return await ResolveCallbackTargetAsync(payment.JobApplicationId);
 
             payment.RawIpnPayload = rawPayload;
 
@@ -120,7 +129,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 payment.PaymentStatus = PaymentStatusEnum.Failed;
                 _paymentRepository.Update(payment);
                 await _unitOfWork.SaveChangesAsync();
-                return;
+                return await ResolveCallbackTargetAsync(payment.JobApplicationId);
             }
 
             SslCommerzValidationResult validation;
@@ -133,7 +142,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 // Leave the payment row as-is (still Initiated) so a later IPN retry from
                 // SSLCommerz (they redeliver on failure) or a manual status check can re-validate.
                 _logger.LogError(ex, "SSLCommerz validation API unreachable while processing IPN for tran_id {TransactionId}.", transactionId);
-                return;
+                return await ResolveCallbackTargetAsync(payment.JobApplicationId);
             }
 
             var amountMatches = validation.Amount.HasValue && Math.Abs(validation.Amount.Value - payment.Amount) < 0.01m;
@@ -149,7 +158,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 payment.PaymentStatus = PaymentStatusEnum.Failed;
                 _paymentRepository.Update(payment);
                 await _unitOfWork.SaveChangesAsync();
-                return;
+                return await ResolveCallbackTargetAsync(payment.JobApplicationId);
             }
 
             payment.PaymentStatus = PaymentStatusEnum.Success;
@@ -178,7 +187,18 @@ namespace SylviaNG.Recruitment.Application.Services
             {
                 fromStatus = jobApplication.ApplicationStatus;
                 jobApplication.ApplicationStatus = ApplicationStatusEnum.Applied;
-                _jobApplicationRepository.Update(jobApplication);
+
+                // Deliberately NOT _jobApplicationRepository.Update(jobApplication): DbSet.Update()
+                // marks the root and every reachable tracked entity Modified, and this graph was
+                // loaded with .Include(a => a.JobPosting) - so it also issued a full-column UPDATE
+                // against JobPostings, taking a row-level write lock on the vacancy for the rest of
+                // this Serializable transaction. Every concurrent payment for the same vacancy then
+                // serialized on that one row and lost the race with a manufactured 40001, which the
+                // handler below treats as "already recorded" - silently dropping real payments.
+                // It also rewrote every JobApplications column, ResumeExtractedText (the whole CV
+                // body) and CoverLetter included, as TOAST + WAL traffic for unchanged data.
+                // The entity is already tracked, so the assignment above is enough: EF writes just
+                // ApplicationStatus, and StatusHistory.Add below is still picked up as an insert.
 
                 jobApplication.StatusHistory.Add(new ApplicationStatusHistory
                 {
@@ -204,14 +224,21 @@ namespace SylviaNG.Recruitment.Application.Services
                 _logger.LogInformation(
                     "Concurrent IPN/callback for tran_id {TransactionId} lost the race - the other request already recorded this payment.",
                     transactionId);
-                return;
+                return await ResolveCallbackTargetAsync(payment.JobApplicationId);
             }
 
-            // Dispatched only after a successful commit, and only by whichever concurrent
-            // request actually won the transition, so a losing retry never sends a duplicate
-            // "payment confirmed" email. Candidate action-required email fires at submit time,
-            // not here (see JobApplicationService.SubmitAsync) - it must not claim payment is
-            // done before it is; this is the actual "you paid, application confirmed" notification.
+            // Queued after a successful commit, and only by whichever concurrent request actually
+            // won the transition, so a losing retry never sends a duplicate "payment confirmed"
+            // email. Candidate action-required email fires at submit time, not here (see
+            // JobApplicationService.SubmitAsync) - it must not claim payment is done before it is;
+            // this is the actual "you paid, application confirmed" notification.
+            //
+            // Queued rather than awaited: this method runs on SSLCommerz's browser-return callback,
+            // and the applicant's browser is parked on the gateway until it returns. Awaiting the
+            // dispatch put a full SMTP session per recipient (candidate + every active HR mailbox,
+            // each with 3 bounded retries) between the payment completing and the 302 back to the
+            // result page. CompanyId is passed explicitly because this endpoint is [AllowAnonymous]:
+            // CompanyScopeMiddleware never runs, so the ambient tenant filter matches every company.
             if (jobApplication != null && didTransition)
             {
                 try
@@ -225,19 +252,33 @@ namespace SylviaNG.Recruitment.Application.Services
                         ["ToStatus"] = ApplicationStatusEnum.Applied.ToString()
                     };
                     var hrEmail = await _applicationSettingService.GetHrNotificationEmailAsync();
-                    var targets = new NotificationDispatchTargets(jobApplication.CandidateEmail, hrEmail, jobApplication.JobApplicationId, NotifyActiveHrUsers: true);
+                    var targets = new NotificationDispatchTargets(
+                        jobApplication.CandidateEmail,
+                        hrEmail,
+                        jobApplication.JobApplicationId,
+                        NotifyActiveHrUsers: true,
+                        CompanyId: jobApplication.CompanyId);
 
-                    await _notificationDispatchService.DispatchAsync(
+                    _notificationDispatchQueue.TryEnqueue(new NotificationDispatchRequest(
                         RecruitmentEventEnum.ApplicationStatusChanged,
                         placeholders,
-                        targets,
-                        persistImmediately: false);
+                        targets));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Unexpected error dispatching payment-confirmation notification for JobApplicationId {JobApplicationId}.", jobApplication.JobApplicationId);
+                    _logger.LogError(ex, "Unexpected error queuing payment-confirmation notification for JobApplicationId {JobApplicationId}.", jobApplication.JobApplicationId);
                 }
             }
+
+            return (payment.JobApplicationId, jobApplication?.CandidateEmail);
+        }
+
+        /// <summary>Redirect target for the browser-return callbacks. Only called on the paths that
+        /// don't already have the JobApplication in hand; the happy path returns the one it loaded.</summary>
+        private async Task<(long JobApplicationId, string? CandidateEmail)?> ResolveCallbackTargetAsync(long jobApplicationId)
+        {
+            var jobApplication = await _jobApplicationRepository.GetByIdAsync(jobApplicationId);
+            return (jobApplicationId, jobApplication?.CandidateEmail);
         }
 
         public async Task<PaymentStatusResponse> GetStatusAsync(long jobApplicationId, string candidateEmail)

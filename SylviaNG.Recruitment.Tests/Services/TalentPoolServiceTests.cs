@@ -19,7 +19,8 @@ public class TalentPoolServiceTests
     private readonly Mock<ICandidateProfileRepository> _candidateProfileRepositoryMock;
     private readonly Mock<IJobPostingRepository> _jobPostingRepositoryMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
-    private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
+    private readonly Mock<IJobApplicationCoreService> _jobApplicationCoreServiceMock;
+    private readonly Mock<IJobApplicationStatusService> _jobApplicationStatusServiceMock;
     private readonly Mock<IUserAccountRepository> _userAccountRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly TalentPoolService _service;
@@ -31,7 +32,8 @@ public class TalentPoolServiceTests
         _candidateProfileRepositoryMock = new Mock<ICandidateProfileRepository>();
         _jobPostingRepositoryMock = new Mock<IJobPostingRepository>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
-        _jobApplicationServiceMock = new Mock<IJobApplicationService>();
+        _jobApplicationCoreServiceMock = new Mock<IJobApplicationCoreService>();
+        _jobApplicationStatusServiceMock = new Mock<IJobApplicationStatusService>();
         _userAccountRepositoryMock = new Mock<IUserAccountRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
@@ -42,7 +44,8 @@ public class TalentPoolServiceTests
             _candidateProfileRepositoryMock.Object,
             _jobPostingRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object,
-            _jobApplicationServiceMock.Object,
+            _jobApplicationCoreServiceMock.Object,
+            _jobApplicationStatusServiceMock.Object,
             _userAccountRepositoryMock.Object,
             _unitOfWorkMock.Object);
     }
@@ -327,7 +330,7 @@ public class TalentPoolServiceTests
         _jobApplicationRepositoryMock.Setup(r => r.GetByCandidateAsync(1, "alice@example.com"))
             .ReturnsAsync(priorApplications);
 
-        _jobApplicationServiceMock.Setup(s => s.CreateAsync(It.IsAny<JobApplicationCreateRequest>(), It.IsAny<long?>())).ReturnsAsync(99);
+        _jobApplicationCoreServiceMock.Setup(s => s.CreateAsync(It.IsAny<JobApplicationCreateRequest>(), It.IsAny<long?>())).ReturnsAsync(99);
 
         // Act
         var result = await _service.FastTrackAsync(new TalentPoolFastTrackRequest
@@ -342,9 +345,9 @@ public class TalentPoolServiceTests
         result.AlreadyAppliedCount.Should().Be(0);
         result.SkippedCount.Should().Be(0);
 
-        _jobApplicationServiceMock.Verify(s => s.CreateAsync(It.Is<JobApplicationCreateRequest>(r =>
+        _jobApplicationCoreServiceMock.Verify(s => s.CreateAsync(It.Is<JobApplicationCreateRequest>(r =>
             r.JobPostingId == 5 && r.CandidateEmail == "alice@example.com" && r.ResumeUrl == "/uploads/alice-cv.pdf"), 1), Times.Once);
-        _jobApplicationServiceMock.Verify(s => s.UpdateStatusAsync(99, It.Is<JobApplicationStatusUpdateRequest>(r =>
+        _jobApplicationStatusServiceMock.Verify(s => s.UpdateStatusAsync(99, It.Is<JobApplicationStatusUpdateRequest>(r =>
             r.ToStatus == ApplicationStatusEnum.Shortlisted)), Times.Once);
     }
 
@@ -370,7 +373,7 @@ public class TalentPoolServiceTests
         // Assert
         result.AlreadyAppliedCount.Should().Be(1);
         result.FastTrackedCount.Should().Be(0);
-        _jobApplicationServiceMock.Verify(s => s.CreateAsync(It.IsAny<JobApplicationCreateRequest>()), Times.Never);
+        _jobApplicationCoreServiceMock.Verify(s => s.CreateAsync(It.IsAny<JobApplicationCreateRequest>()), Times.Never);
     }
 
     [Fact]
@@ -397,6 +400,6 @@ public class TalentPoolServiceTests
         // Assert
         result.SkippedCount.Should().Be(1);
         result.FastTrackedCount.Should().Be(0);
-        _jobApplicationServiceMock.Verify(s => s.CreateAsync(It.IsAny<JobApplicationCreateRequest>()), Times.Never);
+        _jobApplicationCoreServiceMock.Verify(s => s.CreateAsync(It.IsAny<JobApplicationCreateRequest>()), Times.Never);
     }
 }

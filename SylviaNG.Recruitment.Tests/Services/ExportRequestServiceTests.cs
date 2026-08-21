@@ -17,7 +17,7 @@ namespace SylviaNG.Recruitment.Tests.Services;
 public class ExportRequestServiceTests
 {
     private readonly Mock<IExportRequestRepository> _exportRequestRepositoryMock;
-    private readonly Mock<IJobApplicationService> _jobApplicationServiceMock;
+    private readonly Mock<IJobApplicationDashboardService> _jobApplicationServiceMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<IUserAccountRepository> _userAccountRepositoryMock;
@@ -28,7 +28,7 @@ public class ExportRequestServiceTests
     public ExportRequestServiceTests()
     {
         _exportRequestRepositoryMock = new Mock<IExportRequestRepository>();
-        _jobApplicationServiceMock = new Mock<IJobApplicationService>();
+        _jobApplicationServiceMock = new Mock<IJobApplicationDashboardService>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _userAccountRepositoryMock = new Mock<IUserAccountRepository>();

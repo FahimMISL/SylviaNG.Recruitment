@@ -3,6 +3,7 @@ using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.QuestionGroups.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.SharedKernel.Generic;
@@ -23,7 +24,7 @@ public class QuestionGroupServiceTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _service = new QuestionGroupService(_questionGroupRepositoryMock.Object, _examQuestionRepositoryMock.Object, _unitOfWorkMock.Object);
+        _service = new QuestionGroupService(_questionGroupRepositoryMock.Object, _examQuestionRepositoryMock.Object, Mock.Of<ICurrentUserService>(), _unitOfWorkMock.Object);
     }
 
     private static QuestionGroupCreateRequest CreateRequest(string name = "Aptitude") => new()

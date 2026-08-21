@@ -17,7 +17,7 @@ public class PaymentServiceTests
     private readonly Mock<IPaymentRepository> _paymentRepositoryMock;
     private readonly Mock<IJobApplicationRepository> _jobApplicationRepositoryMock;
     private readonly Mock<ISslCommerzPaymentGateway> _gatewayMock;
-    private readonly Mock<INotificationDispatchService> _notificationDispatchServiceMock;
+    private readonly Mock<INotificationDispatchQueue> _notificationDispatchQueueMock;
     private readonly Mock<IApplicationSettingService> _applicationSettingServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly PaymentService _service;
@@ -27,27 +27,21 @@ public class PaymentServiceTests
         _paymentRepositoryMock = new Mock<IPaymentRepository>();
         _jobApplicationRepositoryMock = new Mock<IJobApplicationRepository>();
         _gatewayMock = new Mock<ISslCommerzPaymentGateway>();
-        _notificationDispatchServiceMock = new Mock<INotificationDispatchService>();
+        _notificationDispatchQueueMock = new Mock<INotificationDispatchQueue>();
         _applicationSettingServiceMock = new Mock<IApplicationSettingService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
 
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
         _applicationSettingServiceMock.Setup(s => s.GetHrNotificationEmailAsync()).ReturnsAsync((string?)null);
-        _notificationDispatchServiceMock
-            .Setup(d => d.DispatchAsync(
-                It.IsAny<RecruitmentEventEnum>(),
-                It.IsAny<IDictionary<string, string>>(),
-                It.IsAny<NotificationDispatchTargets>(),
-                It.IsAny<bool>(),
-                It.IsAny<IReadOnlyList<Application.Common.Email.EmailAttachment>?>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new NotificationDispatchResult(null, null));
+        _notificationDispatchQueueMock
+            .Setup(q => q.TryEnqueue(It.IsAny<NotificationDispatchRequest>()))
+            .Returns(true);
 
         _service = new PaymentService(
             _paymentRepositoryMock.Object,
             _jobApplicationRepositoryMock.Object,
             _gatewayMock.Object,
-            _notificationDispatchServiceMock.Object,
+            _notificationDispatchQueueMock.Object,
             _applicationSettingServiceMock.Object,
             _unitOfWorkMock.Object,
             NullLogger<PaymentService>.Instance);
@@ -157,13 +151,9 @@ public class PaymentServiceTests
         payment.PaidAt.Should().NotBeNull();
         jobApplication.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
         jobApplication.StatusHistory.Should().ContainSingle(h => h.ChangedByUserName == "system:sslcommerz-ipn" && h.ToStatus == ApplicationStatusEnum.Applied);
-        _notificationDispatchServiceMock.Verify(d => d.DispatchAsync(
-            RecruitmentEventEnum.ApplicationStatusChanged,
-            It.IsAny<IDictionary<string, string>>(),
-            It.Is<NotificationDispatchTargets>(t => t.CandidateEmail == "jane@example.com"),
-            false,
-            null,
-            It.IsAny<CancellationToken>()), Times.Once);
+        _notificationDispatchQueueMock.Verify(q => q.TryEnqueue(It.Is<NotificationDispatchRequest>(r =>
+            r.RecruitmentEvent == RecruitmentEventEnum.ApplicationStatusChanged &&
+            r.Targets.CandidateEmail == "jane@example.com")), Times.Once);
     }
 
     [Fact]
@@ -227,9 +217,7 @@ public class PaymentServiceTests
         jobApplication.ApplicationStatus.Should().Be(ApplicationStatusEnum.Applied);
         jobApplication.StatusHistory.Should().BeEmpty();
         payment.PaymentStatus.Should().Be(PaymentStatusEnum.Success);
-        _notificationDispatchServiceMock.Verify(d => d.DispatchAsync(
-            It.IsAny<RecruitmentEventEnum>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<NotificationDispatchTargets>(),
-            It.IsAny<bool>(), It.IsAny<IReadOnlyList<Application.Common.Email.EmailAttachment>?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationDispatchQueueMock.Verify(q => q.TryEnqueue(It.IsAny<NotificationDispatchRequest>()), Times.Never);
     }
 
     // ── GetStatusAsync ──────────────────────────────────────────────────────

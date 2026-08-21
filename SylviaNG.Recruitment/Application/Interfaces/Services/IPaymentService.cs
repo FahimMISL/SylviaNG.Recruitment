@@ -18,9 +18,13 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// <summary>
         /// Processes SSLCommerz's server-to-server IPN notification. Always re-validates via
         /// SSLCommerz's Validation API using the val_id - never trusts the raw IPN body's own
-        /// status field. Idempotent: safe to call more than once for the same tran_id.
+        /// status field. Idempotent: safe to call more than once for the same tran_id, and cheap to
+        /// do so - an already-Success payment short-circuits before the Validation API call.
+        /// Returns the application this tran_id belongs to (and its CandidateEmail) so the
+        /// browser-return callbacks can build their redirect without re-reading rows this method
+        /// already loaded; null only when the tran_id is unknown.
         /// </summary>
-        Task HandleIpnAsync(string transactionId, string? validationId, string rawPayload);
+        Task<(long JobApplicationId, string? CandidateEmail)?> HandleIpnAsync(string transactionId, string? validationId, string rawPayload);
 
         /// <summary>Same email-ownership check as InitiateAsync - see its remarks.</summary>
         Task<PaymentStatusResponse> GetStatusAsync(long jobApplicationId, string candidateEmail);
