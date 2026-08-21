@@ -17,6 +17,14 @@ namespace SylviaNG.Recruitment.SharedKernel.Pagination
         public string? SearchTerm { get; set; }
 
         public string[]? SearchProperties { get; set; }
+
+        public DateTime? PostingDateFrom { get; set; }
+
+        public DateTime? PostingDateTo { get; set; }
+
+        public DateTime? ClosingDateFrom { get; set; }
+
+        public DateTime? ClosingDateTo { get; set; }
     }
 
     public enum SortDirection

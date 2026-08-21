@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using SylviaNG.Recruitment.Application.Extensions;
 using SylviaNG.Recruitment.Infrastructure.Extensions;
 using SylviaNG.Recruitment.Middlewares;
 using SylviaNG.Recruitment.SharedKernel.Utils;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,11 +18,23 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddGrpcServices(builder.Configuration);
 
+// Whitelisted to the app's own frontend(s) rather than AllowAnyOrigin - a wildcard origin let
+// any website's JS call anonymous endpoints (login, register, forgot-password, career-portal
+// apply) directly from a victim's browser. Portal:FrontendBaseUrl is the same config value the
+// rest of the app already treats as "the frontend" (portal deep-links, SSLCommerz return URL);
+// CORS:AdditionalOrigins covers any other deployed frontend (e.g. a separate demo host) without
+// another code change.
+var corsOrigins = new[] { builder.Configuration["Portal:FrontendBaseUrl"] }
+    .Concat(builder.Configuration.GetSection("Cors:AdditionalOrigins").Get<string[]>() ?? Array.Empty<string>())
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct()
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(corsOrigins!)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -32,6 +46,23 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     });
+
+// Password login/register/OTP/reset had zero application-level brute-force protection - only
+// Keycloak's own (unverifiable from this repo) throttling stood between an attacker and
+// unlimited credential/OTP guesses. Partitioned per client IP so one attacker can't exhaust a
+// shared bucket and lock out everyone else; rejects outright past the limit rather than queuing.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+});
 
 builder.Services.AddControllers();
 
@@ -92,6 +123,40 @@ builder.Services.AddControllers(options =>
 
 var app = builder.Build();
 
+// Fills the "who creates the first SuperAdmin?" gap - see SuperAdminBootstrapService for the
+// full explanation. No-op once any SuperAdmin exists, so this stays safe to run on every boot.
+await using (var bootstrapScope = app.Services.CreateAsyncScope())
+{
+    var bootstrapService = bootstrapScope.ServiceProvider.GetRequiredService<SylviaNG.Recruitment.Application.Interfaces.Services.ISuperAdminBootstrapService>();
+    await bootstrapService.RunAsync();
+}
+
+// Fail fast rather than silently run insecurely: an HTTP Keycloak authority lets a
+// network-position attacker tamper with JWKS/token-endpoint traffic, and the MinIO defaults
+// are fixed, publicly-known credentials (only meant for the local docker container - see
+// appsettings.json's Minio section comment). Both are fine in Development (LAN-only Keycloak,
+// local docker MinIO) but must never reach a real deployment unconfigured.
+if (!app.Environment.IsDevelopment())
+{
+    var keycloakAuthority = app.Configuration["Keycloak:Authority"];
+    if (keycloakAuthority?.StartsWith("http://", StringComparison.OrdinalIgnoreCase) == true)
+    {
+        throw new InvalidOperationException(
+            $"Keycloak:Authority ('{keycloakAuthority}') must use HTTPS outside Development.");
+    }
+
+    if (string.Equals(app.Configuration["FileStorage:Provider"], "Minio", StringComparison.OrdinalIgnoreCase))
+    {
+        var minioAccessKey = app.Configuration["Minio:AccessKey"];
+        var minioSecretKey = app.Configuration["Minio:SecretKey"];
+        if (minioAccessKey == "minioadmin" || minioSecretKey == "minioadmin123")
+        {
+            throw new InvalidOperationException(
+                "Minio:AccessKey/Minio:SecretKey are still the default dev-container credentials - set real ones outside Development.");
+        }
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -99,18 +164,66 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+    // FilesController.Download is deliberately [AllowAnonymous] and embeddable (see its own doc
+    // comment) - candidate/HR document viewers (offer/medical/target letters, appointment
+    // letters) render its response inside an <iframe>, which a blanket DENY here silently blocks
+    // (net::ERR_BLOCKED_BY_RESPONSE) with no server-side error to point at. Every other response
+    // keeps the clickjacking protection.
+    if (!context.Request.Path.StartsWithSegments("/recruitment/files/download"))
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+
 app.UseCors("AllowAll");
 
-// Serve uploaded job posting attachments directly (binary content must bypass
-// ResponseWrappingMiddleware, which buffers and JSON-re-wraps every response body).
-app.UseStaticFiles();
+// NO app.UseStaticFiles() here, deliberately.
+//
+// wwwroot's only contents are the local-provider upload roots (FileStorage:RootPath =
+// "wwwroot/uploads/job-postings", ApplicationCvStorage:RootPath = "wwwroot/uploads/applications"),
+// which hold candidate CVs, ID scans, certificates, profile photos and every generated offer/
+// appointment/medical/target letter. Serving that tree statically published all of it at
+// GET /uploads/... with no authentication, no access token and no company scoping - completely
+// bypassing FilesController, which is the actual gate: it requires a signed access token for
+// "/candidate-documents/" keys and an authenticated user for "documents/" keys.
+//
+// FilesController already replaced this middleware for every consumer (see its remarks): every
+// response DTO hands back a recruitment/files/download URL built by FileUrlBuilder, and nothing
+// in either repo references a raw /uploads path. Binary responses bypass
+// ResponseWrappingMiddleware on their own via the Content-Disposition check, so the original
+// reason for this line no longer applies either.
+//
+// If a genuinely public asset ever needs static serving, scope it to its own FileProvider rooted
+// at that folder - never at wwwroot.
 
 app.UseMiddleware<ResponseWrappingMiddleware>();
 
-app.UseAuthentication();
-app.UseAuthorization();
-
+// Registered before Authentication/Impersonation/Authorization so an exception thrown inside
+// any of those (e.g. a malformed claim) still gets the JSON error envelope instead of a raw
+// unhandled 500 - previously this ran after them and never saw their exceptions at all.
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+app.UseAuthentication();
+app.UseMiddleware<ImpersonationMiddleware>();
+
+// Multi-tenant: resolves CurrentCompanyId for ApplicationDBContext's ICompanyScoped query
+// filter. After ImpersonationMiddleware (final resolved identity), before UseAuthorization/
+// MapControllers so it's always set before any handler touches the database.
+app.UseMiddleware<CompanyScopeMiddleware>();
+
+app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 

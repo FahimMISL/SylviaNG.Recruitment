@@ -13,14 +13,16 @@ namespace SylviaNG.Recruitment.Tests.Services;
 public class JobPostingServiceTests
 {
     private readonly Mock<IJobPostingRepository> _repositoryMock;
+    private readonly Mock<IUserAccountRepository> _userAccountRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly JobPostingService _service;
 
     public JobPostingServiceTests()
     {
         _repositoryMock = new Mock<IJobPostingRepository>();
+        _userAccountRepositoryMock = new Mock<IUserAccountRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _service = new JobPostingService(_repositoryMock.Object, _unitOfWorkMock.Object);
+        _service = new JobPostingService(_repositoryMock.Object, _userAccountRepositoryMock.Object, _unitOfWorkMock.Object);
     }
 
     [Fact]
@@ -30,13 +32,12 @@ public class JobPostingServiceTests
         var request = new JobPostingCreateRequest
         {
             Title = "Software Engineer",
-            SiteId = 1,
             DepartmentId = 1,
             NumberOfPositions = 2,
             EmploymentType = EmploymentTypeEnum.FullTime
         };
 
-        _repositoryMock.Setup(r => r.ExistsByTitleAndSiteIdAsync(request.Title, request.SiteId, null))
+        _repositoryMock.Setup(r => r.ExistsByTitleAsync(request.Title, null))
             .ReturnsAsync(false);
 
         _repositoryMock.Setup(r => r.AddAsync(It.IsAny<JobPosting>()))
@@ -63,10 +64,9 @@ public class JobPostingServiceTests
         var request = new JobPostingCreateRequest
         {
             Title = "Software Engineer",
-            SiteId = 1
         };
 
-        _repositoryMock.Setup(r => r.ExistsByTitleAndSiteIdAsync(request.Title, request.SiteId, null))
+        _repositoryMock.Setup(r => r.ExistsByTitleAsync(request.Title, null))
             .ReturnsAsync(false);
 
         JobPosting? createdEntity = null;
@@ -89,16 +89,31 @@ public class JobPostingServiceTests
     }
 
     [Fact]
+    public async Task GetMyPostingsAsync_WithNoResolvableUserAccount_ShouldReturnEmptyList()
+    {
+        // Arrange: no IHttpContextAccessor was passed to the service in this test fixture
+        // (defaults to null), matching a request with no resolvable local UserAccount -
+        // GetMyPostingsAsync should degrade to an empty list rather than throw.
+
+        // Act
+        var result = await _service.GetMyPostingsAsync();
+
+        // Assert
+        result.Should().BeEmpty();
+        _userAccountRepositoryMock.Verify(r => r.GetIdByKeycloakUserIdAsync(It.IsAny<string>()), Times.Never);
+        _repositoryMock.Verify(r => r.GetByCreatedByAsync(It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CreateAsync_WithDuplicateTitle_ShouldThrowDuplicateException()
     {
         // Arrange
         var request = new JobPostingCreateRequest
         {
             Title = "Existing Job",
-            SiteId = 1
         };
 
-        _repositoryMock.Setup(r => r.ExistsByTitleAndSiteIdAsync(request.Title, request.SiteId, null))
+        _repositoryMock.Setup(r => r.ExistsByTitleAsync(request.Title, null))
             .ReturnsAsync(true);
 
         // Act
@@ -145,7 +160,6 @@ public class JobPostingServiceTests
         {
             JobPostingId = 1,
             Title = "Software Engineer",
-            SiteId = 1,
             IsActive = true,
             Applications = new List<JobApplication>()
         };

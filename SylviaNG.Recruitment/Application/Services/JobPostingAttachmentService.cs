@@ -30,7 +30,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<JobPostingAttachmentResponse> UploadAsync(long jobPostingId, IFormFile file)
         {
-            _ = await _jobPostingRepository.GetByIdAsync(jobPostingId)
+            var jobPosting = await _jobPostingRepository.GetByIdAsync(jobPostingId)
                 ?? throw new NotFoundException("JobPosting", jobPostingId);
 
             await using var stream = file.OpenReadStream();
@@ -40,6 +40,7 @@ namespace SylviaNG.Recruitment.Application.Services
             var entity = new JobPostingAttachment
             {
                 JobPostingId = jobPostingId,
+                CompanyId = jobPosting.CompanyId,
                 FileName = file.FileName,
                 StoredFileName = storedFileName,
                 FilePath = filePath,

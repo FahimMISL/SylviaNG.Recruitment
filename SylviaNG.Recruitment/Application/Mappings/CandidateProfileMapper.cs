@@ -1,3 +1,4 @@
+using SylviaNG.Recruitment.Application.Common.Helpers;
 using SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Domain.Entities;
@@ -16,21 +17,29 @@ namespace SylviaNG.Recruitment.Application.Mappings
         {
             entity.FullName = request.FullName;
             entity.DateOfBirth = request.DateOfBirth;
-            entity.Gender = request.Gender;
+            entity.GenderId = request.GenderId;
             entity.NationalId = request.NationalId;
             entity.FatherName = request.FatherName;
             entity.MotherName = request.MotherName;
-            entity.MaritalStatus = request.MaritalStatus;
-            entity.Religion = request.Religion;
+            entity.MaritalStatusId = request.MaritalStatusId;
+            entity.ReligionId = request.ReligionId;
             entity.Nationality = request.Nationality;
+            entity.BloodGroupId = request.BloodGroupId;
         }
 
         public static void ApplyContactUpdate(this CandidateProfile entity, CandidateProfileContactUpdateRequest request)
         {
             entity.Email = request.Email;
             entity.Phone = request.Phone;
-            entity.PresentAddress = request.PresentAddress;
-            entity.PermanentAddress = request.PermanentAddress;
+            entity.CountryId = request.CountryId;
+            entity.PresentDivisionId = request.PresentDivisionId;
+            entity.PresentDistrictId = request.PresentDistrictId;
+            entity.PresentThanaId = request.PresentThanaId;
+            entity.PresentAddressDetail = request.PresentAddressDetail;
+            entity.HomeDivisionId = request.HomeDivisionId;
+            entity.HomeDistrictId = request.HomeDistrictId;
+            entity.HomeThanaId = request.HomeThanaId;
+            entity.PermanentAddressDetail = request.PermanentAddressDetail;
         }
 
         public static CandidateProfileResponse ToResponse(this CandidateProfile entity)
@@ -40,20 +49,30 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 CandidateProfileId = entity.CandidateProfileId,
                 FullName = entity.FullName,
                 DateOfBirth = entity.DateOfBirth,
-                Gender = entity.Gender,
+                GenderId = entity.GenderId,
                 NationalId = entity.NationalId,
                 FatherName = entity.FatherName,
                 MotherName = entity.MotherName,
-                MaritalStatus = entity.MaritalStatus,
-                Religion = entity.Religion,
+                MaritalStatusId = entity.MaritalStatusId,
+                ReligionId = entity.ReligionId,
                 Nationality = entity.Nationality,
+                BloodGroupId = entity.BloodGroupId,
                 Email = entity.Email,
                 Phone = entity.Phone,
-                PresentAddress = entity.PresentAddress,
-                PermanentAddress = entity.PermanentAddress,
-                ProfilePhotoPath = entity.ProfilePhotoPath,
-                SignaturePath = entity.SignaturePath,
-                CompletenessPercentage = CalculateCompleteness(entity)
+                CountryId = entity.CountryId,
+                PresentDivisionId = entity.PresentDivisionId,
+                PresentDistrictId = entity.PresentDistrictId,
+                PresentThanaId = entity.PresentThanaId,
+                PresentAddressDetail = entity.PresentAddressDetail,
+                HomeDivisionId = entity.HomeDivisionId,
+                HomeDistrictId = entity.HomeDistrictId,
+                HomeThanaId = entity.HomeThanaId,
+                PermanentAddressDetail = entity.PermanentAddressDetail,
+                ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath),
+                SignaturePath = FileUrlBuilder.BuildDownloadUrl(entity.SignaturePath),
+                CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.IsInternal,
+                HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity)
             };
         }
 
@@ -65,50 +84,72 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 FullName = entity.FullName,
                 Email = entity.Email,
                 Phone = entity.Phone,
-                ProfilePhotoPath = entity.ProfilePhotoPath,
-                CompletenessPercentage = CalculateCompleteness(entity)
+                PhoneDialCode = entity.Country?.DialCode,
+                ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath),
+                CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.IsInternal
             };
         }
 
-        public static CandidateProfileDetailResponse ToDetailResponse(this CandidateProfile entity, List<JobApplication> applications)
+        public static CandidateProfileDetailResponse ToDetailResponse(
+            this CandidateProfile entity,
+            List<JobApplication> applications,
+            List<TalentPoolCandidate> poolMemberships)
         {
             return new CandidateProfileDetailResponse
             {
                 CandidateProfileId = entity.CandidateProfileId,
                 FullName = entity.FullName,
                 DateOfBirth = entity.DateOfBirth,
-                Gender = entity.Gender,
+                GenderId = entity.GenderId,
                 NationalId = entity.NationalId,
                 FatherName = entity.FatherName,
                 MotherName = entity.MotherName,
-                MaritalStatus = entity.MaritalStatus,
-                Religion = entity.Religion,
+                MaritalStatusId = entity.MaritalStatusId,
+                ReligionId = entity.ReligionId,
                 Nationality = entity.Nationality,
+                BloodGroupId = entity.BloodGroupId,
                 Email = entity.Email,
                 Phone = entity.Phone,
-                PresentAddress = entity.PresentAddress,
-                PermanentAddress = entity.PermanentAddress,
-                ProfilePhotoPath = entity.ProfilePhotoPath,
-                SignaturePath = entity.SignaturePath,
+                PhoneDialCode = entity.Country?.DialCode,
+                CountryId = entity.CountryId,
+                PresentDivisionId = entity.PresentDivisionId,
+                PresentDistrictId = entity.PresentDistrictId,
+                PresentThanaId = entity.PresentThanaId,
+                PresentAddressDetail = entity.PresentAddressDetail,
+                HomeDivisionId = entity.HomeDivisionId,
+                HomeDistrictId = entity.HomeDistrictId,
+                HomeThanaId = entity.HomeThanaId,
+                PermanentAddressDetail = entity.PermanentAddressDetail,
+                ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath),
+                SignaturePath = FileUrlBuilder.BuildDownloadUrl(entity.SignaturePath),
                 CompletenessPercentage = CalculateCompleteness(entity),
+                IsInternal = entity.IsInternal,
+                HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity),
                 Educations = entity.Educations.Select(e => e.ToResponse()).ToList(),
                 WorkExperiences = entity.WorkExperiences.Select(e => e.ToResponse()).ToList(),
                 Skills = entity.Skills.Select(e => e.ToResponse()).ToList(),
                 Certifications = entity.Certifications.Select(e => e.ToResponse()).ToList(),
                 Documents = entity.Documents.Select(e => e.ToResponse()).ToList(),
                 ApplicationHistory = applications.Select(a => a.ToResponse()).ToList(),
-                HrNotes = entity.HrNotes
+                HrNotes = entity.HrNotes,
+                TalentPools = poolMemberships.Select(m => m.ToBadgeResponse()).ToList(),
+                Tags = entity.Tags.Select(t => t.TagName).ToList()
             };
         }
 
-        private static int CalculateCompleteness(CandidateProfile entity)
+        /// <summary>Public so JobApplicationService can re-run the same calculation for the
+        /// US-007 AC4 minimum-completeness submit gate.</summary>
+        public static int CalculateCompleteness(CandidateProfile entity)
         {
             var completedSections = 0;
 
-            if (entity.DateOfBirth.HasValue && !string.IsNullOrWhiteSpace(entity.Gender))
+            // Gated on each section's actual required form field (FullName / Email), not
+            // incidental optional ones - otherwise a fully-saved section can still read as 0%.
+            if (!string.IsNullOrWhiteSpace(entity.FullName))
                 completedSections++; // Personal Info
 
-            if (!string.IsNullOrWhiteSpace(entity.Phone) && !string.IsNullOrWhiteSpace(entity.PresentAddress))
+            if (!string.IsNullOrWhiteSpace(entity.Email))
                 completedSections++; // Contact
 
             if (entity.Educations.Count > 0)
@@ -129,6 +170,19 @@ namespace SylviaNG.Recruitment.Application.Mappings
             return completedSections * 100 / TotalSections;
         }
 
+        // US-005 AC2: an internal candidate's pre-populated FullName/Phone were snapshotted at
+        // provisioning time; if the live value has since diverged, flag it for HR. Always false
+        // for external candidates (Prepopulated* stay null for them).
+        private static bool HasPrepopulatedFieldEdits(CandidateProfile entity)
+        {
+            if (!entity.EmployeeId.HasValue)
+                return false;
+
+            var nameChanged = entity.PrepopulatedFullName != null && entity.FullName != entity.PrepopulatedFullName;
+            var phoneChanged = entity.PrepopulatedPhone != null && entity.Phone != entity.PrepopulatedPhone;
+            return nameChanged || phoneChanged;
+        }
+
         // ── CandidateEducation Mappings ───────────────────────────────────
 
         public static CandidateEducation ToEntity(this CandidateEducationCreateRequest request, long candidateProfileId)
@@ -136,23 +190,33 @@ namespace SylviaNG.Recruitment.Application.Mappings
             return new CandidateEducation
             {
                 CandidateProfileId = candidateProfileId,
-                DegreeTitle = request.DegreeTitle,
+                DegreeId = request.DegreeId,
+                EducationBoardId = request.EducationBoardId,
                 Institution = request.Institution,
+                UniversityLibraryItemId = request.UniversityLibraryItemId,
                 EducationLevel = request.EducationLevel,
                 PassingYear = request.PassingYear,
+                GradingSystem = request.GradingSystem,
                 Result = request.Result,
-                MajorSubject = request.MajorSubject
+                MajorSubjectSscHscId = request.MajorSubjectSscHscId,
+                MajorSubjectUniversityId = request.MajorSubjectUniversityId,
+                MajorSubjectOtherText = request.MajorSubjectOtherText
             };
         }
 
         public static void ApplyUpdate(this CandidateEducation entity, CandidateEducationUpdateRequest request)
         {
-            entity.DegreeTitle = request.DegreeTitle;
+            entity.DegreeId = request.DegreeId;
+            entity.EducationBoardId = request.EducationBoardId;
             entity.Institution = request.Institution;
+            entity.UniversityLibraryItemId = request.UniversityLibraryItemId;
             entity.EducationLevel = request.EducationLevel;
             entity.PassingYear = request.PassingYear;
+            entity.GradingSystem = request.GradingSystem;
             entity.Result = request.Result;
-            entity.MajorSubject = request.MajorSubject;
+            entity.MajorSubjectSscHscId = request.MajorSubjectSscHscId;
+            entity.MajorSubjectUniversityId = request.MajorSubjectUniversityId;
+            entity.MajorSubjectOtherText = request.MajorSubjectOtherText;
         }
 
         public static CandidateEducationResponse ToResponse(this CandidateEducation entity)
@@ -160,12 +224,17 @@ namespace SylviaNG.Recruitment.Application.Mappings
             return new CandidateEducationResponse
             {
                 CandidateEducationId = entity.CandidateEducationId,
-                DegreeTitle = entity.DegreeTitle,
+                DegreeId = entity.DegreeId,
+                EducationBoardId = entity.EducationBoardId,
                 Institution = entity.Institution,
+                UniversityLibraryItemId = entity.UniversityLibraryItemId,
                 EducationLevel = entity.EducationLevel,
                 PassingYear = entity.PassingYear,
+                GradingSystem = entity.GradingSystem,
                 Result = entity.Result,
-                MajorSubject = entity.MajorSubject
+                MajorSubjectSscHscId = entity.MajorSubjectSscHscId,
+                MajorSubjectUniversityId = entity.MajorSubjectUniversityId,
+                MajorSubjectOtherText = entity.MajorSubjectOtherText
             };
         }
 
@@ -236,6 +305,17 @@ namespace SylviaNG.Recruitment.Application.Mappings
             };
         }
 
+        // ── CandidateTag Mappings (US-041, HR-only) ─────────────────────────
+
+        public static CandidateTagResponse ToResponse(this CandidateTag entity)
+        {
+            return new CandidateTagResponse
+            {
+                CandidateTagId = entity.CandidateTagId,
+                TagName = entity.TagName
+            };
+        }
+
         // ── SkillLibraryItem Mappings ──────────────────────────────────────
 
         public static SkillLibraryItemResponse ToResponse(this SkillLibraryItem entity)
@@ -281,7 +361,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 IssueDate = entity.IssueDate,
                 ExpiryDate = entity.ExpiryDate,
                 CredentialId = entity.CredentialId,
-                CertificateFilePath = entity.CertificateFilePath
+                CertificateFilePath = FileUrlBuilder.BuildDownloadUrl(entity.CertificateFilePath)
             };
         }
 
@@ -297,7 +377,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ContentType = entity.ContentType,
                 FileSizeBytes = entity.FileSizeBytes,
                 IsActive = entity.IsActive,
-                DownloadUrl = "/" + entity.FilePath.TrimStart('/')
+                DownloadUrl = FileUrlBuilder.BuildDownloadUrl(entity.FilePath) ?? string.Empty
             };
         }
     }

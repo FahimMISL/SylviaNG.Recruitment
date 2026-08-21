@@ -17,7 +17,6 @@ public class JobPostingCreateValidatorTests
         var command = new JobPostingCreateCommand(new JobPostingCreateRequest
         {
             Title = "Software Engineer",
-            SiteId = 1,
             NumberOfPositions = 2,
             PostingDate = new DateTime(2025, 1, 1),
             ClosingDate = new DateTime(2025, 6, 30),
@@ -38,7 +37,6 @@ public class JobPostingCreateValidatorTests
         var command = new JobPostingCreateCommand(new JobPostingCreateRequest
         {
             Title = "",
-            SiteId = 1
         });
 
         // Act
@@ -50,31 +48,13 @@ public class JobPostingCreateValidatorTests
     }
 
     [Fact]
-    public void Validate_WithZeroSiteId_ShouldHaveError()
-    {
-        // Arrange
-        var command = new JobPostingCreateCommand(new JobPostingCreateRequest
-        {
-            Title = "Valid Title",
-            SiteId = 0
-        });
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().ContainSingle(e => e.PropertyName == "Request.SiteId");
-    }
-
-    [Fact]
     public void Validate_WithMinSalaryGreaterThanMaxSalary_ShouldHaveError()
     {
         // Arrange
         var command = new JobPostingCreateCommand(new JobPostingCreateRequest
         {
             Title = "Valid Title",
-            SiteId = 1,
+            SalaryCurrency = "BDT",
             MinSalary = 100000,
             MaxSalary = 50000
         });
