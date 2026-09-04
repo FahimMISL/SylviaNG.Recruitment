@@ -149,9 +149,9 @@ namespace SylviaNG.Recruitment.Application.Mappings
 
         /// <summary>Same per-section booleans CalculateCompleteness sums up, exposed individually
         /// so the profile page can show which sections are done instead of just the aggregate.
-        /// Weights aren't uniform (100/7 doesn't divide evenly) - Education and Documents carry
-        /// their own weight and the remaining 5 sections split the rest evenly, so completing
-        /// every section still adds up to exactly 100%.</summary>
+        /// Weights are explicit rather than an even 100/8 split: Documents and Photo/Signature
+        /// carry a lighter 5% each, the remaining 6 sections split the rest evenly at 15% each,
+        /// so completing every section still adds up to exactly 100%.</summary>
         public static List<CandidateProfileSectionCompleteness> GetSectionCompleteness(CandidateProfile entity)
         {
             // Gated on each section's actual required form field (FullName / Email), not
@@ -160,11 +160,12 @@ namespace SylviaNG.Recruitment.Application.Mappings
             {
                 new() { SectionKey = "PersonalInfo", IsComplete = !string.IsNullOrWhiteSpace(entity.FullName), WeightPercentage = 15 },
                 new() { SectionKey = "Contact", IsComplete = !string.IsNullOrWhiteSpace(entity.Email), WeightPercentage = 15 },
-                new() { SectionKey = "Education", IsComplete = entity.Educations.Count > 0, WeightPercentage = 20 },
+                new() { SectionKey = "Education", IsComplete = entity.Educations.Count > 0, WeightPercentage = 15 },
                 new() { SectionKey = "WorkExperience", IsComplete = entity.WorkExperiences.Count > 0, WeightPercentage = 15 },
                 new() { SectionKey = "Skills", IsComplete = entity.Skills.Count > 0, WeightPercentage = 15 },
                 new() { SectionKey = "Certifications", IsComplete = entity.Certifications.Count > 0, WeightPercentage = 15 },
                 new() { SectionKey = "Documents", IsComplete = entity.Documents.Count > 0, WeightPercentage = 5 },
+                new() { SectionKey = "PhotoSignature", IsComplete = !string.IsNullOrWhiteSpace(entity.ProfilePhotoPath), WeightPercentage = 5 },
             };
         }
 
