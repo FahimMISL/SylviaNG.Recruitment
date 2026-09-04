@@ -83,6 +83,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .HasForeignKey(a => a.JobPostingId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            builder.HasOne(j => j.Company)
+                .WithMany()
+                .HasForeignKey(j => j.CompanyId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // Note: JobPostingAttachment relationship (FK + cascade delete) is configured
             // in JobPostingAttachmentConfiguration.
         }

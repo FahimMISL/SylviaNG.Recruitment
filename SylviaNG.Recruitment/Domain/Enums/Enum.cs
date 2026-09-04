@@ -283,6 +283,11 @@ public enum RecruitmentEventEnum
     /// Account Settings' "change password" required an active session.</summary>
     PasswordResetRequested,
 
+    /// <summary>Staff account invite (Admin/HR/SuperAdmin/custom role), sent to the invited
+    /// user's email with an OTP code and accept-invite link - replaces Keycloak's own
+    /// execute-actions-email, which requires Keycloak's realm SMTP.</summary>
+    UserInvited,
+
     OfferLetterAvailable,
     OfferAccepted,
     OfferDeclined,

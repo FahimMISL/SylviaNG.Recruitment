@@ -34,5 +34,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// point of this flow). Throws OtpVerificationException for any failure, same one generic
         /// error as VerifyOtpAsync.</summary>
         Task ResetPasswordAsync(ResetPasswordRequest request);
+
+        /// <summary>Completes a staff-account invite (see UserAccountService.CreateAsync, which
+        /// creates the UserInviteOtp challenge): verifies the OTP, sets the chosen password, and
+        /// marks the email verified directly via Keycloak's Admin API. Throws
+        /// OtpVerificationException for any failure, same one generic error as ResetPasswordAsync.</summary>
+        Task AcceptInviteAsync(AcceptInviteRequest request);
     }
 }

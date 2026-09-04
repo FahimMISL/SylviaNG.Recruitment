@@ -187,24 +187,25 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<PagedResult<JobPostingResponse>> GetPaginatedPublicAsync(PagedRequest request, string? location, long? departmentId, EmploymentTypeEnum? employmentType, int? maxExperienceYears)
         {
-            return await GetPaginatedByAudienceAsync(request, PublicCircularTypes, location, departmentId, employmentType, maxExperienceYears);
+            return await GetPaginatedByAudienceAsync(request, PublicCircularTypes, isPublic: true, location, departmentId, employmentType, maxExperienceYears);
         }
 
         public async Task<PagedResult<JobPostingResponse>> GetPaginatedInternalAsync(PagedRequest request, string? location, long? departmentId, EmploymentTypeEnum? employmentType, int? maxExperienceYears)
         {
-            return await GetPaginatedByAudienceAsync(request, InternalCircularTypes, location, departmentId, employmentType, maxExperienceYears);
+            return await GetPaginatedByAudienceAsync(request, InternalCircularTypes, isPublic: false, location, departmentId, employmentType, maxExperienceYears);
         }
 
         private async Task<PagedResult<JobPostingResponse>> GetPaginatedByAudienceAsync(
             PagedRequest request,
             IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes,
+            bool isPublic,
             string? location,
             long? departmentId,
             EmploymentTypeEnum? employmentType,
             int? maxExperienceYears)
         {
             var pagedResult = await _jobPostingRepository.GetPaginatedByCircularTypesAsync(
-                request, allowedCircularTypes, location, departmentId, employmentType, maxExperienceYears);
+                request, allowedCircularTypes, location, departmentId, employmentType, maxExperienceYears, isPublic);
 
             return new PagedResult<JobPostingResponse>
             {
@@ -217,7 +218,7 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task<JobPostingResponse> GetPublicByIdAsync(long jobPostingId)
         {
-            var entity = await _jobPostingRepository.GetOpenByIdAndCircularTypesAsync(jobPostingId, PublicCircularTypes)
+            var entity = await _jobPostingRepository.GetOpenByIdAndCircularTypesAsync(jobPostingId, PublicCircularTypes, ignoreCompanyScope: true)
                 ?? throw new NotFoundException("JobPosting", jobPostingId);
 
             return entity.ToResponse();

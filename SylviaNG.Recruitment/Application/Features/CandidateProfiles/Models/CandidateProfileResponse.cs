@@ -37,6 +37,11 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         public int CompletenessPercentage { get; set; }
 
+        /// <summary>Per-section breakdown behind CompletenessPercentage (Personal Info, Contact,
+        /// Education, Work Experience, Skills, Certifications, Documents) - drives the section
+        /// badges on the profile page.</summary>
+        public List<CandidateProfileSectionCompleteness> SectionCompleteness { get; set; } = new();
+
         /// <summary>
         /// True once the candidate has at least one submitted JobApplication. Email, Phone, and
         /// NationalId become read-only in that state (US-003 AC4) - JobApplication has no FK to

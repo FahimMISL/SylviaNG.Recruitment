@@ -156,8 +156,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 firstName,
                 lastName,
                 enabled = true,
-                emailVerified = false,
-                requiredActions = new[] { "VERIFY_EMAIL", "UPDATE_PASSWORD" }
+                emailVerified = false
             };
 
             using var createRequest = new HttpRequestMessage(HttpMethod.Post, AdminUsersEndpoint)
@@ -183,11 +182,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             try
             {
                 await AssignRealmRoleAsync(adminToken, userId, realmRole);
-                await SendInviteEmailAsync(adminToken, userId, email);
             }
             catch
             {
-                // Avoid leaving a user that cannot receive the only way to set a password.
                 await DeleteUserSafelyAsync(adminToken, userId, email);
                 throw;
             }
@@ -396,22 +393,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
             }
         }
 
-        private async Task SendInviteEmailAsync(string adminToken, string userId, string email)
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Put, $"{AdminUsersEndpoint}/{userId}/execute-actions-email")
-            {
-                Content = new StringContent(JsonSerializer.Serialize(new[] { "VERIFY_EMAIL", "UPDATE_PASSWORD" }), Encoding.UTF8, "application/json")
-            };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
-            var response = await SendAsync(request);
-
-            if (response.IsSuccessStatusCode)
-                return;
-
-            var body = await response.Content.ReadAsStringAsync();
-            _logger.LogError("Keycloak invitation email failed for {Email} ({Status}): {Body}", email, (int)response.StatusCode, body);
-            throw new KeycloakUnavailableException("Invitation email could not be sent. Configure the Keycloak realm SMTP settings and try again.");
-        }
 
         public async Task DeleteUserAsync(string keycloakUserId, string email)
         {

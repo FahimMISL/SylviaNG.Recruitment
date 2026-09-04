@@ -27,9 +27,12 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         Task CreateUserAsync(string username, string email, string firstName, string lastName, string password, string realmRole, bool requireEmailVerification);
 
         /// <summary>
-        /// Creates a staff account and sends a one-time Keycloak link requiring the recipient to
-        /// verify the address and choose their own password. Throws when the email cannot be
-        /// dispatched, so callers never report a successful invitation that cannot be used.
+        /// Creates a staff account (enabled, emailVerified: false, no password set) and assigns
+        /// the given realm role. Does not send any email itself - Keycloak's own
+        /// execute-actions-email requires Keycloak's realm SMTP, which hits the same
+        /// outbound-SMTP-port block this app's own email sending does on free hosts. The caller
+        /// (UserAccountService) is responsible for delivering the invite via its own
+        /// Brevo-backed NotificationDispatchService instead (see UserInviteOtp).
         /// </summary>
         Task InviteUserAsync(string username, string email, string firstName, string lastName, string realmRole);
 

@@ -71,6 +71,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath),
                 SignaturePath = FileUrlBuilder.BuildDownloadUrl(entity.SignaturePath),
                 CompletenessPercentage = CalculateCompleteness(entity),
+                SectionCompleteness = GetSectionCompleteness(entity),
                 IsInternal = entity.IsInternal,
                 HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity)
             };
@@ -124,6 +125,7 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 ProfilePhotoPath = FileUrlBuilder.BuildDownloadUrl(entity.ProfilePhotoPath),
                 SignaturePath = FileUrlBuilder.BuildDownloadUrl(entity.SignaturePath),
                 CompletenessPercentage = CalculateCompleteness(entity),
+                SectionCompleteness = GetSectionCompleteness(entity),
                 IsInternal = entity.IsInternal,
                 HasPrepopulatedFieldEdits = HasPrepopulatedFieldEdits(entity),
                 Educations = entity.Educations.Select(e => e.ToResponse()).ToList(),
@@ -142,32 +144,28 @@ namespace SylviaNG.Recruitment.Application.Mappings
         /// US-007 AC4 minimum-completeness submit gate.</summary>
         public static int CalculateCompleteness(CandidateProfile entity)
         {
-            var completedSections = 0;
+            var completedSections = GetSectionCompleteness(entity).Count(s => s.IsComplete);
+            return completedSections * 100 / TotalSections;
+        }
+
+        /// <summary>Same per-section booleans CalculateCompleteness sums up, exposed individually
+        /// so the profile page can show which sections are done instead of just the aggregate.</summary>
+        public static List<CandidateProfileSectionCompleteness> GetSectionCompleteness(CandidateProfile entity)
+        {
+            var weight = 100 / TotalSections;
 
             // Gated on each section's actual required form field (FullName / Email), not
             // incidental optional ones - otherwise a fully-saved section can still read as 0%.
-            if (!string.IsNullOrWhiteSpace(entity.FullName))
-                completedSections++; // Personal Info
-
-            if (!string.IsNullOrWhiteSpace(entity.Email))
-                completedSections++; // Contact
-
-            if (entity.Educations.Count > 0)
-                completedSections++; // Education
-
-            if (entity.WorkExperiences.Count > 0)
-                completedSections++; // Work Experience
-
-            if (entity.Skills.Count > 0)
-                completedSections++; // Skills
-
-            if (entity.Certifications.Count > 0)
-                completedSections++; // Certifications
-
-            if (entity.Documents.Count > 0)
-                completedSections++; // Documents
-
-            return completedSections * 100 / TotalSections;
+            return new List<CandidateProfileSectionCompleteness>
+            {
+                new() { SectionKey = "PersonalInfo", IsComplete = !string.IsNullOrWhiteSpace(entity.FullName), WeightPercentage = weight },
+                new() { SectionKey = "Contact", IsComplete = !string.IsNullOrWhiteSpace(entity.Email), WeightPercentage = weight },
+                new() { SectionKey = "Education", IsComplete = entity.Educations.Count > 0, WeightPercentage = weight },
+                new() { SectionKey = "WorkExperience", IsComplete = entity.WorkExperiences.Count > 0, WeightPercentage = weight },
+                new() { SectionKey = "Skills", IsComplete = entity.Skills.Count > 0, WeightPercentage = weight },
+                new() { SectionKey = "Certifications", IsComplete = entity.Certifications.Count > 0, WeightPercentage = weight },
+                new() { SectionKey = "Documents", IsComplete = entity.Documents.Count > 0, WeightPercentage = weight },
+            };
         }
 
         // US-005 AC2: an internal candidate's pre-populated FullName/Phone were snapshotted at

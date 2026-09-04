@@ -49,4 +49,9 @@ public class JobPosting : Audit, ICompanyScoped
     public ICollection<JobPostingAttachment> Attachments { get; set; } = new List<JobPostingAttachment>();
     public HiringPipeline? HiringPipeline { get; set; }
     public Department? Department { get; set; }
+
+    // The Company that owns this posting. Loaded on career-portal / internal-job-board
+    // queries (via .Include) so each listing/detail can surface the owning company's name,
+    // website and address next to the job - candidates browse postings across every company.
+    public Company? Company { get; set; }
 }

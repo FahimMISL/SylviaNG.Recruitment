@@ -26,6 +26,8 @@ namespace SylviaNG.Recruitment.Application.Services
     {
         private readonly IUserAccountRepository _userAccountRepository;
         private readonly IRoleRepository _roleRepository;
+        private readonly INotificationTemplateRepository _notificationTemplateRepository;
+        private readonly IEventTemplateMappingRepository _eventTemplateMappingRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IKeycloakClient _keycloakClient;
         private readonly IConfiguration _configuration;
@@ -34,6 +36,8 @@ namespace SylviaNG.Recruitment.Application.Services
         public SuperAdminBootstrapService(
             IUserAccountRepository userAccountRepository,
             IRoleRepository roleRepository,
+            INotificationTemplateRepository notificationTemplateRepository,
+            IEventTemplateMappingRepository eventTemplateMappingRepository,
             IUnitOfWork unitOfWork,
             IKeycloakClient keycloakClient,
             IConfiguration configuration,
@@ -41,6 +45,8 @@ namespace SylviaNG.Recruitment.Application.Services
         {
             _userAccountRepository = userAccountRepository;
             _roleRepository = roleRepository;
+            _notificationTemplateRepository = notificationTemplateRepository;
+            _eventTemplateMappingRepository = eventTemplateMappingRepository;
             _unitOfWork = unitOfWork;
             _keycloakClient = keycloakClient;
             _configuration = configuration;
@@ -49,6 +55,8 @@ namespace SylviaNG.Recruitment.Application.Services
 
         public async Task RunAsync()
         {
+            await SeedUserInvitedTemplateAsync();
+
             if (await _userAccountRepository.ExistsAnyWithRoleAsync(nameof(UserRoleEnum.SuperAdmin)))
                 return;
 
@@ -96,6 +104,75 @@ namespace SylviaNG.Recruitment.Application.Services
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Bootstrapped the initial SuperAdmin account ({Email}).", email);
+        }
+
+        private const string UserInvitedTemplateCode = "USER_INVITED_EMAIL";
+
+        // Seeds the UserInvited email template/mapping. Unlike every other RecruitmentEventEnum
+        // (deliberately left for an admin to configure post-deploy via the Notification Template
+        // Management UI, per the codebase's existing convention), this one ships pre-built at the
+        // user's explicit request so a brand-new environment's staff-invite flow works immediately
+        // with no manual setup. CompanyId is left null (global) - only visible under an
+        // "unrestricted" CurrentCompanyId context (see ApplicationDBContext's ICompanyScoped
+        // filter), which covers SuperAdmin-driven invites and this seeder's own no-HttpContext
+        // startup run. A company-scoped Admin/HR inviting a colleague still needs their own
+        // company's mapping, same gap every other event already has in a real multi-tenant setup.
+        // Runs every startup, independent of the SuperAdmin bootstrap above - own idempotency
+        // check, not nested under that early return.
+        private async Task SeedUserInvitedTemplateAsync()
+        {
+            if (await _eventTemplateMappingRepository.ExistsAsync(RecruitmentEventEnum.UserInvited, NotificationChannelEnum.Email, NotificationRecipientTypeEnum.Candidate))
+                return;
+
+            var template = await FindOrCreateUserInvitedTemplateAsync();
+
+            var mapping = new EventTemplateMapping
+            {
+                CompanyId = null,
+                RecruitmentEvent = RecruitmentEventEnum.UserInvited,
+                Channel = NotificationChannelEnum.Email,
+                RecipientType = NotificationRecipientTypeEnum.Candidate,
+                NotificationTemplateId = template.NotificationTemplateId,
+                IsActive = true
+            };
+
+            await _eventTemplateMappingRepository.AddAsync(mapping);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("Seeded the UserInvited email template/mapping.");
+        }
+
+        private async Task<NotificationTemplate> FindOrCreateUserInvitedTemplateAsync()
+        {
+            var existing = await _notificationTemplateRepository.ExistsByCodeAsync(UserInvitedTemplateCode);
+            if (existing)
+            {
+                var templates = await _notificationTemplateRepository.GetAllOrderedAsync();
+                return templates.First(t => t.Code == UserInvitedTemplateCode);
+            }
+
+            var template = new NotificationTemplate
+            {
+                CompanyId = null,
+                Channel = NotificationChannelEnum.Email,
+                Code = UserInvitedTemplateCode,
+                Name = "User Invited",
+                Subject = "You're invited to SylviaNG Recruitment",
+                Body =
+                    "You have been invited to join SylviaNG Recruitment.\n\n" +
+                    "Your verification code is: {{OtpCode}}\n\n" +
+                    "This code expires in {{ExpiryMinutes}} minutes.\n\n" +
+                    "Click the link below to activate your account and set your password:\n" +
+                    "{{AcceptInviteLink}}\n\n" +
+                    "If you did not expect this invite, you can safely ignore this email.",
+                IsActive = true,
+                CurrentVersionNumber = 1
+            };
+
+            await _notificationTemplateRepository.AddAsync(template);
+            await _unitOfWork.SaveChangesAsync();
+
+            return template;
         }
     }
 }

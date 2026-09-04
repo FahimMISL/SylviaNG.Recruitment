@@ -13,7 +13,9 @@ namespace SylviaNG.Recruitment.Application.Common.Settings
 
         public string BaseUrl { get; set; } = "https://api.groq.com/openai/v1";
 
-        public string Model { get; set; } = "llama-3.1-8b-instant";
+        // llama-3.1-8b-instant was retired by Groq on 2026-08-16; openai/gpt-oss-20b is
+        // Groq's recommended replacement for that tier.
+        public string Model { get; set; } = "openai/gpt-oss-20b";
 
         public double Temperature { get; set; } = 0.2;
 

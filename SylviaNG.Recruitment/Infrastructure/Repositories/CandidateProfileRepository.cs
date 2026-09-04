@@ -16,6 +16,19 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await _dbSet.FirstOrDefaultAsync(c => c.KeycloakSubjectId == keycloakSubjectId);
         }
 
+        public async Task<CandidateProfile?> GetByKeycloakSubjectIdWithDetailsAsync(string keycloakSubjectId)
+        {
+            return await _dbSet
+                .AsSplitQuery()
+                .Include(c => c.Educations)
+                .Include(c => c.WorkExperiences)
+                .Include(c => c.Skills)
+                .Include(c => c.Tags)
+                .Include(c => c.PresentDistrict)
+                .Include(c => c.HomeDistrict)
+                .FirstOrDefaultAsync(c => c.KeycloakSubjectId == keycloakSubjectId);
+        }
+
         public async Task<long?> GetIdByEmailAsync(string email)
         {
             return await _dbSet

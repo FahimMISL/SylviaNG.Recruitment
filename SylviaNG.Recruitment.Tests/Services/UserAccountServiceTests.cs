@@ -1,7 +1,10 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
@@ -31,9 +34,14 @@ public class UserAccountServiceTests
             _userAccountRepositoryMock.Object,
             new Mock<IRoleRepository>().Object,
             new Mock<ICompanyRepository>().Object,
+            new Mock<IUserInviteOtpRepository>().Object,
             _unitOfWorkMock.Object,
             new Mock<IKeycloakClient>().Object,
-            httpContextAccessor.Object);
+            new Mock<INotificationDispatchService>().Object,
+            httpContextAccessor.Object,
+            Options.Create(new OtpSettings()),
+            Options.Create(new PortalSettings()),
+            NullLogger<UserAccountService>.Instance);
     }
 
     [Fact]

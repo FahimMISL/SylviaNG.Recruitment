@@ -7,6 +7,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
     {
         public long JobPostingId { get; set; }
         public string JobPostingCode { get; set; } = string.Empty;
+        public long? CompanyId { get; set; }
+        public string? CompanyName { get; set; }
+        public string? CompanyWebsite { get; set; }
+        public string? CompanyAddress { get; set; }
         public long? DepartmentId { get; set; }
         public string? DepartmentName { get; set; }
         public string Title { get; set; } = string.Empty;

@@ -84,3 +84,8 @@ node_modules/
 
 **/verifyobj/
 SylviaNG.Recruitment/tmp/
+
+# Local publish output used to build Docker images without going through the
+# container's own (sometimes flaky) NuGet restore - see Dockerfile.local-deploy
+**/publish-local/
+**/publish-docker/

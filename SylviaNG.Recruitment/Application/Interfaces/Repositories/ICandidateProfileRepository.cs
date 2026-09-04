@@ -9,6 +9,13 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         Task<CandidateProfile?> GetByKeycloakSubjectIdAsync(string keycloakSubjectId);
 
         /// <summary>
+        /// Same as GetByKeycloakSubjectIdAsync but eagerly loads all navigation collections
+        /// (Skills, Educations, WorkExperiences, Tags, PresentDistrict, HomeDistrict) required
+        /// by CandidateFactService.BuildFacts() for profile-match scoring on the career portal.
+        /// </summary>
+        Task<CandidateProfile?> GetByKeycloakSubjectIdWithDetailsAsync(string keycloakSubjectId);
+
+        /// <summary>
         /// Id of an existing profile matching this email (case-insensitive), or null if none
         /// exists yet - used to opportunistically link a guest job application to an
         /// already-registered candidate at submission time. Never creates a profile.

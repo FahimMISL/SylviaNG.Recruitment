@@ -144,6 +144,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Data
         public DbSet<CandidateLoginOtp> CandidateLoginOtps { get; set; }
         public DbSet<EmailChangeVerification> EmailChangeVerifications { get; set; }
         public DbSet<PasswordResetOtp> PasswordResetOtps { get; set; }
+        public DbSet<UserInviteOtp> UserInviteOtps { get; set; }
         public DbSet<FinalSelectionPool> FinalSelectionPools { get; set; }
         public DbSet<PreBoardingSubmission> PreBoardingSubmissions { get; set; }
         public DbSet<PreBoardingNominee> PreBoardingNominees { get; set; }

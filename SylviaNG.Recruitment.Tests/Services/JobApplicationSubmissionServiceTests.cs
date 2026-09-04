@@ -313,7 +313,7 @@ public class JobApplicationSubmissionServiceTests
         IReadOnlyCollection<CircularTypeEnum>? capturedCircularTypes = null;
         _jobPostingRepositoryMock
             .Setup(r => r.GetOpenByIdAndCircularTypesAsync(1, It.IsAny<IReadOnlyCollection<CircularTypeEnum>>()))
-            .Callback<long, IReadOnlyCollection<CircularTypeEnum>>((_, types) => capturedCircularTypes = types)
+            .Callback<long, IReadOnlyCollection<CircularTypeEnum>, bool>((_, types, _ignoreScope) => capturedCircularTypes = types)
             .ReturnsAsync(jobPosting);
 
         _jobApplicationRepositoryMock

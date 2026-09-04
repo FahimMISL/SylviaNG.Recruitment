@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
+using SylviaNG.Recruitment.Application.Common.Settings;
 using SylviaNG.Recruitment.Application.Features.UserAccounts.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -9,6 +12,8 @@ using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Generic;
 using SylviaNG.Recruitment.SharedKernel.Utils;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace SylviaNG.Recruitment.Application.Services
 {
@@ -17,24 +22,39 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly IUserAccountRepository _userAccountRepository;
         private readonly IRoleRepository _roleRepository;
         private readonly ICompanyRepository _companyRepository;
+        private readonly IUserInviteOtpRepository _userInviteOtpRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IKeycloakClient _keycloakClient;
+        private readonly INotificationDispatchService _notificationDispatchService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly OtpSettings _otpSettings;
+        private readonly PortalSettings _portalSettings;
+        private readonly ILogger<UserAccountService> _logger;
 
         public UserAccountService(
             IUserAccountRepository userAccountRepository,
             IRoleRepository roleRepository,
             ICompanyRepository companyRepository,
+            IUserInviteOtpRepository userInviteOtpRepository,
             IUnitOfWork unitOfWork,
             IKeycloakClient keycloakClient,
-            IHttpContextAccessor httpContextAccessor)
+            INotificationDispatchService notificationDispatchService,
+            IHttpContextAccessor httpContextAccessor,
+            IOptions<OtpSettings> otpSettings,
+            IOptions<PortalSettings> portalSettings,
+            ILogger<UserAccountService> logger)
         {
             _userAccountRepository = userAccountRepository;
             _roleRepository = roleRepository;
             _companyRepository = companyRepository;
+            _userInviteOtpRepository = userInviteOtpRepository;
             _unitOfWork = unitOfWork;
             _keycloakClient = keycloakClient;
+            _notificationDispatchService = notificationDispatchService;
             _httpContextAccessor = httpContextAccessor;
+            _otpSettings = otpSettings.Value;
+            _portalSettings = portalSettings.Value;
+            _logger = logger;
         }
 
         public async Task<long> CreateAsync(UserAccountCreateRequest request)
@@ -48,9 +68,9 @@ namespace SylviaNG.Recruitment.Application.Services
             var companyId = await ResolveAndAuthorizeCompanyAsync(roles, request.CompanyId);
             var (firstName, lastName) = PersonNameUtility.SplitFullName(request.FullName);
 
-            // The recipient receives a Keycloak action link to verify their address and choose
-            // their own password. An invitation is only successful after Keycloak accepted that
-            // email for delivery.
+            // Creates the Keycloak account with no password set yet - the recipient chooses their
+            // own via the accept-invite email this app sends itself below (see UserInviteOtp),
+            // not Keycloak's own execute-actions-email (which needs Keycloak's realm SMTP).
             await _keycloakClient.InviteUserAsync(
                 username: request.Email,
                 email: request.Email,
@@ -91,7 +111,65 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw;
             }
 
+            await SendInviteEmailAsync(keycloakUserId, request.Email);
+
             return entity.UserAccountId;
+        }
+
+        // Delivers the accept-invite OTP + link via this app's own Brevo-backed dispatch,
+        // since Keycloak's own execute-actions-email requires Keycloak's realm SMTP (blocked on
+        // free hosts the same way this app's own SMTP was - see UserInviteOtp remarks). Same
+        // shape as AuthService.BeginOtpChallengeAsync/ForgotPasswordAsync: never lets a dispatch
+        // failure fail the whole invite - the UserAccount row and Keycloak user already exist by
+        // this point, so an email hiccup here is logged, not thrown.
+        private async Task SendInviteEmailAsync(string keycloakUserId, string email)
+        {
+            var challengeId = Guid.NewGuid();
+            var code = GenerateOtpCode();
+            var expiresAtUtc = DateTime.UtcNow.AddMinutes(_otpSettings.ExpiryMinutes);
+
+            var otp = new UserInviteOtp
+            {
+                ChallengeId = challengeId,
+                KeycloakUserId = keycloakUserId,
+                Email = email,
+                OtpCodeHash = HashOtpCode(code),
+                ExpiresAtUtc = expiresAtUtc
+            };
+
+            await _userInviteOtpRepository.AddAsync(otp);
+            await _unitOfWork.SaveChangesAsync();
+
+            try
+            {
+                await _notificationDispatchService.DispatchAsync(
+                    RecruitmentEventEnum.UserInvited,
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["OtpCode"] = code,
+                        ["ExpiryMinutes"] = _otpSettings.ExpiryMinutes.ToString(),
+                        // Auth feature module is mounted at '/login' in app.routes.ts, not '/auth' -
+                        // same as forgot-password's real URL being '/login/forgot-password'.
+                        ["AcceptInviteLink"] = $"{_portalSettings.FrontendBaseUrl}/login/accept-invite?challengeId={challengeId}"
+                    },
+                    new NotificationDispatchTargets(email, null));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching invite email for challenge {ChallengeId}.", challengeId);
+            }
+        }
+
+        private static string GenerateOtpCode()
+        {
+            return RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+        }
+
+        private string HashOtpCode(string code)
+        {
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_otpSettings.Pepper ?? string.Empty));
+            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(code));
+            return Convert.ToHexString(hash);
         }
 
         // Multi-tenant: SuperAdmin has no company (returns null, ignoring any CompanyId passed

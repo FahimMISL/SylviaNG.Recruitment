@@ -18,20 +18,30 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Repositories
         /// internal job board. Only Open postings whose CircularType is in <paramref name="allowedCircularTypes"/>
         /// are returned, further narrowed by the optional filters when provided.
         /// </summary>
+        /// <param name="ignoreCompanyScope">
+        /// True to lift the ICompanyScoped global query filter (via IgnoreQueryFilters) so the
+        /// caller sees postings across every company - used by the public career portal, where a
+        /// candidate applying to any company must be able to browse all of them.
+        /// </param>
         Task<PagedResult<JobPosting>> GetPaginatedByCircularTypesAsync(
             PagedRequest request,
             IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes,
             string? location,
             long? departmentId,
             EmploymentTypeEnum? employmentType,
-            int? maxExperienceYears);
+            int? maxExperienceYears,
+            bool ignoreCompanyScope = false);
 
         /// <summary>
         /// Audience-filtered single-posting lookup for the career portal / internal job board detail views.
         /// Returns null (rather than exposing existence) when the posting is not Open or its CircularType
         /// is not in <paramref name="allowedCircularTypes"/>.
         /// </summary>
-        Task<JobPosting?> GetOpenByIdAndCircularTypesAsync(long jobPostingId, IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes);
+        /// <param name="ignoreCompanyScope">
+        /// True to lift the ICompanyScoped global query filter so a public career-portal visitor
+        /// can open a posting owned by any company (see <see cref="GetPaginatedByCircularTypesAsync"/>).
+        /// </param>
+        Task<JobPosting?> GetOpenByIdAndCircularTypesAsync(long jobPostingId, IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes, bool ignoreCompanyScope = false);
 
         /// <summary>Count of postings with the given status, for dashboard summary stats.</summary>
         Task<int> CountByStatusAsync(JobStatusEnum status);

@@ -44,6 +44,10 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Models
 
         public int CompletenessPercentage { get; set; }
 
+        /// <summary>Per-section breakdown behind CompletenessPercentage - drives the section
+        /// badges on the profile page.</summary>
+        public List<CandidateProfileSectionCompleteness> SectionCompleteness { get; set; } = new();
+
         // Internal candidate / Core HR pre-population (US-005).
         public bool IsInternal { get; set; }
         public string? DepartmentName { get; set; }

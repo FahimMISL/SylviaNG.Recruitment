@@ -1,5 +1,3 @@
-using System.Net;
-using System.Text.RegularExpressions;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Logging;
@@ -42,7 +40,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 mimeMessage.To.Add(MailboxAddress.Parse(message.To));
                 mimeMessage.Subject = message.Subject;
 
-                var bodyBuilder = new BodyBuilder { HtmlBody = ToHtml(message.HtmlBody) };
+                var bodyBuilder = new BodyBuilder { HtmlBody = PlainTextEmailFormatter.ToHtml(message.HtmlBody) };
                 foreach (var attachment in message.Attachments)
                 {
                     bodyBuilder.Attachments.Add(attachment.FileName, attachment.Content, ContentType.Parse(attachment.ContentType));
@@ -74,28 +72,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 _logger.LogError(ex, "Failed to send email to {To}.", message.To);
                 return new EmailSendResult { Success = false, ErrorMessage = ex.Message };
             }
-        }
-
-        private static readonly Regex HtmlTagRegex = new(@"<[a-zA-Z][^>]*>", RegexOptions.Compiled);
-        private static readonly Regex ParagraphBreakRegex = new(@"(\r?\n){2,}", RegexOptions.Compiled);
-
-        // Every NotificationTemplate.Body is authored as plain text (blank line = new paragraph),
-        // but EmailMessage.HtmlBody is sent as-is to an HTML mail client - without this, every
-        // line break collapses and the whole template renders as one run-on paragraph. Templates
-        // that already contain real markup (none today, but NotificationTemplatePreview/future
-        // authors might paste HTML) are left untouched.
-        private static string ToHtml(string body)
-        {
-            if (string.IsNullOrEmpty(body) || HtmlTagRegex.IsMatch(body))
-                return body;
-
-            var encoded = WebUtility.HtmlEncode(body);
-            var paragraphs = ParagraphBreakRegex.Split(encoded)
-                .Select(p => p.Trim())
-                .Where(p => p.Length > 0)
-                .Select(p => $"<p>{p.Replace("\n", "<br>")}</p>");
-
-            return string.Concat(paragraphs);
         }
     }
 }

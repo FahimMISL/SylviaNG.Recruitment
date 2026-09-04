@@ -82,6 +82,10 @@ namespace SylviaNG.Recruitment.Application.Mappings
             {
                 JobPostingId = entity.JobPostingId,
                 JobPostingCode = entity.JobPostingCode,
+                CompanyId = entity.CompanyId,
+                CompanyName = entity.Company?.Name,
+                CompanyWebsite = entity.Company?.Website,
+                CompanyAddress = entity.Company?.Address,
                 DepartmentId = entity.DepartmentId,
                 DepartmentName = entity.Department?.Name,
                 Title = entity.Title,

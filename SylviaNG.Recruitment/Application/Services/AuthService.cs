@@ -38,6 +38,7 @@ namespace SylviaNG.Recruitment.Application.Services
         private readonly OtpSettings _otpSettings;
         private readonly ICandidateLoginOtpRepository _candidateLoginOtpRepository;
         private readonly IPasswordResetOtpRepository _passwordResetOtpRepository;
+        private readonly IUserInviteOtpRepository _userInviteOtpRepository;
         private readonly IUserAccountRepository _userAccountRepository;
         private readonly INotificationDispatchService _notificationDispatchService;
         private readonly IMemoryCache _memoryCache;
@@ -50,6 +51,7 @@ namespace SylviaNG.Recruitment.Application.Services
             IOptions<OtpSettings> otpSettings,
             ICandidateLoginOtpRepository candidateLoginOtpRepository,
             IPasswordResetOtpRepository passwordResetOtpRepository,
+            IUserInviteOtpRepository userInviteOtpRepository,
             IUserAccountRepository userAccountRepository,
             INotificationDispatchService notificationDispatchService,
             IMemoryCache memoryCache,
@@ -61,6 +63,7 @@ namespace SylviaNG.Recruitment.Application.Services
             _otpSettings = otpSettings.Value;
             _candidateLoginOtpRepository = candidateLoginOtpRepository;
             _passwordResetOtpRepository = passwordResetOtpRepository;
+            _userInviteOtpRepository = userInviteOtpRepository;
             _userAccountRepository = userAccountRepository;
             _notificationDispatchService = notificationDispatchService;
             _memoryCache = memoryCache;
@@ -352,6 +355,41 @@ namespace SylviaNG.Recruitment.Application.Services
             await _unitOfWork.SaveChangesAsync();
 
             await _keycloakClient.ResetPasswordAsync(otp.KeycloakUserId, request.NewPassword);
+        }
+
+        public async Task AcceptInviteAsync(AcceptInviteRequest request)
+        {
+            if (!Guid.TryParse(request.ChallengeId, out var challengeId))
+                throw new OtpVerificationException();
+
+            var otp = await _userInviteOtpRepository.GetByChallengeIdAsync(challengeId)
+                ?? throw new OtpVerificationException();
+
+            if (otp.Locked || otp.ConsumedAtUtc.HasValue || otp.ExpiresAtUtc < DateTime.UtcNow)
+                throw new OtpVerificationException();
+
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(HashOtpCode(request.OtpCode)),
+                    Encoding.UTF8.GetBytes(otp.OtpCodeHash)))
+            {
+                otp.AttemptCount++;
+                if (otp.AttemptCount >= _otpSettings.MaxAttempts)
+                    otp.Locked = true;
+
+                _userInviteOtpRepository.Update(otp);
+                await _unitOfWork.SaveChangesAsync();
+                throw new OtpVerificationException();
+            }
+
+            otp.ConsumedAtUtc = DateTime.UtcNow;
+            _userInviteOtpRepository.Update(otp);
+            await _unitOfWork.SaveChangesAsync();
+
+            await _keycloakClient.ResetPasswordAsync(otp.KeycloakUserId, request.NewPassword);
+
+            // The OTP challenge above already proved ownership of the invited address, so mark
+            // it verified immediately - no separate Keycloak email-link click required.
+            await _keycloakClient.UpdateEmailAsync(otp.KeycloakUserId, otp.Email, emailVerified: true);
         }
 
         public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)

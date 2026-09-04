@@ -141,6 +141,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.AddScoped<ICandidateLoginOtpRepository, CandidateLoginOtpRepository>();
             services.AddScoped<IEmailChangeVerificationRepository, EmailChangeVerificationRepository>();
             services.AddScoped<IPasswordResetOtpRepository, PasswordResetOtpRepository>();
+            services.AddScoped<IUserInviteOtpRepository, UserInviteOtpRepository>();
             services.AddScoped<IDocumentTemplateRepository, DocumentTemplateRepository>();
             services.AddScoped<IOfferLetterRepository, OfferLetterRepository>();
             services.AddScoped<IAppointmentLetterRepository, AppointmentLetterRepository>();
@@ -273,7 +274,34 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             // logging stub until a real gateway is integrated - disabled/off by default, see
             // appsettings.json "Smtp" section (IsEnabled: false).
             services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
-            services.AddScoped<ISmtpEmailService, SmtpEmailService>();
+            services.AddScoped<SmtpEmailService>();
+
+            // Brevo HTTP API alternative to raw SMTP (Email:Provider = "Brevo") - some hosts block
+            // outbound SMTP ports at the network level (e.g. Render's free tier), which no SMTP
+            // config can work around. Brevo sends over plain HTTPS instead, and lets FromEmail be
+            // a single-sender verified address - a one-time email-click confirmation, no DNS/domain
+            // needed - so a real inbox can send to any recipient on the free tier. Same
+            // Email:Provider switch pattern as FileStorage:Provider below.
+            services.Configure<BrevoSettings>(configuration.GetSection(BrevoSettings.SectionName));
+            services.AddHttpClient<BrevoEmailService>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.brevo.com/");
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+
+            var emailProvider = configuration["Email:Provider"];
+            services.AddScoped<ISmtpEmailService>(sp =>
+            {
+                var provider = NormalizeEmailProvider(emailProvider);
+
+                return provider switch
+                {
+                    "brevo" => sp.GetRequiredService<BrevoEmailService>(),
+                    "smtp" => sp.GetRequiredService<SmtpEmailService>(),
+                    _ => throw new InvalidOperationException($"Unknown Email:Provider '{emailProvider}'.")
+                };
+            });
+
             services.AddScoped<ISmsNotificationService, LoggingSmsNotificationService>();
 
             // Candidate-portal base URL, referenced by the admit-card-distribution SMS's
@@ -316,7 +344,11 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
             services.Configure<KeycloakSettings>(configuration.GetSection(KeycloakSettings.SectionName));
             services.AddHttpClient<IKeycloakClient, KeycloakClient>(client =>
             {
-                client.Timeout = TimeSpan.FromSeconds(10);
+                // 10s was too tight on free-tier hosts where Keycloak runs CPU-starved (e.g.
+                // Render's 0.1 CPU free instance) - multi-step admin flows (get admin token,
+                // create user, execute-actions-email) each add their own round trip and can
+                // individually exceed 10s under that constraint, even once Keycloak is awake.
+                client.Timeout = TimeSpan.FromSeconds(30);
             });
 
             // Groq REST client (AI-Powered Auto-Shortlisting, US-046 "Ai" scoring provider)
@@ -396,6 +428,14 @@ namespace SylviaNG.Recruitment.Infrastructure.Extensions
         {
             if (string.IsNullOrWhiteSpace(provider))
                 throw new ArgumentNullException(nameof(provider), "FileStorage provider is not specified.");
+
+            return provider.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizeEmailProvider(string? provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new ArgumentNullException(nameof(provider), "Email provider is not specified.");
 
             return provider.Trim().ToLowerInvariant();
         }

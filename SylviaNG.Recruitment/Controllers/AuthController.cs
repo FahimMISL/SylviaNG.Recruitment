@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using SylviaNG.Recruitment.Application.Features.Auth.Commands.AcceptInvite;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.ForgotPassword;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Login;
 using SylviaNG.Recruitment.Application.Features.Auth.Commands.Refresh;
@@ -109,6 +110,19 @@ namespace SylviaNG.Recruitment.Controllers
         public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
             await _mediator.Send(new ResetPasswordCommand(request));
+            return Ok();
+        }
+
+        /// <summary>
+        /// Completes a staff-account invite (see UserAccountController.Create, which emails the
+        /// OTP + this page's link): verifies the OTP and sets the chosen password directly via
+        /// Keycloak - no Keycloak-sent email involved.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("accept-invite")]
+        public async Task<ActionResult> AcceptInvite([FromBody] AcceptInviteRequest request)
+        {
+            await _mediator.Send(new AcceptInviteCommand(request));
             return Ok();
         }
     }

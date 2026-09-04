@@ -5,6 +5,9 @@ using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobApplicat
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetAllPublicPaged;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetPublicById;
+using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
 
@@ -22,10 +25,23 @@ namespace SylviaNG.Recruitment.Controllers
     public class CareerPortalController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ICurrentCandidateService _currentCandidateService;
+        private readonly ICandidateProfileRepository _candidateProfileRepository;
+        private readonly IJobPostingRepository _jobPostingRepository;
+        private readonly ManualShortlistScoringService _scoringService;
 
-        public CareerPortalController(IMediator mediator)
+        public CareerPortalController(
+            IMediator mediator,
+            ICurrentCandidateService currentCandidateService,
+            ICandidateProfileRepository candidateProfileRepository,
+            IJobPostingRepository jobPostingRepository,
+            ManualShortlistScoringService scoringService)
         {
             _mediator = mediator;
+            _currentCandidateService = currentCandidateService;
+            _candidateProfileRepository = candidateProfileRepository;
+            _jobPostingRepository = jobPostingRepository;
+            _scoringService = scoringService;
         }
 
         /// <summary>
@@ -66,6 +82,33 @@ namespace SylviaNG.Recruitment.Controllers
             request.JobPostingId = jobPostingId;
             var result = await _mediator.Send(new JobApplicationSubmitCommand(request, ApplicationSourceEnum.External));
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Get the profile-match score (0-100) for a single job posting against the
+        /// logged-in candidate's profile. Only available to authenticated Candidate users.
+        /// </summary>
+        [HttpGet("job-postings/{jobPostingId}/match-score")]
+        [Authorize(Roles = "Candidate")]
+        public async Task<ActionResult<object>> GetMatchScore(long jobPostingId)
+        {
+            var subjectId = _currentCandidateService.GetCurrentKeycloakSubjectId();
+            var profile = await _candidateProfileRepository.GetByKeycloakSubjectIdWithDetailsAsync(subjectId);
+            if (profile == null)
+                return Ok(new { score = (int?)null });
+
+            var posting = await _jobPostingRepository.GetOpenByIdAndCircularTypesAsync(
+                jobPostingId,
+                new[] { CircularTypeEnum.Both, CircularTypeEnum.ExternalOnly },
+                ignoreCompanyScope: true);
+
+            if (posting == null)
+                return NotFound();
+
+            var facts = CandidateFactService.BuildFacts(profile);
+            var result = await _scoringService.ScoreAsync(posting, facts);
+
+            return Ok(new { score = result.Score });
         }
     }
 }

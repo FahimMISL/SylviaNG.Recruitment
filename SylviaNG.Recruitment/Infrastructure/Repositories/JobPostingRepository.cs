@@ -93,9 +93,24 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             string? location,
             long? departmentId,
             EmploymentTypeEnum? employmentType,
-            int? maxExperienceYears)
+            int? maxExperienceYears,
+            bool ignoreCompanyScope = false)
         {
-            var query = ApplyAudienceFilter(_dbSet.Include(j => j.Department).AsQueryable(), allowedCircularTypes)
+            var baseQuery = _dbSet
+                .Include(j => j.Department)
+                .Include(j => j.Company) // surfaced on the career portal / internal job board so each job shows which company owns it
+                .AsQueryable();
+
+            // Public career portal: lift the ICompanyScoped filter so candidates (and any logged-in
+            // HR/Admin who browses it) can see postings from every company. Internal job board stays
+            // scoped (ignoreCompanyScope left false there) - a company's internal-only openings
+            // must never leak to other companies.
+            if (ignoreCompanyScope)
+            {
+                baseQuery = baseQuery.IgnoreQueryFilters();
+            }
+
+            var query = ApplyAudienceFilter(baseQuery, allowedCircularTypes)
                 .Where(j => location == null || (j.Location != null && j.Location.Contains(location)))
                 .Where(j => departmentId == null || j.DepartmentId == departmentId)
                 .Where(j => employmentType == null || j.EmploymentType == employmentType)
@@ -117,9 +132,20 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
             return await orderedQuery.ToPaginatedResultAsync(request);
         }
 
-        public async Task<JobPosting?> GetOpenByIdAndCircularTypesAsync(long jobPostingId, IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes)
+        public async Task<JobPosting?> GetOpenByIdAndCircularTypesAsync(long jobPostingId, IReadOnlyCollection<CircularTypeEnum> allowedCircularTypes, bool ignoreCompanyScope = false)
         {
-            return await ApplyAudienceFilter(_dbSet.Include(j => j.Department).Include(j => j.Attachments).AsQueryable(), allowedCircularTypes)
+            var query = _dbSet
+                .Include(j => j.Department)
+                .Include(j => j.Attachments)
+                .Include(j => j.Company) // surfaced on job detail so each job shows which company owns it
+                .AsQueryable();
+
+            if (ignoreCompanyScope)
+            {
+                query = query.IgnoreQueryFilters();
+            }
+
+            return await ApplyAudienceFilter(query, allowedCircularTypes)
                 .FirstOrDefaultAsync(j => j.JobPostingId == jobPostingId);
         }
 
