@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SylviaNG.Recruitment.Infrastructure.Data;
+using System.Data;
 
 namespace SylviaNG.Recruitment.SharedKernel.Generic
 {
@@ -20,10 +22,10 @@ namespace SylviaNG.Recruitment.SharedKernel.Generic
             return await _context.SaveChangesAsync();
         }
 
-        public async Task BeginTransactionAsync()
+        public async Task BeginTransactionAsync(IsolationLevel isolationLevel = IsolationLevel.Unspecified)
         {
             if (_transaction == null)
-                _transaction = await _context.Database.BeginTransactionAsync();
+                _transaction = await _context.Database.BeginTransactionAsync(isolationLevel, CancellationToken.None);
         }
 
         public async Task CommitTransactionAsync()

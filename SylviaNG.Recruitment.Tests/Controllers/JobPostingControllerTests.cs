@@ -68,7 +68,6 @@ public class JobPostingControllerTests
         var request = new JobPostingCreateRequest
         {
             Title = "New Job",
-            SiteId = 1
         };
 
         _mediatorMock.Setup(m => m.Send(It.IsAny<JobPostingCreateCommand>(), default))

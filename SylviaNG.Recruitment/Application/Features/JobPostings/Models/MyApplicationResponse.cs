@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using SylviaNG.Recruitment.Domain.Enums;
+using SylviaNG.Recruitment.SharedKernel.Utils;
 
 namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
 {
@@ -18,6 +20,7 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
     public class MyApplicationInterviewResponse
     {
         public long InterviewId { get; set; }
+        [JsonConverter(typeof(NullableLocalDateTimeJsonConverter))]
         public DateTime? ScheduledDate { get; set; }
         public string? Location { get; set; }
         public string? MeetingLink { get; set; }

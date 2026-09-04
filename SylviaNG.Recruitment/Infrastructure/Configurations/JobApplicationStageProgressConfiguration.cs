@@ -23,11 +23,15 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
             builder.Property(p => p.Notes)
                 .HasColumnType("text");
 
+            builder.Property(p => p.Score)
+                .HasColumnType("decimal(6,2)");
+
             // PipelineStageId is intentionally NOT an FK - HiringPipelineService.UpdateAsync
             // clears and re-inserts PipelineStage rows on every pipeline edit, so a hard FK
             // here would either cascade-delete in-flight candidate progress or block edits
             // to any pipeline that already has a tracked candidate.
             builder.HasIndex(p => new { p.JobApplicationId, p.PipelineStageId }).IsUnique();
+            builder.HasIndex(p => p.CompanyId);
 
             builder.HasOne(p => p.JobApplication)
                 .WithMany(a => a.StageProgress)

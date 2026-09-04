@@ -10,11 +10,13 @@ namespace SylviaNG.Recruitment.Application.Services
     public class HiringPipelineService : IHiringPipelineService
     {
         private readonly IHiringPipelineRepository _hiringPipelineRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public HiringPipelineService(IHiringPipelineRepository hiringPipelineRepository, IUnitOfWork unitOfWork)
+        public HiringPipelineService(IHiringPipelineRepository hiringPipelineRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _hiringPipelineRepository = hiringPipelineRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -25,8 +27,10 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("HiringPipeline", "Name", request.Name);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
+            foreach (var stage in entity.Stages)
+                stage.CompanyId = entity.CompanyId;
             NormalizeDisplayOrder(entity.Stages);
-            await ValidateInterviewerIdsAsync(entity.Stages);
 
             await _hiringPipelineRepository.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
@@ -52,9 +56,9 @@ namespace SylviaNG.Recruitment.Application.Services
             entity.Stages.Clear();
             var newStages = request.Stages.OrderBy(s => s.DisplayOrder).Select(s => s.ToEntity()).ToList();
             NormalizeDisplayOrder(newStages);
-            await ValidateInterviewerIdsAsync(newStages);
             foreach (var stage in newStages)
             {
+                stage.CompanyId = entity.CompanyId;
                 entity.Stages.Add(stage);
             }
 
@@ -86,8 +90,10 @@ namespace SylviaNG.Recruitment.Application.Services
                 Name = copyName,
                 Description = source.Description,
                 IsActive = false, // duplicates land inactive until reviewed/published by an admin
+                CompanyId = source.CompanyId,
                 Stages = source.Stages.Select(s => new Domain.Entities.PipelineStage
                 {
+                    CompanyId = source.CompanyId,
                     Name = s.Name,
                     StageType = s.StageType,
                     DisplayOrder = s.DisplayOrder,
@@ -95,18 +101,14 @@ namespace SylviaNG.Recruitment.Application.Services
                     PassingCriteria = s.PassingCriteria,
                     IsActive = s.IsActive,
                     IsMandatory = s.IsMandatory,
-                    DepartmentId = s.DepartmentId,
                     EstimatedDurationMinutes = s.EstimatedDurationMinutes,
                     SlaDays = s.SlaDays,
-                    ColorBadge = s.ColorBadge,
-                    EmailTemplate = s.EmailTemplate,
-                    NotifyCandidateOnEnter = s.NotifyCandidateOnEnter,
-                    NotifyInterviewersOnAssign = s.NotifyInterviewersOnAssign,
+                    MaxMarks = s.MaxMarks,
+                    PassMarks = s.PassMarks,
                     RequiredDocuments = s.RequiredDocuments,
-                    AllowCandidateReschedule = s.AllowCandidateReschedule,
                     AutoProgressionRule = s.AutoProgressionRule,
-                    ManualApprovalRequired = s.ManualApprovalRequired,
-                    Interviewers = s.Interviewers.Select(i => new Domain.Entities.PipelineStageInterviewer { EmployeeId = i.EmployeeId }).ToList()
+                    AutoProgressionTargetDisplayOrder = s.AutoProgressionTargetDisplayOrder,
+                    ManualApprovalRequired = s.ManualApprovalRequired
                 }).ToList()
             };
 
@@ -152,26 +154,6 @@ namespace SylviaNG.Recruitment.Application.Services
             foreach (var stage in stages)
             {
                 stage.DisplayOrder = order++;
-            }
-        }
-
-        private async Task ValidateInterviewerIdsAsync(IEnumerable<Domain.Entities.PipelineStage> stages)
-        {
-            var requestedIds = stages.SelectMany(s => s.Interviewers.Select(i => i.EmployeeId)).Distinct().ToList();
-            if (requestedIds.Count == 0)
-                return;
-
-            var existingIds = await _hiringPipelineRepository.GetExistingEmployeeIdsAsync(requestedIds);
-            var missingIds = requestedIds.Where(id => !existingIds.Contains(id)).ToList();
-
-            if (missingIds.Count > 0)
-            {
-                throw new FluentValidation.ValidationException(new[]
-                {
-                    new FluentValidation.Results.ValidationFailure(
-                        "Stages.InterviewerEmployeeIds",
-                        $"Unknown employee id(s): {string.Join(", ", missingIds)}")
-                });
             }
         }
 

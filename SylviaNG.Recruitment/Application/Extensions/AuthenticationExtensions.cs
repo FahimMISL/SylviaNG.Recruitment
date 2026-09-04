@@ -30,7 +30,9 @@ namespace SylviaNG.Recruitment.Application.Extensions
 
             var authority = keycloakSection.GetValue<string>("Authority") ?? throw new ArgumentNullException("Keycloak:Authority");
             var clientId = keycloakSection.GetValue<string>("ClientId") ?? throw new ArgumentNullException("Keycloak:ClientId");
-            var requireHttps = keycloakSection.GetValue<bool>("RequireHttpsMetadata", false);
+            // Fail-secure default: an environment that forgets to set this explicitly should
+            // require HTTPS for the JWKS fetch, not silently accept a MITM-able HTTP one.
+            var requireHttps = keycloakSection.GetValue<bool>("RequireHttpsMetadata", true);
 
             var localJwtSection = configuration.GetSection("Jwt:Local");
             if (!localJwtSection.Exists())

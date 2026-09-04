@@ -73,7 +73,7 @@ public class JobPostingAttachmentServiceTests
         result.Should().NotBeNull();
         result.JobPostingId.Should().Be(1);
         result.FileName.Should().Be("resume.pdf");
-        result.DownloadUrl.Should().Be("/uploads/job-postings/1/abc123.pdf");
+        result.DownloadUrl.Should().Be("recruitment/files/download?key=uploads%2Fjob-postings%2F1%2Fabc123.pdf");
         savedEntity.Should().NotBeNull();
         savedEntity!.StoredFileName.Should().Be("abc123.pdf");
         _attachmentRepositoryMock.Verify(r => r.AddAsync(It.IsAny<JobPostingAttachment>()), Times.Once);
