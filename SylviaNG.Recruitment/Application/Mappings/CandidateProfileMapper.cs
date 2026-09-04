@@ -10,8 +10,8 @@ namespace SylviaNG.Recruitment.Application.Mappings
         // US-002: 7 candidate-profile sections total (Family Info dropped per user decision).
         // Work Experience and Certifications are intentionally NOT required for 100% (per plan)
         // — a candidate legitimately may have neither yet — but they still count toward the
-        // completed total when present, same as every other section.
-        private const int TotalSections = 7;
+        // completed total when present, same as every other section. Per-section weights live
+        // in GetSectionCompleteness below.
 
         public static void ApplyPersonalInfoUpdate(this CandidateProfile entity, CandidateProfilePersonalInfoUpdateRequest request)
         {
@@ -144,27 +144,27 @@ namespace SylviaNG.Recruitment.Application.Mappings
         /// US-007 AC4 minimum-completeness submit gate.</summary>
         public static int CalculateCompleteness(CandidateProfile entity)
         {
-            var completedSections = GetSectionCompleteness(entity).Count(s => s.IsComplete);
-            return completedSections * 100 / TotalSections;
+            return GetSectionCompleteness(entity).Where(s => s.IsComplete).Sum(s => s.WeightPercentage);
         }
 
         /// <summary>Same per-section booleans CalculateCompleteness sums up, exposed individually
-        /// so the profile page can show which sections are done instead of just the aggregate.</summary>
+        /// so the profile page can show which sections are done instead of just the aggregate.
+        /// Weights aren't uniform (100/7 doesn't divide evenly) - Education and Documents carry
+        /// their own weight and the remaining 5 sections split the rest evenly, so completing
+        /// every section still adds up to exactly 100%.</summary>
         public static List<CandidateProfileSectionCompleteness> GetSectionCompleteness(CandidateProfile entity)
         {
-            var weight = 100 / TotalSections;
-
             // Gated on each section's actual required form field (FullName / Email), not
             // incidental optional ones - otherwise a fully-saved section can still read as 0%.
             return new List<CandidateProfileSectionCompleteness>
             {
-                new() { SectionKey = "PersonalInfo", IsComplete = !string.IsNullOrWhiteSpace(entity.FullName), WeightPercentage = weight },
-                new() { SectionKey = "Contact", IsComplete = !string.IsNullOrWhiteSpace(entity.Email), WeightPercentage = weight },
-                new() { SectionKey = "Education", IsComplete = entity.Educations.Count > 0, WeightPercentage = weight },
-                new() { SectionKey = "WorkExperience", IsComplete = entity.WorkExperiences.Count > 0, WeightPercentage = weight },
-                new() { SectionKey = "Skills", IsComplete = entity.Skills.Count > 0, WeightPercentage = weight },
-                new() { SectionKey = "Certifications", IsComplete = entity.Certifications.Count > 0, WeightPercentage = weight },
-                new() { SectionKey = "Documents", IsComplete = entity.Documents.Count > 0, WeightPercentage = weight },
+                new() { SectionKey = "PersonalInfo", IsComplete = !string.IsNullOrWhiteSpace(entity.FullName), WeightPercentage = 15 },
+                new() { SectionKey = "Contact", IsComplete = !string.IsNullOrWhiteSpace(entity.Email), WeightPercentage = 15 },
+                new() { SectionKey = "Education", IsComplete = entity.Educations.Count > 0, WeightPercentage = 20 },
+                new() { SectionKey = "WorkExperience", IsComplete = entity.WorkExperiences.Count > 0, WeightPercentage = 15 },
+                new() { SectionKey = "Skills", IsComplete = entity.Skills.Count > 0, WeightPercentage = 15 },
+                new() { SectionKey = "Certifications", IsComplete = entity.Certifications.Count > 0, WeightPercentage = 15 },
+                new() { SectionKey = "Documents", IsComplete = entity.Documents.Count > 0, WeightPercentage = 5 },
             };
         }
 
