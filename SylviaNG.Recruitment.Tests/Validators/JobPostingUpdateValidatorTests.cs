@@ -51,6 +51,7 @@ public class JobPostingUpdateValidatorTests
         // Arrange
         var command = new JobPostingUpdateCommand(1, new JobPostingUpdateRequest
         {
+            SalaryCurrency = "BDT",
             MinSalary = 100000,
             MaxSalary = 50000
         });

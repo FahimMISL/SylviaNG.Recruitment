@@ -19,10 +19,29 @@ namespace SylviaNG.Recruitment.SharedKernel.Pagination
             }
 
 
-            // Apply sorting
+            // Apply sorting - falls back to newest-first (CreatedAt desc, every Audit-derived
+            // entity has it) when the caller didn't ask for a specific sort AND the query isn't
+            // already ordered by the repository itself (e.g. PaymentRepository/
+            // ExportRequestRepository chain their own OrderByDescending before calling this -
+            // that's a deliberate choice and must win, not get silently replaced). Otherwise the
+            // query is unordered, which returns rows in whatever incidental order Postgres
+            // picks - oldest-first in practice, not the most recently created records callers
+            // actually want to see first.
             if (!string.IsNullOrEmpty(request.SortBy) && !string.IsNullOrEmpty(request.SortDirection))
             {
                 query = ApplySorting(query, request.SortBy, request.SortDirection);
+            }
+            else if (!IsAlreadyOrdered(query) && typeof(T).GetProperty("CreatedAt", BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance) != null)
+            {
+                query = ApplySorting(query, "CreatedAt", "desc");
+
+                // Job-posting queries can be filtered before they reach this extension, which
+                // removes the repository's prior ordering from the outer expression. Retain a
+                // stable vacancy order in that path as well.
+                if (typeof(T).GetProperty("JobPostingId", BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance) != null)
+                {
+                    query = ApplySecondarySorting(query, "JobPostingId", "desc");
+                }
             }
 
             // Get total count before pagination
@@ -44,10 +63,23 @@ namespace SylviaNG.Recruitment.SharedKernel.Pagination
         }
 
 
+        /// <summary>True if the outermost call in this query's expression tree is already an
+        /// OrderBy/OrderByDescending/ThenBy/ThenByDescending - i.e. the caller chained an explicit
+        /// sort onto the IQueryable right before handing it to ToPaginatedResultAsync. Only
+        /// catches that specific "OrderBy is the last call" shape (this codebase's own
+        /// convention: filter, then optionally order, then paginate) - a query where OrderBy is
+        /// buried under a later Where wouldn't be caught, but no current caller does that.</summary>
+        private static bool IsAlreadyOrdered<T>(IQueryable<T> query)
+        {
+            return query.Expression is MethodCallExpression { Method.Name: "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending" };
+        }
+
         private static IQueryable<T> ApplySearch<T>(IQueryable<T> query, string searchTerm, string[] searchProperties)
         {
             var parameter = Expression.Parameter(typeof(T), "x");
             Expression? combinedExpression = null;
+            var normalizedSearchTerm = searchTerm.ToLowerInvariant();
+            var toLowerMethod = typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!;
 
             foreach (var propertyName in searchProperties)
             {
@@ -57,9 +89,11 @@ namespace SylviaNG.Recruitment.SharedKernel.Pagination
                     continue;
 
                 var propertyAccess = Expression.MakeMemberAccess(parameter, property);
-                var containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
-                var searchValue = Expression.Constant(searchTerm);
-                var containsCall = Expression.Call(propertyAccess, containsMethod, searchValue);
+                var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
+                var searchValue = Expression.Constant(normalizedSearchTerm);
+                var containsCall = Expression.AndAlso(
+                    Expression.NotEqual(propertyAccess, Expression.Constant(null, typeof(string))),
+                    Expression.Call(Expression.Call(propertyAccess, toLowerMethod), containsMethod, searchValue));
 
                 combinedExpression = combinedExpression == null
                     ? containsCall
@@ -96,6 +130,28 @@ namespace SylviaNG.Recruitment.SharedKernel.Pagination
 
             var genericMethod = method.MakeGenericMethod(typeof(T), property.PropertyType);
             var result = genericMethod.Invoke(null, new object[] { query, lambda });
+            return (IQueryable<T>)(result ?? query);
+        }
+
+        private static IQueryable<T> ApplySecondarySorting<T>(
+            IQueryable<T> query,
+            string sortBy,
+            string sortDirection)
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+            var property = GetNestedProperty(typeof(T), sortBy);
+
+            if (property == null || query is not IOrderedQueryable<T> orderedQuery)
+                return query;
+
+            var propertyAccess = CreatePropertyExpression(parameter, sortBy);
+            var lambda = Expression.Lambda(propertyAccess, parameter);
+            var methodName = sortDirection == "asc" ? "ThenBy" : "ThenByDescending";
+            var method = typeof(Queryable).GetMethods()
+                .First(m => m.Name == methodName && m.GetParameters().Length == 2);
+
+            var genericMethod = method.MakeGenericMethod(typeof(T), property.PropertyType);
+            var result = genericMethod.Invoke(null, new object[] { orderedQuery, lambda });
             return (IQueryable<T>)(result ?? query);
         }
 

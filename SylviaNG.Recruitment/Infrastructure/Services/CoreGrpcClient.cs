@@ -48,5 +48,43 @@ namespace SylviaNG.Recruitment.Infrastructure.Services
                 throw;
             }
         }
+
+        public async Task<CoreBatchLookupResult> GetDepartmentsAndDesignationsAsync(List<long> departmentIds, List<long> designationIds)
+        {
+            try
+            {
+                var request = new BatchLookupRequest();
+                request.DepartmentIds.AddRange(departmentIds);
+                request.DesignationIds.AddRange(designationIds);
+
+                var response = await _client.BatchLookupAsync(request);
+
+                return new CoreBatchLookupResult
+                {
+                    Departments = response.Departments.Select(d => new EntityIdNameCodeResponse
+                    {
+                        EntityId = d.Id,
+                        Name = d.Name,
+                        Code = d.Code
+                    }).ToList(),
+                    Designations = response.Designations.Select(d => new EntityIdNameCodeResponse
+                    {
+                        EntityId = d.Id,
+                        Name = d.Name,
+                        Code = d.Code
+                    }).ToList()
+                };
+            }
+            catch (RpcException ex)
+            {
+                _logger.LogError(ex, "gRPC error calling CoreService.BatchLookup");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error calling CoreService.BatchLookup");
+                throw;
+            }
+        }
     }
 }

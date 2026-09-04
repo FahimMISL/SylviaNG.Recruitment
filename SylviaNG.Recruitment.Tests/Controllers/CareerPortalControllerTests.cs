@@ -6,6 +6,9 @@ using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobApplicat
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetAllPublicPaged;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Queries.JobPostingGetPublicById;
+using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
+using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Controllers;
 using SylviaNG.Recruitment.Domain.Enums;
 using SylviaNG.Recruitment.SharedKernel.Pagination;
@@ -20,7 +23,14 @@ public class CareerPortalControllerTests
     public CareerPortalControllerTests()
     {
         _mediatorMock = new Mock<IMediator>();
-        _controller = new CareerPortalController(_mediatorMock.Object);
+        // None of the tests below exercise these three - GetAll/GetById/Apply all route
+        // through the mediator - so they're only here to satisfy the constructor.
+        _controller = new CareerPortalController(
+            _mediatorMock.Object,
+            Mock.Of<ICurrentCandidateService>(),
+            Mock.Of<ICandidateProfileRepository>(),
+            Mock.Of<IJobPostingRepository>(),
+            new ManualShortlistScoringService());
     }
 
     [Fact]

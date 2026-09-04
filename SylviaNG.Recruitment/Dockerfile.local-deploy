@@ -1,0 +1,7 @@
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+COPY publish-local/ .
+
+EXPOSE 5002
+
+ENTRYPOINT ["dotnet", "SylviaNG.Recruitment.dll"]

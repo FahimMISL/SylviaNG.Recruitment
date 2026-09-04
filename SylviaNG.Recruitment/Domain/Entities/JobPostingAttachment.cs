@@ -5,10 +5,13 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// <summary>
 /// Represents a supporting document attached to a job posting (e.g. circular PDF).
 /// </summary>
-public class JobPostingAttachment : Audit
+public class JobPostingAttachment : Audit, ICompanyScoped
 {
     public long JobPostingAttachmentId { get; set; }
     public long JobPostingId { get; set; }
+
+    // Multi-tenant: denormalized from JobPosting.CompanyId at upload time.
+    public long? CompanyId { get; set; }
     public string FileName { get; set; } = string.Empty;
     public string StoredFileName { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;

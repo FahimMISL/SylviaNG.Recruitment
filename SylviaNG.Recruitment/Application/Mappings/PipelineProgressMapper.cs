@@ -6,7 +6,11 @@ namespace SylviaNG.Recruitment.Application.Mappings
 {
     public static class PipelineProgressMapper
     {
-        public static PipelineStageProgressResponse ToResponse(this JobApplicationStageProgress entity)
+        /// <summary>liveStage is the current PipelineStage config for this row's PipelineStageId
+        /// (from the live pipeline, not the progress row itself) - pass null if it's gone missing
+        /// (pipeline edited since this row was created); Description/PassingCriteria/
+        /// RequiredDocuments/EstimatedDurationMinutes just come back null in that case.</summary>
+        public static PipelineStageProgressResponse ToResponse(this JobApplicationStageProgress entity, PipelineStage? liveStage = null)
         {
             return new PipelineStageProgressResponse
             {
@@ -14,10 +18,19 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 StageName = entity.StageName,
                 StageType = entity.StageType,
                 DisplayOrder = entity.DisplayOrder,
+                // Live-joined like Description/PassingCriteria below - defaults to true (matching
+                // PipelineStage.IsMandatory's own default) if the stage no longer exists.
+                IsMandatory = liveStage?.IsMandatory ?? true,
+                StageDescription = liveStage?.Description,
+                PassingCriteria = liveStage?.PassingCriteria,
+                RequiredDocuments = liveStage?.RequiredDocuments,
+                EstimatedDurationMinutes = liveStage?.EstimatedDurationMinutes,
+                MaxMarks = liveStage?.MaxMarks,
                 Status = entity.Status,
                 ScheduledDate = entity.ScheduledDate,
                 MeetingLink = entity.MeetingLink,
                 Notes = entity.Notes,
+                Score = entity.Score,
                 CompletedAt = entity.CompletedAt,
                 LastUpdatedByUserName = entity.LastUpdatedByUserName
             };
@@ -32,25 +45,41 @@ namespace SylviaNG.Recruitment.Application.Mappings
                 if (request.Status.Value == StageProgressStatusEnum.Completed && entity.Status != StageProgressStatusEnum.Completed)
                     entity.CompletedAt = DateTime.UtcNow;
 
+                // Same non-bump semantics for StageEnteredAt on the transition into InProgress
+                // (US-109 "Days in Current Stage"). Also backfilled on a direct Pending ->
+                // Completed skip (HR can PATCH straight to Completed without ever setting
+                // InProgress) - otherwise this row's StageEnteredAt stays null forever, which
+                // breaks "Days in Current Stage"/"Last Updated" on the ATS dashboard whenever
+                // this ends up being the application's most-advanced stage (e.g. every stage
+                // Completed with none InProgress).
+                if (entity.StageEnteredAt == null
+                    && (request.Status.Value == StageProgressStatusEnum.InProgress || request.Status.Value == StageProgressStatusEnum.Completed)
+                    && entity.Status != request.Status.Value)
+                    entity.StageEnteredAt = DateTime.UtcNow;
+
                 entity.Status = request.Status.Value;
             }
 
             if (request.ScheduledDate.HasValue) entity.ScheduledDate = request.ScheduledDate.Value;
             if (request.MeetingLink != null) entity.MeetingLink = request.MeetingLink;
             if (request.Notes != null) entity.Notes = request.Notes;
+            if (request.Score.HasValue) entity.Score = request.Score.Value;
         }
 
         /// <summary>Snapshots a pipeline's stage definition into a fresh Pending progress row (US-042).</summary>
-        public static JobApplicationStageProgress ToProgressEntity(this PipelineStage stage, long jobApplicationId)
+        public static JobApplicationStageProgress ToProgressEntity(this PipelineStage stage, long jobApplicationId, long? companyId = null)
         {
             return new JobApplicationStageProgress
             {
                 JobApplicationId = jobApplicationId,
+                CompanyId = companyId,
                 PipelineStageId = stage.PipelineStageId,
                 StageName = stage.Name,
                 StageType = stage.StageType,
                 DisplayOrder = stage.DisplayOrder,
-                Status = StageProgressStatusEnum.Pending
+                Status = StageProgressStatusEnum.Pending,
+                RequiresManualApproval = stage.ManualApprovalRequired,
+                SlaDaysSnapshot = stage.SlaDays
             };
         }
     }

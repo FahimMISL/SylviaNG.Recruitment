@@ -6,12 +6,14 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// <summary>
 /// Represents a job posting/requisition in the recruitment system.
 /// </summary>
-public class JobPosting : Audit
+public class JobPosting : Audit, ICompanyScoped
 {
     public long JobPostingId { get; set; }
-    public long SiteId { get; set; }
+
+    // Multi-tenant: the Company that owns this posting, stamped from the creating Admin/HR
+    // user's own company at creation time (see JobPostingService.CreateAsync).
+    public long? CompanyId { get; set; }
     public long? DepartmentId { get; set; }
-    public long? DesignationId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? Requirements { get; set; }
@@ -20,6 +22,7 @@ public class JobPosting : Audit
     public new JobStatusEnum Status { get; set; } = JobStatusEnum.Draft;
     public decimal? MinSalary { get; set; }
     public decimal? MaxSalary { get; set; }
+    public string? SalaryCurrency { get; set; }
     public DateTime? PostingDate { get; set; }
     public DateTime? ClosingDate { get; set; }
     public bool IsActive { get; set; } = true;
@@ -45,4 +48,10 @@ public class JobPosting : Audit
     public ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
     public ICollection<JobPostingAttachment> Attachments { get; set; } = new List<JobPostingAttachment>();
     public HiringPipeline? HiringPipeline { get; set; }
+    public Department? Department { get; set; }
+
+    // The Company that owns this posting. Loaded on career-portal / internal-job-board
+    // queries (via .Include) so each listing/detail can surface the owning company's name,
+    // website and address next to the job - candidates browse postings across every company.
+    public Company? Company { get; set; }
 }

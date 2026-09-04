@@ -18,6 +18,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPost
                 .When(x => x.Request.MinSalary.HasValue && x.Request.MaxSalary.HasValue)
                 .WithMessage("MinSalary must be less than MaxSalary.");
 
+            RuleFor(x => x.Request.SalaryCurrency)
+                .NotEmpty().When(x => x.Request.MinSalary.HasValue || x.Request.MaxSalary.HasValue)
+                .WithMessage("SalaryCurrency is required when MinSalary or MaxSalary is set.");
+
             RuleFor(x => x.Request.ClosingDate)
                 .GreaterThan(x => x.Request.PostingDate)
                 .When(x => x.Request.PostingDate.HasValue && x.Request.ClosingDate.HasValue)
@@ -32,12 +36,12 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPost
                 .When(x => x.Request.RequiredDistrict != null);
 
             RuleFor(x => x.Request.MinAge)
-                .GreaterThan(0).When(x => x.Request.MinAge.HasValue)
-                .WithMessage("MinAge must be greater than 0.");
+                .InclusiveBetween(18, 80).When(x => x.Request.MinAge.HasValue)
+                .WithMessage("MinAge must be between 18 and 80.");
 
             RuleFor(x => x.Request.MaxAge)
-                .GreaterThan(0).When(x => x.Request.MaxAge.HasValue)
-                .WithMessage("MaxAge must be greater than 0.");
+                .InclusiveBetween(18, 80).When(x => x.Request.MaxAge.HasValue)
+                .WithMessage("MaxAge must be between 18 and 80.");
 
             RuleFor(x => x.Request)
                 .Must(r => !r.MinAge.HasValue || !r.MaxAge.HasValue || r.MinAge.Value <= r.MaxAge.Value)

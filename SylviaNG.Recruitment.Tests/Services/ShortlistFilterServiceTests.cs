@@ -3,6 +3,7 @@ using Moq;
 using SylviaNG.Recruitment.Application.Common.Exceptions;
 using SylviaNG.Recruitment.Application.Features.ShortlistFilters.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Repositories;
+using SylviaNG.Recruitment.Application.Interfaces.Services;
 using SylviaNG.Recruitment.Application.Services;
 using SylviaNG.Recruitment.Domain.Entities;
 using SylviaNG.Recruitment.Domain.Enums;
@@ -22,7 +23,7 @@ public class ShortlistFilterServiceTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _service = new ShortlistFilterService(_shortlistFilterRepositoryMock.Object, _unitOfWorkMock.Object);
+        _service = new ShortlistFilterService(_shortlistFilterRepositoryMock.Object, Mock.Of<ICurrentUserService>(), _unitOfWorkMock.Object);
     }
 
     private static ShortlistFilterCreateRequest CreateRequest(string name = "Senior Engineers")

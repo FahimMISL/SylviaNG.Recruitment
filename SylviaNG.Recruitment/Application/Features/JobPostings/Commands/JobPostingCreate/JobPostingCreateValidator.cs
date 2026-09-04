@@ -10,9 +10,6 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPost
                 .NotEmpty().WithMessage("Title is required.")
                 .MaximumLength(200).WithMessage("Title must not exceed 200 characters.");
 
-            RuleFor(x => x.Request.SiteId)
-                .GreaterThan(0).WithMessage("SiteId is required.");
-
             RuleFor(x => x.Request.HiringPipelineId)
                 .GreaterThan(0).WithMessage("A hiring pipeline must be selected for every job opening.");
 
@@ -23,6 +20,10 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPost
                 .LessThan(x => x.Request.MaxSalary)
                 .When(x => x.Request.MinSalary.HasValue && x.Request.MaxSalary.HasValue)
                 .WithMessage("MinSalary must be less than MaxSalary.");
+
+            RuleFor(x => x.Request.SalaryCurrency)
+                .NotEmpty().When(x => x.Request.MinSalary.HasValue || x.Request.MaxSalary.HasValue)
+                .WithMessage("SalaryCurrency is required when MinSalary or MaxSalary is set.");
 
             RuleFor(x => x.Request.ClosingDate)
                 .GreaterThan(x => x.Request.PostingDate)
@@ -36,12 +37,12 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobPost
                 .MaximumLength(100).WithMessage("RequiredDistrict must not exceed 100 characters.");
 
             RuleFor(x => x.Request.MinAge)
-                .GreaterThan(0).When(x => x.Request.MinAge.HasValue)
-                .WithMessage("MinAge must be greater than 0.");
+                .InclusiveBetween(18, 80).When(x => x.Request.MinAge.HasValue)
+                .WithMessage("MinAge must be between 18 and 80.");
 
             RuleFor(x => x.Request.MaxAge)
-                .GreaterThan(0).When(x => x.Request.MaxAge.HasValue)
-                .WithMessage("MaxAge must be greater than 0.");
+                .InclusiveBetween(18, 80).When(x => x.Request.MaxAge.HasValue)
+                .WithMessage("MaxAge must be between 18 and 80.");
 
             RuleFor(x => x.Request)
                 .Must(r => !r.MinAge.HasValue || !r.MaxAge.HasValue || r.MinAge.Value <= r.MaxAge.Value)
