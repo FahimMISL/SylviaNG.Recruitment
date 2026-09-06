@@ -19,7 +19,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(p => p.Stages.OrderBy(s => s.DisplayOrder))
-                    .ThenInclude(s => s.Interviewers)
                 .Include(p => p.JobPostings)
                 .FirstOrDefaultAsync(p => p.HiringPipelineId == hiringPipelineId);
         }
@@ -28,8 +27,9 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(p => p.Stages.OrderBy(s => s.DisplayOrder))
-                    .ThenInclude(s => s.Interviewers)
                 .Include(p => p.JobPostings)
+                .OrderByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.HiringPipelineId)
                 .ToListAsync();
         }
 
@@ -39,16 +39,6 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
                 .Where(p => p.IsActive)
                 .OrderBy(p => p.Name)
                 .ToListAsync();
-        }
-
-        public async Task<HashSet<long>> GetExistingEmployeeIdsAsync(IEnumerable<long> employeeIds)
-        {
-            var ids = employeeIds.ToList();
-            var existing = await _dbContext.Employees
-                .Where(e => ids.Contains(e.EmployeeId))
-                .Select(e => e.EmployeeId)
-                .ToListAsync();
-            return existing.ToHashSet();
         }
 
         public async Task<int> CountActiveAsync()

@@ -19,5 +19,11 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// Deletes a previously saved file given its web-relative file path (relative to wwwroot).
         /// </summary>
         Task DeleteAsync(string relativeFilePath);
+
+        /// <summary>
+        /// Opens a previously saved file for reading, given its web-relative file path (relative
+        /// to wwwroot). Caller owns disposal. Throws FileNotFoundException if the file is gone.
+        /// </summary>
+        Task<Stream> OpenReadAsync(string relativeFilePath);
     }
 }

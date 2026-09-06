@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SylviaNG.Recruitment.Application.Common.Authorization;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Commands.JobApplicationSubmit;
 using SylviaNG.Recruitment.Application.Features.JobPostings.Models;
 using SylviaNG.Recruitment.Application.Interfaces.Services;
@@ -13,22 +14,39 @@ namespace SylviaNG.Recruitment.Controllers
     [Route("recruitment/job-application")]
     public class JobApplicationController : ControllerBase
     {
-        private readonly IJobApplicationService _jobApplicationService;
+        private readonly IJobApplicationCoreService _coreService;
+        private readonly IJobApplicationDashboardService _dashboardService;
+        private readonly IJobApplicationStatusService _statusService;
+        private readonly IJobApplicationSelfService _selfService;
+        private readonly IJobApplicationDuplicateService _duplicateService;
         private readonly IMediator _mediator;
 
-        public JobApplicationController(IJobApplicationService jobApplicationService, IMediator mediator)
+        public JobApplicationController(
+            IJobApplicationCoreService coreService,
+            IJobApplicationDashboardService dashboardService,
+            IJobApplicationStatusService statusService,
+            IJobApplicationSelfService selfService,
+            IJobApplicationDuplicateService duplicateService,
+            IMediator mediator)
         {
-            _jobApplicationService = jobApplicationService;
+            _coreService = coreService;
+            _dashboardService = dashboardService;
+            _statusService = statusService;
+            _selfService = selfService;
+            _duplicateService = duplicateService;
             _mediator = mediator;
         }
 
         /// <summary>
-        /// Get a job application by ID.
+        /// Get a job application by ID. Admin/HR only - a candidate's own applications are
+        /// exposed exclusively via GetMyApplications/GetById never took a candidate-ownership
+        /// check (EP-15/US-114 gap fix: was reachable by any authenticated user for any id).
         /// </summary>
         [HttpGet("{jobApplicationId}")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<JobApplicationResponse>> GetById(long jobApplicationId)
         {
-            var result = await _jobApplicationService.GetByIdAsync(jobApplicationId);
+            var result = await _coreService.GetByIdAsync(jobApplicationId);
             return Ok(result);
         }
 
@@ -36,39 +54,48 @@ namespace SylviaNG.Recruitment.Controllers
         /// Get paginated job applications for a specific job posting.
         /// </summary>
         [HttpGet("job-posting/{jobPostingId}/paged")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<PagedResult<JobApplicationResponse>>> GetPagedByJobPosting(long jobPostingId, [FromQuery] PagedRequest request)
         {
-            var result = await _jobApplicationService.GetPaginatedByJobPostingAsync(jobPostingId, request);
+            var result = await _coreService.GetPaginatedByJobPostingAsync(jobPostingId, request);
             return Ok(result);
         }
 
         /// <summary>
-        /// Create a new job application.
+        /// Create a new job application. Admin/HR only - real applicant submissions go through
+        /// CareerPortalController/InternalJobBoardController, which run eligibility/audience/
+        /// duplicate checks this raw endpoint skips; without a role gate any authenticated
+        /// Candidate could call it directly to bypass those checks entirely.
         /// </summary>
         [HttpPost]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Create)]
         public async Task<ActionResult<long>> Create([FromBody] JobApplicationCreateRequest request)
         {
-            var id = await _jobApplicationService.CreateAsync(request);
+            var id = await _coreService.CreateAsync(request);
             return Ok(id);
         }
 
         /// <summary>
-        /// Update an existing job application.
+        /// Update an existing job application. Admin/HR only (EP-15/US-114 gap fix: previously
+        /// reachable by any authenticated user for any application id, no ownership check).
         /// </summary>
         [HttpPut("{jobApplicationId}")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
         public async Task<ActionResult> Update(long jobApplicationId, [FromBody] JobApplicationUpdateRequest request)
         {
-            await _jobApplicationService.UpdateAsync(jobApplicationId, request);
+            await _coreService.UpdateAsync(jobApplicationId, request);
             return Ok();
         }
 
         /// <summary>
-        /// Delete a job application.
+        /// Delete a job application. Admin/HR only (EP-15/US-114 gap fix: previously reachable by
+        /// any authenticated user for any application id, no ownership check).
         /// </summary>
         [HttpDelete("{jobApplicationId}")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Delete)]
         public async Task<ActionResult> Delete(long jobApplicationId)
         {
-            await _jobApplicationService.DeleteAsync(jobApplicationId);
+            await _coreService.DeleteAsync(jobApplicationId);
             return Ok();
         }
 
@@ -78,12 +105,12 @@ namespace SylviaNG.Recruitment.Controllers
         /// vacancy (US-050).
         /// </summary>
         [HttpGet("dashboard/paged")]
-        [Authorize(Roles = "Admin,HR")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<PagedResult<JobApplicationDashboardResponse>>> GetDashboardPaged(
             [FromQuery] PagedRequest request,
             [FromQuery] JobApplicationAttributeFilterRequest filter)
         {
-            var result = await _jobApplicationService.GetDashboardPagedAsync(request, filter);
+            var result = await _dashboardService.GetDashboardPagedAsync(request, filter);
             return Ok(result);
         }
 
@@ -91,10 +118,10 @@ namespace SylviaNG.Recruitment.Controllers
         /// Full application detail: candidate snapshot, CV link, and status-history audit trail (US-035 AC4).
         /// </summary>
         [HttpGet("{jobApplicationId}/detail")]
-        [Authorize(Roles = "Admin,HR")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<JobApplicationDetailResponse>> GetDetail(long jobApplicationId)
         {
-            var result = await _jobApplicationService.GetDetailAsync(jobApplicationId);
+            var result = await _dashboardService.GetDetailAsync(jobApplicationId);
             return Ok(result);
         }
 
@@ -103,10 +130,10 @@ namespace SylviaNG.Recruitment.Controllers
         /// N matching applications" bulk selection across pages (US-047 AC5).
         /// </summary>
         [HttpGet("dashboard/matching-ids")]
-        [Authorize(Roles = "Admin,HR")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<List<long>>> GetDashboardMatchingIds([FromQuery] JobApplicationAttributeFilterRequest filter)
         {
-            var result = await _jobApplicationService.GetDashboardMatchingIdsAsync(filter);
+            var result = await _dashboardService.GetDashboardMatchingIdsAsync(filter);
             return Ok(result);
         }
 
@@ -114,10 +141,10 @@ namespace SylviaNG.Recruitment.Controllers
         /// Configurable reject/withdraw reasons for the given target status (US-036 AC3).
         /// </summary>
         [HttpGet("status-reasons")]
-        [Authorize(Roles = "Admin,HR")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
         public async Task<ActionResult<List<ApplicationStatusReasonResponse>>> GetStatusReasons([FromQuery] ApplicationStatusEnum status)
         {
-            var result = await _jobApplicationService.GetStatusReasonsAsync(status);
+            var result = await _statusService.GetStatusReasonsAsync(status);
             return Ok(result);
         }
 
@@ -125,10 +152,10 @@ namespace SylviaNG.Recruitment.Controllers
         /// Move a single application to a new status (US-036).
         /// </summary>
         [HttpPatch("{jobApplicationId}/status")]
-        [Authorize(Roles = "Admin,HR")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
         public async Task<ActionResult> UpdateStatus(long jobApplicationId, [FromBody] JobApplicationStatusUpdateRequest request)
         {
-            await _jobApplicationService.UpdateStatusAsync(jobApplicationId, request);
+            await _statusService.UpdateStatusAsync(jobApplicationId, request);
             return Ok();
         }
 
@@ -136,11 +163,36 @@ namespace SylviaNG.Recruitment.Controllers
         /// Move a batch of applications to a new status at once, e.g. 50 at a time (US-035 AC5).
         /// </summary>
         [HttpPatch("bulk-status")]
-        [Authorize(Roles = "Admin,HR")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
         public async Task<ActionResult<JobApplicationBulkStatusUpdateResponse>> BulkUpdateStatus([FromBody] JobApplicationBulkStatusUpdateRequest request)
         {
-            var result = await _jobApplicationService.BulkUpdateStatusAsync(request);
+            var result = await _statusService.BulkUpdateStatusAsync(request);
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Re-dispatch a chosen event's notification (e.g. ApplicationStatusChanged) across a batch
+        /// of applications at once (US-076). POST, not PATCH - this doesn't mutate application state.
+        /// </summary>
+        [HttpPost("bulk-notify")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
+        public async Task<ActionResult<JobApplicationBulkNotifyResponse>> BulkNotify([FromBody] JobApplicationBulkNotifyRequest request)
+        {
+            var result = await _statusService.BulkNotifyAsync(request);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Synchronous bulk-ZIP download of selected applications' system-rendered CVs, capped at
+        /// JobApplicationService.BulkDownloadCvsSyncMaxCount (US-101). Larger batches should use
+        /// POST recruitment/export-requests/bulk-cv-zip instead.
+        /// </summary>
+        [HttpPost("bulk-download-cvs")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
+        public async Task<IActionResult> BulkDownloadCvs([FromBody] JobApplicationCvBulkDownloadRequest request)
+        {
+            var file = await _statusService.BulkDownloadCvsAsync(request);
+            return File(file.Content, file.ContentType, file.FileName);
         }
 
         /// <summary>
@@ -148,7 +200,7 @@ namespace SylviaNG.Recruitment.Controllers
         /// vacancy regardless of its audience restriction. Recorded with Source=Admin (US-034).
         /// </summary>
         [HttpPost("apply-on-behalf")]
-        [Authorize(Roles = "Admin,HR")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Create)]
         public async Task<ActionResult<JobApplicationResponse>> ApplyOnBehalf([FromForm] JobApplicationSubmitRequest request)
         {
             var result = await _mediator.Send(new JobApplicationSubmitCommand(request, ApplicationSourceEnum.Admin));
@@ -163,7 +215,7 @@ namespace SylviaNG.Recruitment.Controllers
         [Authorize(Roles = "Candidate")]
         public async Task<ActionResult<List<MyApplicationResponse>>> GetMyApplications()
         {
-            var result = await _jobApplicationService.GetMyApplicationsAsync();
+            var result = await _selfService.GetMyApplicationsAsync();
             return Ok(result);
         }
 
@@ -175,7 +227,43 @@ namespace SylviaNG.Recruitment.Controllers
         [Authorize(Roles = "Candidate")]
         public async Task<ActionResult> WithdrawMyApplication(long jobApplicationId)
         {
-            await _jobApplicationService.WithdrawMyApplicationAsync(jobApplicationId);
+            await _selfService.WithdrawMyApplicationAsync(jobApplicationId);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Real-time check of the current candidate's profile against a job posting's own
+        /// eligibility criteria - age/education/experience/district (US-024 AC2/AC3).
+        /// </summary>
+        [HttpGet("job-posting/{jobPostingId}/eligibility")]
+        [Authorize(Roles = "Candidate")]
+        public async Task<ActionResult<JobEligibilityResponse>> CheckEligibility(long jobPostingId)
+        {
+            var result = await _selfService.CheckEligibilityAsync(jobPostingId);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Applications to this vacancy that share an email, national ID, or phone number across
+        /// different channels, grouped for side-by-side review (US-038 AC1/AC2).
+        /// </summary>
+        [HttpGet("job-posting/{jobPostingId}/duplicates")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.View)]
+        public async Task<ActionResult<List<JobApplicationDuplicateGroupResponse>>> GetDuplicates(long jobPostingId)
+        {
+            var result = await _duplicateService.GetDuplicatesAsync(jobPostingId);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// HR keeps one application as primary and dismisses the rest of a detected duplicate
+        /// group (US-038 AC3/AC4).
+        /// </summary>
+        [HttpPatch("duplicates/resolve")]
+        [RequirePermission(AccessControlModuleEnum.Applications, PermissionActionEnum.Edit)]
+        public async Task<ActionResult> ResolveDuplicates([FromBody] JobApplicationDuplicateResolveRequest request)
+        {
+            await _duplicateService.ResolveDuplicatesAsync(request);
             return Ok();
         }
     }

@@ -8,9 +8,12 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// CriterionType are populated; the rest stay null. Typed nullable columns rather than a
 /// generic key/value shape, matching PipelineStage's precedent in this codebase.
 /// </summary>
-public class ShortlistFilterCriterion : Audit
+public class ShortlistFilterCriterion : Audit, ICompanyScoped
 {
     public long ShortlistFilterCriterionId { get; set; }
+
+    // Multi-tenant: mirrors the parent ShortlistFilter's CompanyId, stamped at creation.
+    public long? CompanyId { get; set; }
     public long ShortlistFilterId { get; set; }
     public CriterionTypeEnum CriterionType { get; set; }
     public int DisplayOrder { get; set; }
@@ -33,9 +36,8 @@ public class ShortlistFilterCriterion : Audit
     // free-text address (no structured district field exists on CandidateProfile).
     public string? RequiredDistrict { get; set; }
 
-    // CriterionType.MinScreeningScore - no score field exists anywhere yet (AI resume
-    // screening is a separate, unbuilt story); this criterion always evaluates as unmet
-    // until that lands. Documented gap, not a special-cased no-op in the UI.
+    // CriterionType.MinScreeningScore - compared against the latest AutoShortlistRun score for
+    // the application (US-046). Unmet if no run has scored the application yet.
     public int? MinScreeningScore { get; set; }
 
     // Navigation properties

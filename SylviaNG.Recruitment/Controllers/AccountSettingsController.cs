@@ -1,7 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using SylviaNG.Recruitment.Application.Features.AccountSettings.Commands.AccountEmailUpdate;
+using SylviaNG.Recruitment.Application.Features.AccountSettings.Commands.AccountEmailChangeConfirm;
+using SylviaNG.Recruitment.Application.Features.AccountSettings.Commands.AccountEmailChangeRequest;
 using SylviaNG.Recruitment.Application.Features.AccountSettings.Commands.AccountPasswordChange;
 using SylviaNG.Recruitment.Application.Features.AccountSettings.Commands.AccountPhotoDelete;
 using SylviaNG.Recruitment.Application.Features.AccountSettings.Commands.AccountPhotoUpload;
@@ -30,11 +31,18 @@ namespace SylviaNG.Recruitment.Controllers
             return Ok(result);
         }
 
-        [HttpPut("me/email")]
-        public async Task<ActionResult> UpdateEmail([FromBody] AccountEmailUpdateRequest request)
+        [HttpPost("me/email/request-change")]
+        public async Task<ActionResult<AccountEmailChangeChallengeResponse>> RequestEmailChange([FromBody] AccountEmailChangeRequest request)
         {
-            await _mediator.Send(new AccountEmailUpdateCommand(request));
-            return Ok();
+            var result = await _mediator.Send(new AccountEmailChangeRequestCommand(request));
+            return Ok(result);
+        }
+
+        [HttpPost("me/email/confirm-change")]
+        public async Task<ActionResult<string>> ConfirmEmailChange([FromBody] AccountEmailChangeConfirmRequest request)
+        {
+            var email = await _mediator.Send(new AccountEmailChangeConfirmCommand(request));
+            return Ok(email);
         }
 
         [HttpPut("me/password")]

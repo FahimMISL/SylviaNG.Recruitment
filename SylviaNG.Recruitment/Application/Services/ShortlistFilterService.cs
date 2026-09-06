@@ -10,11 +10,13 @@ namespace SylviaNG.Recruitment.Application.Services
     public class ShortlistFilterService : IShortlistFilterService
     {
         private readonly IShortlistFilterRepository _shortlistFilterRepository;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public ShortlistFilterService(IShortlistFilterRepository shortlistFilterRepository, IUnitOfWork unitOfWork)
+        public ShortlistFilterService(IShortlistFilterRepository shortlistFilterRepository, ICurrentUserService currentUserService, IUnitOfWork unitOfWork)
         {
             _shortlistFilterRepository = shortlistFilterRepository;
+            _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
         }
 
@@ -25,6 +27,9 @@ namespace SylviaNG.Recruitment.Application.Services
                 throw new DuplicateException("ShortlistFilter", "Name", request.Name);
 
             var entity = request.ToEntity();
+            entity.CompanyId = await _currentUserService.GetCurrentUserCompanyIdAsync();
+            foreach (var criterion in entity.Criteria)
+                criterion.CompanyId = entity.CompanyId;
             NormalizeDisplayOrder(entity.Criteria);
 
             await _shortlistFilterRepository.AddAsync(entity);
@@ -53,6 +58,7 @@ namespace SylviaNG.Recruitment.Application.Services
             NormalizeDisplayOrder(newCriteria);
             foreach (var criterion in newCriteria)
             {
+                criterion.CompanyId = entity.CompanyId;
                 entity.Criteria.Add(criterion);
             }
 

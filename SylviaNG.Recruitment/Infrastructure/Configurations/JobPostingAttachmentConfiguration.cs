@@ -29,6 +29,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
 
             // Indexes
             builder.HasIndex(a => a.JobPostingId);
+            builder.HasIndex(a => a.CompanyId);
 
             // Relationships
             builder.HasOne(a => a.JobPosting)
