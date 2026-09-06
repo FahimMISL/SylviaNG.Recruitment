@@ -12,7 +12,10 @@ namespace SylviaNG.Recruitment.Infrastructure.Repositories
 
         public async Task<List<CandidateDocument>> GetAllByCandidateProfileIdAsync(long candidateProfileId)
         {
-            return await _dbSet.Where(d => d.CandidateProfileId == candidateProfileId).ToListAsync();
+            return await _dbSet
+                .Where(d => d.CandidateProfileId == candidateProfileId)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
         }
     }
 }

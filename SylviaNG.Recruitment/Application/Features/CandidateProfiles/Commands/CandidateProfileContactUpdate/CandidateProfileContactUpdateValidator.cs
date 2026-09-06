@@ -11,16 +11,17 @@ namespace SylviaNG.Recruitment.Application.Features.CandidateProfiles.Commands.C
                 .EmailAddress().WithMessage("Email must be a valid email address.")
                 .MaximumLength(200).WithMessage("Email must not exceed 200 characters.");
 
+            // Local number typed after the candidate picks a Country (dial code) - length varies
+            // by country, so this only guards against obviously-wrong input, not a fixed format.
             RuleFor(x => x.Request.Phone)
-                .MaximumLength(50).WithMessage("Phone must not exceed 50 characters.")
-                .Matches(@"^[0-9+\-\s()]+$").WithMessage("Phone must be a valid phone number.")
+                .Matches(@"^[0-9]{6,15}$").WithMessage("Phone must be a valid mobile number.")
                 .When(x => !string.IsNullOrEmpty(x.Request.Phone));
 
-            RuleFor(x => x.Request.PresentAddress)
-                .MaximumLength(500).WithMessage("PresentAddress must not exceed 500 characters.");
+            RuleFor(x => x.Request.PresentAddressDetail)
+                .MaximumLength(500).WithMessage("PresentAddressDetail must not exceed 500 characters.");
 
-            RuleFor(x => x.Request.PermanentAddress)
-                .MaximumLength(500).WithMessage("PermanentAddress must not exceed 500 characters.");
+            RuleFor(x => x.Request.PermanentAddressDetail)
+                .MaximumLength(500).WithMessage("PermanentAddressDetail must not exceed 500 characters.");
         }
     }
 }

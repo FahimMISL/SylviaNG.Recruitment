@@ -20,6 +20,14 @@ namespace SylviaNG.Recruitment.Application.Features.JobPostings.Models
         public ApplicationStatusEnum ApplicationStatus { get; set; }
         public DateTime? AppliedDate { get; set; }
         public ApplicationSourceEnum Source { get; set; }
+
+        // EP-17/US-127: claimed category and the proof HR can verify it against - a WaiverRuleName
+        // is only ever set if WaiverProofDocumentUrl is too, see JobApplicationService.SubmitAsync.
+        public string? SpecialCategoryName { get; set; }
+        public string? WaiverProofDocumentUrl { get; set; }
+        public string? WaiverRuleName { get; set; }
+        public DateTime? WaivedAt { get; set; }
+
         public List<ApplicationStatusHistoryResponse> StatusHistory { get; set; } = new();
     }
 }

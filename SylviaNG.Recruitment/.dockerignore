@@ -1,0 +1,7 @@
+**/bin
+**/obj
+publish-local
+.vs
+.git
+.nuget
+*.user
