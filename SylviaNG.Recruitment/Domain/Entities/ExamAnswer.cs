@@ -9,11 +9,16 @@ namespace SylviaNG.Recruitment.Domain.Entities;
 /// are null for Subjective (flagged for manual review, AC3) until HR finalizes the score via
 /// the US-059 manual-score-upload path.
 /// </summary>
-public class ExamAnswer : Audit
+public class ExamAnswer : Audit, ICompanyScoped
 {
     public long ExamAnswerId { get; set; }
     public long ExamEnrollmentId { get; set; }
     public long ExamQuestionId { get; set; }
+
+    // Multi-tenant: denormalized from ExamEnrollment.CompanyId at submission time, same
+    // convention as ExamEnrollment.CompanyId itself (denormalized from JobApplication).
+    public long? CompanyId { get; set; }
+
     public string? SelectedOptionIds { get; set; }
     public string? AnswerText { get; set; }
     public bool? IsCorrect { get; set; }

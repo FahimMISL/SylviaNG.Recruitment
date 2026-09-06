@@ -26,6 +26,7 @@ namespace SylviaNG.Recruitment.Infrastructure.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasIndex(a => new { a.ExamEnrollmentId, a.ExamQuestionId }).IsUnique();
+            builder.HasIndex(a => a.CompanyId);
         }
     }
 }

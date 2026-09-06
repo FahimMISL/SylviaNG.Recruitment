@@ -179,6 +179,7 @@ namespace SylviaNG.Recruitment.Application.Services
                     {
                         ExamEnrollmentId = enrollment.ExamEnrollmentId,
                         ExamQuestionId = question.ExamQuestionId,
+                        CompanyId = enrollment.CompanyId,
                         AnswerText = answer?.AnswerText,
                         IsCorrect = null,
                         MarksAwarded = null,
@@ -201,6 +202,7 @@ namespace SylviaNG.Recruitment.Application.Services
                 {
                     ExamEnrollmentId = enrollment.ExamEnrollmentId,
                     ExamQuestionId = question.ExamQuestionId,
+                    CompanyId = enrollment.CompanyId,
                     SelectedOptionIds = selectedIds.Count > 0 ? string.Join(",", selectedIds) : null,
                     IsCorrect = isCorrect,
                     MarksAwarded = marksAwarded,
