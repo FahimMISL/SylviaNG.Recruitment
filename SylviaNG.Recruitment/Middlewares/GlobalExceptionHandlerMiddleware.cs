@@ -35,6 +35,11 @@ namespace SylviaNG.Recruitment.Middlewares
                 _logger.LogWarning(ex, "Duplicate resource.");
                 await HandleExceptionAsync(context, StatusCodes.Status409Conflict, ex.Message);
             }
+            catch (ForbiddenException ex)
+            {
+                _logger.LogWarning(ex, "Forbidden.");
+                await HandleExceptionAsync(context, StatusCodes.Status403Forbidden, ex.Message);
+            }
             catch (InvalidStatusTransitionException ex)
             {
                 _logger.LogWarning(ex, "Invalid status transition.");

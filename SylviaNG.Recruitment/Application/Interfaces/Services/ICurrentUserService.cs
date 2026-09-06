@@ -15,5 +15,8 @@ namespace SylviaNG.Recruitment.Application.Interfaces.Services
         /// attribution is best-effort, not a hard requirement.
         /// </summary>
         string? GetCurrentUserName();
+
+        /// <summary>Whether the current request's user is in the given role (e.g. Admin bypass for ownership checks).</summary>
+        bool IsInRole(string role);
     }
 }
